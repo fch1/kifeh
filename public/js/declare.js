@@ -286,7 +286,9 @@ for (const b of document.querySelectorAll('[data-method]')) {
 document.getElementById('phoneInput').value = state.phone || '';
 document.getElementById('emailInput').value = state.email || '';
 
-document.getElementById('btnContactNext').addEventListener('click', (e) => withButton(e.currentTarget, async () => {
+document.getElementById('btnContactNext').addEventListener('click', (e) => withButton(e.currentTarget, () => submitContact(true)));
+
+async function submitContact(allowRetry) {
   const err = document.getElementById('contactError'); err.textContent = '';
   state.phone = document.getElementById('phoneInput').value.trim();
   state.email = document.getElementById('emailInput').value.trim();
@@ -336,8 +338,18 @@ document.getElementById('btnContactNext').addEventListener('click', (e) => withB
     save();
     setupStep6(method);
     show('step6');
-  } catch (ex) { err.textContent = ex.message; }
-}));
+  } catch (ex) {
+    // Brouillon expiré ou déjà publié (ex. déclaration précédente restée en
+    // mémoire) : on repart proprement sur un nouveau brouillon, une seule fois.
+    if (allowRetry && (ex.data?.code === 'draft_expired' || ex.status === 403)) {
+      state.incidentId = null; state.draftToken = null; state.verificationId = null;
+      state.idempotencyKey = `d-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      save();
+      return submitContact(false);
+    }
+    err.textContent = ex.message;
+  }
+}
 
 // --- Étape 6 : vérification -------------------------------------------------
 let pollTimer = null;

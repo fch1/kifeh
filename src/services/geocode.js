@@ -21,28 +21,29 @@ async function cached(key, fn) {
   return value;
 }
 
-export async function searchAddress(q, limit = 5) {
-  return cached(`s:${q}:${limit}`, async () => {
-    const nominatim = await searchNominatim(q, limit);
+export async function searchAddress(q, limit = 5, lang = 'fr') {
+  return cached(`s:${lang}:${q}:${limit}`, async () => {
+    const nominatim = await searchNominatim(q, limit, lang);
     if (nominatim.length) return nominatim;
     return searchPhoton(q, limit);
   });
 }
 
-export async function reverseGeocode(lat, lng) {
-  const key = `r:${lat.toFixed(4)}:${lng.toFixed(4)}`;
+export async function reverseGeocode(lat, lng, lang = 'fr') {
+  const key = `r:${lang}:${lat.toFixed(4)}:${lng.toFixed(4)}`;
   return cached(key, async () => {
-    const nominatim = await reverseNominatim(lat, lng);
+    const nominatim = await reverseNominatim(lat, lng, lang);
     if (nominatim) return nominatim;
     return reversePhoton(lat, lng);
   });
 }
 
 // --- Nominatim ---------------------------------------------------------------
-async function searchNominatim(q, limit) {
+async function searchNominatim(q, limit, lang = 'fr') {
   try {
     const bias = config.geocodeViewbox ? `&viewbox=${config.geocodeViewbox}&bounded=0` : '';
-    const url = `${config.nominatimUrl}/search?format=jsonv2&addressdetails=1&limit=${limit}${bias}&accept-language=fr,ar&q=${encodeURIComponent(q)}`;
+    const accept = lang === 'ar' ? 'ar,fr' : 'fr,ar';
+    const url = `${config.nominatimUrl}/search?format=jsonv2&addressdetails=1&limit=${limit}${bias}&accept-language=${accept}&q=${encodeURIComponent(q)}`;
     const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(5000) });
     if (!res.ok) return [];
     const rows = await res.json();
@@ -54,9 +55,10 @@ async function searchNominatim(q, limit) {
   } catch { return []; }
 }
 
-async function reverseNominatim(lat, lng) {
+async function reverseNominatim(lat, lng, lang = 'fr') {
   try {
-    const url = `${config.nominatimUrl}/reverse?format=jsonv2&addressdetails=1&accept-language=fr,ar&lat=${lat}&lon=${lng}`;
+    const accept = lang === 'ar' ? 'ar,fr' : 'fr,ar';
+    const url = `${config.nominatimUrl}/reverse?format=jsonv2&addressdetails=1&accept-language=${accept}&lat=${lat}&lon=${lng}`;
     const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(5000) });
     if (!res.ok) return null;
     const r = await res.json();

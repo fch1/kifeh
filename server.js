@@ -31,7 +31,15 @@ app.use('/api/admin', adminRouter);
 app.use('/api/events', eventsRouter);
 if (config.isDev) app.use('/api/dev', devRouter);
 
-app.use(express.static(path.join(__dirname, 'public'), { maxAge: config.isDev ? 0 : '1h' }));
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders(res, filePath) {
+    // Les pages HTML sont revalidées à chaque visite (mises à jour immédiates) ;
+    // les ressources rarement modifiées (polices, Leaflet, logo) restent en cache.
+    if (filePath.endsWith('.html')) res.set('Cache-Control', 'no-cache');
+    else if (filePath.includes('vendor') || filePath.includes('img')) res.set('Cache-Control', 'public, max-age=2592000');
+    else res.set('Cache-Control', config.isDev ? 'no-cache' : 'public, max-age=600');
+  },
+}));
 
 // Gestion d'erreurs : jamais de détail interne exposé.
 app.use((err, req, res, next) => {

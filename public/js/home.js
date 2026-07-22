@@ -76,9 +76,13 @@ searchInput.addEventListener('input', () => {
         b.setAttribute('role', 'option');
         b.textContent = r.label;
         b.addEventListener('click', () => {
-          map.setView([r.lat, r.lng], 15);
           searchResults.hidden = true;
           searchInput.value = r.label.split(',').slice(0, 2).join(',');
+          searchInput.blur(); // referme le clavier mobile pour voir la carte
+          map.setView([r.lat, r.lng], 15);
+          if (window._searchMarker) map.removeLayer(window._searchMarker);
+          window._searchMarker = L.circleMarker([r.lat, r.lng], { radius: 9, color: '#C4622D', fillOpacity: .7 })
+            .addTo(map).bindPopup(esc(r.label.split(',').slice(0, 2).join(',')));
         });
         searchResults.appendChild(b);
       }

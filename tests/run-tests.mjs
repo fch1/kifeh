@@ -91,7 +91,7 @@ async function main() {
     ok(badLogin.status === 401, 'mauvais mot de passe rejeté');
     const setr = await api('POST', '/api/admin/settings', { settings: {
       max_declarations_per_ip_per_h: '1000', max_declarations_per_contact_per_day: '1000',
-      min_form_fill_s: '5', otp_resend_delay_s: '1',
+      min_form_fill_s: '5', otp_resend_delay_s: '1', max_otp_sends_per_ip_per_h: '1000',
     } }, adminH);
     ok(setr.status === 200, 'mise à jour de la configuration');
     const noCsrf = await api('POST', '/api/admin/settings', { settings: {} }, { Cookie: adminCookie });
@@ -313,6 +313,28 @@ async function main() {
     ok(/[\u0600-\u06FF]/.test(errAr.data.error || ''), 'message d’erreur localisé en arabe');
     const cfg = await api('GET', '/api/public/config');
     ok(cfg.data.otherCategoryEnabled === false, 'config publique : catégorie Autre désactivée par défaut');
+
+    // ── Brouillon révoqué après publication → nouvelle déclaration possible ──
+    section('Plusieurs déclarations successives');
+    const rA = await declareFull({ lat: 35.83, lng: 10.63, deviceLat: 35.8301, deviceLng: 10.6301 });
+    ok(rA.ok === true, 'première déclaration publiée');
+    const reuse = await api('POST', '/api/declare/contact', {
+      incidentId: rA.incidentId, draftToken: rA.draft.draftToken,
+      method: 'sms', phone: newPhone(), consent: true,
+    });
+    ok(reuse.status === 403 && reuse.data.code === 'draft_expired',
+      'jeton de brouillon révoqué → code explicite pour re-création côté client');
+    const rB = await declareFull({ lat: 35.84, lng: 10.64, deviceLat: 35.8401, deviceLng: 10.6401 });
+    ok(rB.ok === true && rB.publicId !== rA.publicId, 'seconde déclaration créée sans blocage');
+    // Réutilisation d'une clé d'idempotence dont le brouillon a été publié :
+    const keyC = `kc-${Math.random()}`;
+    const k1 = await api('POST', '/api/declare/draft', draftBody({ idempotencyKey: keyC, lat: 35.85, lng: 10.65 }));
+    const kc = await api('POST', '/api/declare/contact', { incidentId: k1.data.incidentId, draftToken: k1.data.draftToken, method: 'sms', phone: newPhone(), consent: true });
+    const smsC2 = await outboxLast('sms');
+    await api('POST', '/api/declare/verify', { verificationId: kc.data.verificationId, code: extractOtp(smsC2.text) });
+    const k2 = await api('POST', '/api/declare/draft', draftBody({ idempotencyKey: keyC, lat: 35.85, lng: 10.65 }));
+    ok(k2.status === 200 && k2.data.incidentId !== k1.data.incidentId,
+      'clé d’idempotence obsolète ignorée → nouveau brouillon valide');
 
     // ── Pages statiques ──
     section('Pages');

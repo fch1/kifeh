@@ -48,9 +48,10 @@ export const defaultSettings = {
   active_incident_ttl_h: '24',        // expiration auto d'un incident « en cours »
   reminder_before_expiry_h: '2',      // rappel « toujours en cours ? »
   resolved_visible_h: '12',           // durée d'affichage des incidents résolus
-  max_declarations_per_ip_per_h: '5',
+  max_declarations_per_ip_per_h: '10',
   max_declarations_per_contact_per_day: '5',
   max_confirms_per_ip_per_h: '10',
+  max_otp_sends_per_ip_per_h: '30',
   min_form_fill_s: '8',               // délai minimal réaliste de remplissage
   retention_days: '90',               // purge RGPD des contacts après résolution
   trust_publish_threshold: '40',      // sous ce score → validation manuelle

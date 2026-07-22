@@ -201,6 +201,7 @@ const SETTING_LABELS = {
   max_declarations_per_ip_per_h: 'Déclarations max / IP / h',
   max_declarations_per_contact_per_day: 'Déclarations max / contact / jour',
   max_confirms_per_ip_per_h: 'Confirmations max / IP / h',
+  max_otp_sends_per_ip_per_h: 'Envois OTP max / IP / h',
   min_form_fill_s: 'Durée minimale de remplissage (s)',
   retention_days: 'Rétention des contacts (jours)',
   trust_publish_threshold: 'Seuil de confiance pour publication auto',

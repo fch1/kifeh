@@ -175,7 +175,7 @@ publicRouter.post('/report', ipRateLimit('report_ip', 5, 60), (req, res) => {
 publicRouter.get('/geocode/search', ipRateLimit('search_ip', 30, 5), async (req, res) => {
   const q = cleanText(String(req.query.q || ''), 200);
   if (q.length < 3) return res.json({ results: [] });
-  res.json({ results: await searchAddress(q) });
+  res.json({ results: await searchAddress(q, 5, getLang(req)) });
 });
 
 publicRouter.get('/geocode/reverse', ipRateLimit('search_ip', 30, 5), async (req, res) => {
@@ -183,7 +183,7 @@ publicRouter.get('/geocode/reverse', ipRateLimit('search_ip', 30, 5), async (req
   if (!isFiniteNum(lat, -90, 90) || !isFiniteNum(lng, -180, 180)) {
     return res.status(400).json({ error: msg(req, 'invalid_params') });
   }
-  res.json({ result: await reverseGeocode(Number(lat), Number(lng)) });
+  res.json({ result: await reverseGeocode(Number(lat), Number(lng), getLang(req)) });
 });
 
 // --- Configuration publique (catégories actives…) ---------------------------

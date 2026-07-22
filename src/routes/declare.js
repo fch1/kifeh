@@ -34,12 +34,12 @@ const nowIso = () => new Date().toISOString();
 
 function draftAuth(req, res) {
   const { incidentId, draftToken } = req.body || {};
-  if (!incidentId || !draftToken) { res.status(400).json({ error: msg(req, 'draft_invalid') }); return null; }
+  if (!incidentId || !draftToken) { res.status(400).json({ error: msg(req, 'draft_invalid'), code: 'draft_expired' }); return null; }
   const row = db.prepare(
     `SELECT i.* FROM incidents i JOIN manage_tokens t ON t.incident_id = i.id
      WHERE i.id = ? AND t.token_hash = ? AND t.revoked = 0 AND t.expires_at > strftime('%Y-%m-%dT%H:%M:%fZ','now')`
   ).get(String(incidentId), sha256(String(draftToken)));
-  if (!row) { res.status(403).json({ error: msg(req, 'draft_expired') }); return null; }
+  if (!row) { res.status(403).json({ error: msg(req, 'draft_expired'), code: 'draft_expired' }); return null; }
   return row;
 }
 
@@ -77,10 +77,17 @@ declareRouter.post('/draft', async (req, res) => {
     return res.status(429).json({ error: msg(req, 'too_many_declarations') });
   }
 
-  // Idempotence (double soumission).
+  // Idempotence (double soumission) — on ne ressert la réponse mise en cache
+  // que si son jeton de brouillon est toujours valide (non révoqué, non expiré).
   const idemKey = String(b.idempotencyKey || '');
   if (idemKey && idempotency.has(idemKey)) {
-    return res.json(idempotency.get(idemKey).response);
+    const cached = idempotency.get(idemKey).response;
+    const stillValid = db.prepare(
+      `SELECT 1 FROM manage_tokens WHERE token_hash = ? AND revoked = 0
+       AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ','now')`
+    ).get(sha256(String(cached.draftToken)));
+    if (stillValid) return res.json(cached);
+    idempotency.delete(idemKey);
   }
 
   // Validation stricte.
@@ -192,7 +199,7 @@ declareRouter.post('/contact', async (req, res) => {
   if (countEvents('declare_contact', contactHash, 24 * 60) >= getSettingNum('max_declarations_per_contact_per_day')) {
     return res.status(429).json({ error: msg(req, 'contact_limit') });
   }
-  if (countEvents('otp_send', ip, 60) >= 10) {
+  if (countEvents('otp_send', ip, 60) >= getSettingNum('max_otp_sends_per_ip_per_h')) {
     return res.status(429).json({ error: msg(req, 'too_many_requests') });
   }
 
