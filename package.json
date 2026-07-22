@@ -11,7 +11,8 @@
     "test": "node tests/run-tests.mjs",
     "start": "node server.js",
     "dev": "NODE_ENV=development node server.js",
-    "backup": "node -e \"import('./src/db.js').then(m=>m.backup())\""
+    "backup": "node -e \"import('./src/db.js').then(m=>m.backup())\"",
+    "check:prod": "node tests/prod-check.mjs"
   },
   "keywords": [],
   "author": "",

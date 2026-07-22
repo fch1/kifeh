@@ -24,6 +24,11 @@ app.set('trust proxy', 1);
 app.use(securityHeaders);
 app.use(express.json({ limit: '100kb' }));
 
+// Sonde de santé (Render : Settings → Health Check Path = /healthz →
+// déploiements sans coupure : l'ancienne instance sert jusqu'à ce que la
+// nouvelle soit prête, plus de 502 pendant les mises à jour).
+app.get('/healthz', (req, res) => res.json({ ok: true }));
+
 app.use('/api/public', publicRouter);
 app.use('/api/declare', declareRouter);
 app.use('/api/manage', manageRouter);
