@@ -42,8 +42,7 @@ Aucune donnée sensible n'est affichée : ni contact, ni nom, ni adresse exacte,
 É3. Période
    ├─ « En cours » → début (bouton [Maintenant]), pas d'heure de fin,
    │   case « heure approximative », rappel qu'on pourra clôturer plus tard
-   ├─ « Terminé » → début + fin, contrôle fin ≥ début
-   └─ « Prévu / récurrent » → début prévu
+   └─ « Terminé » → début + fin, contrôle fin ≥ début
    ▼
 É4. Détails : description courte · gravité (faible/modéré/important/danger immédiat)
    · logements affectés (facultatif) · photo/vidéo (facultatif, EXIF retiré)

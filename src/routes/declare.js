@@ -91,11 +91,11 @@ declareRouter.post('/draft', async (req, res) => {
   if (!isFiniteNum(b.lat, -90, 90) || !isFiniteNum(b.lng, -180, 180)) {
     return res.status(400).json({ error: msg(req, 'invalid_location') });
   }
-  if (!['ongoing', 'finished', 'planned'].includes(b.temporalStatus)) {
+  if (!['ongoing', 'finished'].includes(b.temporalStatus)) {
     return res.status(400).json({ error: msg(req, 'invalid_temporal') });
   }
   if (!isIsoDate(b.startedAt)) return res.status(400).json({ error: msg(req, 'invalid_start') });
-  if (Date.parse(b.startedAt) > Date.now() + 60_000 && b.temporalStatus !== 'planned') {
+  if (Date.parse(b.startedAt) > Date.now() + 60_000) {
     return res.status(400).json({ error: msg(req, 'start_future') });
   }
   let endedAt = null;

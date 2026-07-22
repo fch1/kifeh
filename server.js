@@ -1,4 +1,4 @@
-// Incidents Locaux — serveur principal.
+// Kifeh كيفاه — serveur principal.
 import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,7 +18,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 
 app.disable('x-powered-by');
-// Derrière un reverse proxy : décommenter pour que req.ip soit l'IP réelle.
+// Derrière un reverse proxy (Render, nginx…) : req.ip = IP réelle du client.
 app.set('trust proxy', 1);
 
 app.use(securityHeaders);

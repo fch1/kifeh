@@ -42,7 +42,7 @@ for (const tab of document.querySelectorAll('[role=tab]')) {
 }
 function showTab(name) {
   document.querySelectorAll('[role=tab]').forEach((t) => t.setAttribute('aria-selected', t.dataset.tab === name));
-  ({ queue: renderQueue, incidents: renderIncidents, stats: renderStats, settings: renderSettings, audit: renderAudit })[name]();
+  ({ queue: renderQueue, incidents: renderIncidents, stats: renderStats, settings: renderSettings, audit: renderAudit, outbox: renderOutbox })[name]();
 }
 
 // --- File d'attente / incidents --------------------------------------------
@@ -229,6 +229,26 @@ async function renderSettings() {
       document.getElementById('setFeedback').innerHTML = '<div class="notice ok">Configuration enregistrée.</div>';
     } catch (ex) { document.getElementById('setError').textContent = ex.message; }
   }));
+}
+
+// --- Boîte d'envoi interne (codes OTP quand aucun fournisseur n'est branché) --
+async function renderOutbox() {
+  content.innerHTML = '<div class="skeleton" style="height:200px"></div>';
+  let outbox;
+  try { outbox = (await adminApi.get('/api/admin/outbox')).outbox; }
+  catch (e) { content.innerHTML = `<div class="notice danger">${esc(e.message)}</div>`; return; }
+  content.innerHTML = `<div class="card">
+    <h2>Boîte d'envoi interne</h2>
+    <p class="muted small">Tant qu'aucun fournisseur SMS (Twilio) ou e-mail (SMTP) n'est configuré,
+    les codes de vérification et liens arrivent ici au lieu d'être réellement envoyés.
+    Chaque consultation de cette page est journalisée.</p>
+    <button class="btn secondary small-btn" id="btnOutboxRefresh">Actualiser</button>
+    <table style="margin-top:.75rem"><thead><tr><th>Date</th><th>Type</th><th>Destinataire</th><th>Message</th></tr></thead><tbody>
+    ${outbox.map((m) => `<tr><td class="small">${esc(fmtDate(m.at))}</td>
+      <td class="small">${esc(m.kind)}</td><td class="small" dir="ltr">${esc(m.to)}</td>
+      <td class="small">${esc(m.text || m.subject || '')}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">Aucun envoi récent.</td></tr>'}
+    </tbody></table></div>`;
+  document.getElementById('btnOutboxRefresh').addEventListener('click', renderOutbox);
 }
 
 // --- Journal d'audit --------------------------------------------------------

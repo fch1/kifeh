@@ -150,7 +150,7 @@ async function main() {
     ok(finished.ok === true, 'déclaration d’un incident déjà terminé (heure approximative)');
     const future = await api('POST', '/api/declare/draft', draftBody({
       startedAt: new Date(Date.now() + 7200_000).toISOString() }));
-    ok(future.status === 400, 'début dans le futur (hors « prévu ») → rejet');
+    ok(future.status === 400, 'début dans le futur → rejet');
 
     // ── OTP incorrect / expiré / renvoi ──
     section('OTP : erreurs et expiration');

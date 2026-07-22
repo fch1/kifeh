@@ -11,6 +11,7 @@ import { cleanText } from '../middleware/security.js';
 import { broadcast } from './events.js';
 import { audit } from '../services/audit.js';
 import { defaultSettings } from '../config.js';
+import { devOutbox } from '../services/notifier.js';
 
 export const adminRouter = Router();
 
@@ -170,6 +171,14 @@ adminRouter.post('/reporters/:id/suspend', requireAdmin('suspend'), (req, res) =
 adminRouter.post('/reports/:id/handle', requireAdmin('review'), (req, res) => {
   db.prepare(`UPDATE reports SET status = 'handled' WHERE id = ?`).run(String(req.params.id));
   res.json({ ok: true });
+});
+
+// --- Boîte d'envoi interne ---------------------------------------------------
+// Quand aucun fournisseur SMS/e-mail n'est configuré, les codes OTP et liens
+// atterrissent ici. Consultation réservée aux rôles autorisés et journalisée.
+adminRouter.get('/outbox', requireAdmin('review'), (req, res) => {
+  audit(req.admin.username, 'view_outbox', null, null, clientIp(req));
+  res.json({ outbox: devOutbox.slice(-50).reverse() });
 });
 
 // --- Configuration ----------------------------------------------------------

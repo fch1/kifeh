@@ -101,9 +101,10 @@ input:focus, select:focus, textarea:focus, .btn:focus-visible {
   outline: 3px solid rgba(23, 85, 126, .4); outline-offset: 1px;
 }
 .field-error { color: var(--danger); font-size: .875rem; margin-top: .25rem; }
-/* Numéros de téléphone : toujours saisis/affichés de gauche à droite, même en RTL */
-input[type=tel], .otp-input { direction: ltr; }
-html[dir="rtl"] input[type=tel] { text-align: right; }
+/* Numéros de téléphone et dates : toujours de gauche à droite, même en RTL */
+input[type=tel], input[type=datetime-local], input[type=email], .otp-input { direction: ltr; }
+html[dir="rtl"] input[type=tel], html[dir="rtl"] input[type=email] { text-align: right; }
+html[dir="rtl"] input[type=datetime-local] { text-align: right; }
 
 /* Cartes / panneaux */
 .card {

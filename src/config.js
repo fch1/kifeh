@@ -26,6 +26,8 @@ export const config = {
   nominatimUrl: env.NOMINATIM_URL || 'https://nominatim.openstreetmap.org',
   // Viewbox de biais du géocodage (lon1,lat1,lon2,lat2) — Tunisie par défaut.
   geocodeViewbox: env.GEOCODE_VIEWBOX ?? '7.5,37.6,11.6,30.2',
+  // Géocodeur de repli (utilisé si Nominatim ne répond pas ou ne trouve rien).
+  photonUrl: env.PHOTON_URL || 'https://photon.komoot.io',
 
   adminBootstrap: {
     username: env.ADMIN_USERNAME || 'admin',

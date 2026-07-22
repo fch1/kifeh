@@ -83,7 +83,13 @@ searchInput.addEventListener('input', () => {
         searchResults.appendChild(b);
       }
       searchResults.hidden = false;
-    } catch { searchResults.hidden = true; }
+    } catch {
+      searchResults.innerHTML = '';
+      const b = document.createElement('button');
+      b.disabled = true; b.textContent = t('search_error');
+      searchResults.appendChild(b);
+      searchResults.hidden = false;
+    }
   }, 350);
 });
 document.addEventListener('click', (e) => {

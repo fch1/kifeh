@@ -55,6 +55,7 @@ const I18N = {
     geo_unavailable: 'La géolocalisation n’est pas disponible sur cet appareil.',
     geo_not_found: 'Position indisponible. Vous pouvez rechercher une adresse à la place.',
     addr_not_found: 'Adresse introuvable — essayez une formulation plus simple',
+    search_error: 'Recherche momentanément indisponible — réessayez, ou pointez la carte directement.',
     cluster_title: '{n} incidents — toucher pour zoomer',
     // Confirmation « aussi concerné »
     confirm_title: 'Confirmer : je suis aussi concerné',
@@ -230,6 +231,7 @@ const I18N = {
     geo_unavailable: 'تحديد الموقع غير متاح على هذا الجهاز.',
     geo_not_found: 'تعذّر تحديد الموقع. يمكنك البحث عن عنوان بدلاً من ذلك.',
     addr_not_found: 'العنوان غير موجود — جرّب صيغة أبسط',
+    search_error: 'البحث غير متاح مؤقتًا — أعد المحاولة أو حدّد الموقع على الخريطة مباشرة.',
     cluster_title: '{n} حوادث — اضغط للتكبير',
     confirm_title: 'تأكيد: أنا معني أيضًا',
     confirm_hint: 'تحقق سريع يمنع البلاغات الكاذبة. لا يتم نشر أي بيانات.',

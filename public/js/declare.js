@@ -167,7 +167,13 @@ addrInput.addEventListener('input', () => {
         addrResults.appendChild(b);
       }
       addrResults.hidden = false;
-    } catch { addrResults.hidden = true; }
+    } catch {
+      addrResults.innerHTML = '';
+      const b = document.createElement('button');
+      b.disabled = true; b.textContent = t('search_error');
+      addrResults.appendChild(b);
+      addrResults.hidden = false;
+    }
   }, 350);
 });
 
@@ -199,7 +205,7 @@ document.getElementById('btnTimeNext').addEventListener('click', () => {
   const startVal = document.getElementById('startInput').value;
   if (!startVal) { err.textContent = t('err_start_required'); return; }
   const start = new Date(startVal);
-  if (state.temporalStatus !== 'planned' && start.getTime() > Date.now() + 60_000) {
+  if (start.getTime() > Date.now() + 60_000) {
     err.textContent = t('err_start_future'); return;
   }
   state.startedAt = start.toISOString();
