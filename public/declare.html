@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#17557E">
+<title>Kifeh كيفاه</title>
+<link rel="icon" type="image/svg+xml" href="img/logo.svg">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<header class="topbar">
+  <button class="back" id="btnBack" data-i18n-aria="back_aria"><span class="arrow">←</span></button>
+  <img class="brand-logo" src="img/logo.svg" alt="Kifeh">
+  <div style="flex:1">
+    <h1 id="stepTitle" data-i18n-doc-title="declare_btn"></h1>
+    <div class="muted small" id="stepHint" aria-live="polite"></div>
+  </div>
+  <button class="lang-switch" type="button">العربية</button>
+</header>
+
+<main class="page">
+  <div class="progress" aria-hidden="true" id="progressBar">
+    <span></span><span></span><span></span><span></span><span></span><span></span>
+  </div>
+
+  <!-- Étape 1 : type -->
+  <section id="step1" class="step">
+    <h2 data-i18n="type_q"></h2>
+    <div class="type-grid" role="group" data-i18n-aria="type_group_aria">
+      <button class="type-card" data-type="electricity" aria-pressed="false"><span class="icon">⚡</span><span data-i18n="card_electricity"></span></button>
+      <button class="type-card" data-type="water" aria-pressed="false"><span class="icon">💧</span><span data-i18n="card_water"></span></button>
+      <button class="type-card" data-type="fire" aria-pressed="false"><span class="icon">🔥</span><span data-i18n="card_fire"></span></button>
+      <button class="type-card" data-type="internet" aria-pressed="false"><span class="icon">📶</span><span data-i18n="card_internet"></span></button>
+      <button class="type-card" data-type="other" aria-pressed="false" id="typeOther" hidden><span class="icon">❖</span><span data-i18n="card_other"></span></button>
+    </div>
+    <div class="notice danger" id="fireWarning" hidden role="alert">
+      <strong data-i18n="fire_warning"></strong><br>
+      <span data-i18n="fire_warning_suffix"></span>
+    </div>
+  </section>
+
+  <!-- Étape 2 : localisation -->
+  <section id="step2" class="step" hidden>
+    <h2 data-i18n="loc_q"></h2>
+    <p class="notice small" data-i18n="loc_privacy"></p>
+    <button class="btn secondary" id="btnGeoloc" data-i18n="use_position"></button>
+    <div class="field-error" id="geoError" role="alert"></div>
+    <label for="addrSearch" data-i18n="or_address"></label>
+    <div class="searchbox">
+      <input id="addrSearch" type="text" autocomplete="off" data-i18n-ph="addr_ph">
+      <div id="addrResults" class="search-results" role="listbox" hidden></div>
+    </div>
+    <p class="muted small" style="margin-top:.75rem" data-i18n="move_marker"></p>
+    <div id="miniMap" data-i18n-aria="minimap_aria"></div>
+    <p id="addrDisplay" class="muted small" aria-live="polite"></p>
+    <button class="btn" id="btnLocationNext" disabled data-i18n="confirm_position"></button>
+  </section>
+
+  <!-- Étape 3 : période -->
+  <section id="step3" class="step" hidden>
+    <h2 data-i18n="time_q"></h2>
+    <div class="seg" role="group" data-i18n-aria="temporal_aria">
+      <button data-temporal="ongoing" aria-pressed="true" data-i18n="temporal_ongoing"></button>
+      <button data-temporal="finished" aria-pressed="false" data-i18n="temporal_finished"></button>
+      <button data-temporal="planned" aria-pressed="false" data-i18n="temporal_planned"></button>
+    </div>
+    <label for="startInput" data-i18n="start_label"></label>
+    <div class="row">
+      <input id="startInput" type="datetime-local">
+      <button class="btn secondary small-btn" id="btnNow" style="flex:0 0 auto" data-i18n="now_btn"></button>
+    </div>
+    <div id="endField" hidden>
+      <label for="endInput" data-i18n="end_label"></label>
+      <input id="endInput" type="datetime-local">
+    </div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="approxTime">
+      <label for="approxTime" data-i18n="approx_check"></label>
+    </div>
+    <p class="muted small" id="ongoingHint" data-i18n="ongoing_hint"></p>
+    <div class="field-error" id="timeError" role="alert"></div>
+    <button class="btn" id="btnTimeNext" data-i18n="continue"></button>
+  </section>
+
+  <!-- Étape 4 : détails -->
+  <section id="step4" class="step" hidden>
+    <h2 data-i18n="desc_q"></h2>
+    <div class="notice danger" id="fireWarning2" hidden role="alert">
+      <strong data-i18n="fire_warning"></strong> <span data-i18n="fire_warning_suffix"></span>
+    </div>
+    <label for="descInput" data-i18n="desc_label"></label>
+    <textarea id="descInput" maxlength="500" data-i18n-ph="desc_ph"></textarea>
+    <label data-i18n="sev_q"></label>
+    <div class="seg" role="group" data-i18n-aria="sev_aria">
+      <button data-sev="low" aria-pressed="false" data-i18n="sev_low"></button>
+      <button data-sev="moderate" aria-pressed="true" data-i18n="sev_moderate"></button>
+      <button data-sev="high" aria-pressed="false" data-i18n="sev_high"></button>
+      <button data-sev="immediate_danger" aria-pressed="false" data-i18n="sev_danger_short"></button>
+    </div>
+    <label for="affectedInput" data-i18n="affected_label"></label>
+    <input id="affectedInput" type="number" inputmode="numeric" min="0" max="1000000" data-i18n-ph="affected_ph">
+    <label for="photoInput" data-i18n="photo_label"></label>
+    <input id="photoInput" type="file" accept="image/jpeg,image/png,image/webp,video/mp4" capture="environment">
+    <p class="muted small" data-i18n="photo_note"></p>
+    <label for="commentInput" data-i18n="comment_label"></label>
+    <textarea id="commentInput" maxlength="1000"></textarea>
+    <div class="field-error" id="detailError" role="alert"></div>
+    <button class="btn" id="btnDetailsNext" data-i18n="continue"></button>
+  </section>
+
+  <!-- Doublons -->
+  <section id="stepDup" class="step" hidden>
+    <h2 data-i18n="dup_title"></h2>
+    <p class="muted" data-i18n="dup_text"></p>
+    <div id="dupList"></div>
+    <button class="btn secondary" id="btnDupNew" style="margin-top:.75rem" data-i18n="dup_new"></button>
+  </section>
+
+  <!-- Étape 5 : contact -->
+  <section id="step5" class="step" hidden>
+    <h2 data-i18n="contact_q"></h2>
+    <p class="muted small" data-i18n="contact_hint"></p>
+    <div class="seg" role="group" data-i18n-aria="method_aria">
+      <button data-method="sms" aria-pressed="true" data-i18n="method_sms"></button>
+      <button data-method="email" aria-pressed="false" data-i18n="method_email"></button>
+    </div>
+    <div id="phoneField">
+      <label for="phoneInput" data-i18n="phone_label"></label>
+      <input id="phoneInput" type="tel" inputmode="tel" autocomplete="tel" data-i18n-ph="phone_ph">
+    </div>
+    <div id="emailField" hidden>
+      <label for="emailInput" data-i18n="email_label"></label>
+      <input id="emailInput" type="email" inputmode="email" autocomplete="email" data-i18n-ph="email_ph">
+      <div class="checkbox-row">
+        <input type="checkbox" id="emailLinkPref" checked>
+        <label for="emailLinkPref" data-i18n="email_link_pref"></label>
+      </div>
+    </div>
+    <!-- Champ honeypot : invisible pour les humains, rempli par les robots -->
+    <div style="position:absolute;left:-9999px" aria-hidden="true">
+      <label for="website" data-i18n="honeypot_label"></label>
+      <input id="website" type="text" tabindex="-1" autocomplete="off">
+    </div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="consentCheck">
+      <label for="consentCheck"><strong data-i18n="consent_strong"></strong> <span data-i18n="consent_text"></span>
+      <a href="legal.html" target="_blank" data-i18n="consent_more"></a></label>
+    </div>
+    <div class="field-error" id="contactError" role="alert"></div>
+    <button class="btn" id="btnContactNext" data-i18n="get_code_btn"></button>
+  </section>
+
+  <!-- Étape 6 : vérification -->
+  <section id="step6" class="step" hidden>
+    <div id="otpZone">
+      <h2 data-i18n="otp_title"></h2>
+      <p class="muted small" id="otpHint"></p>
+      <label for="otpInput" data-i18n="otp_label"></label>
+      <input id="otpInput" class="otp-input" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6">
+      <div class="field-error" id="otpError" role="alert"></div>
+      <button class="btn" id="btnVerify" data-i18n="validate"></button>
+      <button class="btn ghost" id="btnResend" disabled></button>
+    </div>
+    <div id="emailWaitZone" hidden>
+      <h2 data-i18n="email_wait_title"></h2>
+      <p><span data-i18n="email_sent_to"></span> <strong id="emailShown" dir="ltr"></strong>.</p>
+      <p class="muted small" data-i18n="email_wait_hint"></p>
+      <div class="notice" id="waitStatus" data-i18n="waiting"></div>
+      <button class="btn ghost" id="btnResendLink" disabled></button>
+    </div>
+  </section>
+
+  <!-- Confirmation finale -->
+  <section id="stepDone" class="step" hidden>
+    <div class="notice ok"><strong data-i18n="done_saved"></strong></div>
+    <div class="card" id="doneSummary"></div>
+    <div class="card" id="followCard">
+      <h2 data-i18n="done_follow"></h2>
+      <p class="muted small" id="followHint" data-i18n="done_follow_hint"></p>
+      <p><a id="manageLink" href="#" data-i18n="manage_my"></a></p>
+      <button class="btn secondary" id="btnCopyLink" data-i18n="copy_link"></button>
+    </div>
+    <a class="btn" href="index.html" data-i18n="see_map"></a>
+  </section>
+</main>
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/api.js"></script>
+<script src="js/map-common.js"></script>
+<script src="js/declare.js"></script>
+</body>
+</html>

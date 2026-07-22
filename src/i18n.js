@@ -1,0 +1,157 @@
+// Internationalisation côté serveur : messages d'erreur des API et contenus
+// des SMS / e-mails, en français et en arabe.
+// La langue vient de l'en-tête X-Lang (envoyé par le client), de ?lang= ou du
+// corps de la requête ; défaut : français. La langue du déclarant est mémorisée
+// (reporters.lang) pour les envois ultérieurs (rappels, lien de gestion).
+
+export const SUPPORTED = ['fr', 'ar'];
+
+export function getLang(req) {
+  const l = String(req?.headers?.['x-lang'] || req?.query?.lang || req?.body?.lang || '')
+    .toLowerCase().slice(0, 2);
+  return SUPPORTED.includes(l) ? l : 'fr';
+}
+
+export function msg(langOrReq, key, params = {}) {
+  const lang = typeof langOrReq === 'string' ? (SUPPORTED.includes(langOrReq) ? langOrReq : 'fr') : getLang(langOrReq);
+  let s = (CATALOG[lang] && CATALOG[lang][key]) || CATALOG.fr[key] || key;
+  for (const [k, v] of Object.entries(params)) s = s.replaceAll(`{${k}}`, String(v));
+  return s;
+}
+
+const CATALOG = {
+  fr: {
+    // Erreurs génériques et validation
+    invalid_params: 'Paramètres invalides.',
+    generic_retry: 'Une erreur est survenue. Veuillez réessayer.',
+    generic_check_form: 'Une erreur est survenue. Veuillez vérifier le formulaire et réessayer.',
+    too_many_requests: 'Trop de requêtes. Veuillez réessayer plus tard.',
+    too_many_declarations: 'Trop de déclarations récentes. Veuillez réessayer plus tard.',
+    invalid_type: 'Type d’incident invalide.',
+    category_unavailable: 'Cette catégorie n’est pas disponible.',
+    invalid_location: 'Localisation invalide.',
+    invalid_temporal: 'Statut temporel invalide.',
+    invalid_start: 'Date de début invalide.',
+    start_future: 'La date de début ne peut pas être dans le futur.',
+    invalid_end: 'Date de fin invalide.',
+    end_before_start: 'L’heure de fin ne peut pas être antérieure à l’heure de début.',
+    invalid_severity: 'Niveau de gravité invalide.',
+    desc_no_links: 'La description ne peut pas contenir de liens.',
+    desc_empty: 'Description vide.',
+    // Brouillon / contact / vérification
+    draft_invalid: 'Brouillon invalide.',
+    draft_expired: 'Brouillon introuvable ou expiré.',
+    consent_required: 'Le consentement est obligatoire pour vérifier votre déclaration.',
+    invalid_phone: 'Numéro de téléphone invalide. Utilisez le format international (+216…).',
+    invalid_email: 'Adresse e-mail invalide.',
+    choose_method: 'Choisissez un moyen de vérification.',
+    contact_suspended: 'Ce contact est temporairement suspendu.',
+    contact_limit: 'Limite de déclarations atteinte pour ce contact. Réessayez demain.',
+    send_failed: 'Impossible d’envoyer le code pour le moment. Réessayez dans quelques instants.',
+    verif_not_found: 'Vérification introuvable.',
+    verif_finished: 'Vérification introuvable ou terminée.',
+    wait_before_resend: 'Veuillez patienter avant de demander un nouvel envoi.',
+    max_resends: 'Nombre maximal d’envois atteint. Réessayez plus tard.',
+    code_already_used: 'Ce code ou ce lien a déjà été utilisé.',
+    code_blocked: 'Vérification bloquée suite à trop de tentatives. Réessayez plus tard.',
+    code_expired: 'Code expiré. Demandez un nouvel envoi.',
+    too_many_attempts: 'Trop de tentatives incorrectes. Vérification bloquée temporairement.',
+    code_incorrect_left: 'Code incorrect. {left} tentative(s) restante(s).',
+    code_incorrect_blocked: 'Code incorrect. Vérification bloquée.',
+    already_processed: 'Cette déclaration a déjà été traitée.',
+    declaration_not_found: 'Déclaration introuvable.',
+    // Public
+    incident_not_found: 'Incident introuvable.',
+    incident_closed_or_missing: 'Incident introuvable ou clôturé.',
+    already_confirmed: 'Vous avez déjà confirmé cet incident.',
+    report_thanks: 'Merci, votre signalement sera examiné.',
+    // Gestion
+    link_invalid: 'Lien invalide.',
+    manage_link_invalid: 'Ce lien de gestion est invalide, expiré ou révoqué.',
+    not_ongoing: 'Cette déclaration n’est pas un incident en cours.',
+    cannot_close: 'Cette déclaration ne peut plus être clôturée.',
+    location_thanks: 'Merci, un opérateur examinera la localisation.',
+    // Fichiers
+    no_file: 'Aucun fichier reçu.',
+    max_attachments: 'Trois pièces jointes maximum.',
+    file_format: 'Format de fichier non pris en charge (JPEG, PNG, WebP ou MP4).',
+    file_too_big: 'Fichier trop volumineux (10 Mo max).',
+    content_too_large: 'Contenu trop volumineux.',
+    internal_error: 'Une erreur interne est survenue.',
+    // SMS / e-mails
+    sms_otp: 'Kifeh كيفاه — votre code de vérification : {code} (valable {ttl} min). Ne le partagez pas.',
+    email_otp_subject: 'Votre code de vérification',
+    email_otp_body: 'Votre code de vérification Kifeh : {code} (valable {ttl} min).',
+    email_link_subject: 'Confirmez votre déclaration',
+    email_link_body: 'Confirmez votre déclaration en ouvrant ce lien (valable {ttl} min, utilisable une seule fois) : {link}',
+    email_link_html: '<p>Confirmez votre déclaration : <a href="{link}">confirmer ma déclaration</a></p><p>Lien valable {ttl} minutes, utilisable une seule fois.</p>',
+    sms_manage: 'Kifeh كيفاه — déclaration {publicId} enregistrée. Gérez ou clôturez-la : {url}',
+    email_manage_subject: 'Votre déclaration {publicId}',
+    reminder_body: 'Kifeh كيفاه — votre déclaration {publicId} : cet incident est-il toujours en cours ? Prolongez ou clôturez-le via votre lien de gestion, sinon il expirera automatiquement. {url}',
+    reminder_subject: 'Votre déclaration {publicId} expire bientôt',
+  },
+  ar: {
+    invalid_params: 'معطيات غير صالحة.',
+    generic_retry: 'حدث خطأ. يرجى المحاولة مرة أخرى.',
+    generic_check_form: 'حدث خطأ. يرجى التحقق من الاستمارة والمحاولة مرة أخرى.',
+    too_many_requests: 'عدد كبير من الطلبات. يرجى المحاولة لاحقًا.',
+    too_many_declarations: 'عدد كبير من التبليغات الأخيرة. يرجى المحاولة لاحقًا.',
+    invalid_type: 'نوع الحادث غير صالح.',
+    category_unavailable: 'هذه الفئة غير متاحة.',
+    invalid_location: 'الموقع غير صالح.',
+    invalid_temporal: 'الحالة الزمنية غير صالحة.',
+    invalid_start: 'تاريخ البداية غير صالح.',
+    start_future: 'لا يمكن أن يكون تاريخ البداية في المستقبل.',
+    invalid_end: 'تاريخ النهاية غير صالح.',
+    end_before_start: 'لا يمكن أن يكون وقت النهاية قبل وقت البداية.',
+    invalid_severity: 'درجة الخطورة غير صالحة.',
+    desc_no_links: 'لا يمكن أن يحتوي الوصف على روابط.',
+    desc_empty: 'الوصف فارغ.',
+    draft_invalid: 'مسودة غير صالحة.',
+    draft_expired: 'المسودة غير موجودة أو منتهية الصلاحية.',
+    consent_required: 'الموافقة إلزامية للتحقق من تبليغك.',
+    invalid_phone: 'رقم الهاتف غير صالح. استعمل الصيغة الدولية (‎+216…).',
+    invalid_email: 'البريد الإلكتروني غير صالح.',
+    choose_method: 'اختر وسيلة للتحقق.',
+    contact_suspended: 'هذا الرقم أو البريد موقوف مؤقتًا.',
+    contact_limit: 'بلغت الحد الأقصى للتبليغات لهذا الرقم أو البريد. حاول غدًا.',
+    send_failed: 'تعذّر إرسال الرمز حاليًا. حاول بعد لحظات.',
+    verif_not_found: 'عملية التحقق غير موجودة.',
+    verif_finished: 'عملية التحقق غير موجودة أو منتهية.',
+    wait_before_resend: 'يرجى الانتظار قبل طلب إرسال جديد.',
+    max_resends: 'بلغت الحد الأقصى لعمليات الإرسال. حاول لاحقًا.',
+    code_already_used: 'هذا الرمز أو الرابط تم استعماله من قبل.',
+    code_blocked: 'تم إيقاف التحقق بسبب كثرة المحاولات. حاول لاحقًا.',
+    code_expired: 'انتهت صلاحية الرمز. اطلب إرسالًا جديدًا.',
+    too_many_attempts: 'محاولات خاطئة كثيرة. تم إيقاف التحقق مؤقتًا.',
+    code_incorrect_left: 'رمز خاطئ. تبقّى {left} محاولة/محاولات.',
+    code_incorrect_blocked: 'رمز خاطئ. تم إيقاف التحقق.',
+    already_processed: 'تمت معالجة هذا التبليغ من قبل.',
+    declaration_not_found: 'التبليغ غير موجود.',
+    incident_not_found: 'الحادث غير موجود.',
+    incident_closed_or_missing: 'الحادث غير موجود أو تم إغلاقه.',
+    already_confirmed: 'لقد أكّدت هذا الحادث من قبل.',
+    report_thanks: 'شكرًا، سيتم فحص إشعارك.',
+    link_invalid: 'رابط غير صالح.',
+    manage_link_invalid: 'رابط المتابعة هذا غير صالح أو منتهي الصلاحية أو ملغى.',
+    not_ongoing: 'هذا التبليغ ليس حادثًا جاريًا.',
+    cannot_close: 'لم يعد من الممكن إغلاق هذا التبليغ.',
+    location_thanks: 'شكرًا، سيقوم أحد الأعوان بمراجعة الموقع.',
+    no_file: 'لم يتم استلام أي ملف.',
+    max_attachments: 'ثلاثة مرفقات كحد أقصى.',
+    file_format: 'صيغة الملف غير مدعومة (JPEG أو PNG أو WebP أو MP4).',
+    file_too_big: 'الملف كبير جدًا (10 ميغابايت كحد أقصى).',
+    content_too_large: 'المحتوى كبير جدًا.',
+    internal_error: 'حدث خطأ داخلي.',
+    sms_otp: 'كيفاه Kifeh — رمز التحقق الخاص بك: {code} (صالح لمدة {ttl} دقيقة). لا تشاركه مع أحد.',
+    email_otp_subject: 'رمز التحقق الخاص بك',
+    email_otp_body: 'رمز التحقق الخاص بك في «كيفاه»: {code} (صالح لمدة {ttl} دقيقة).',
+    email_link_subject: 'أكّد تبليغك',
+    email_link_body: 'أكّد تبليغك بفتح هذا الرابط (صالح لمدة {ttl} دقيقة، يُستعمل مرة واحدة فقط): {link}',
+    email_link_html: '<p dir="rtl">أكّد تبليغك: <a href="{link}">تأكيد تبليغي</a></p><p dir="rtl">الرابط صالح لمدة {ttl} دقيقة ويُستعمل مرة واحدة فقط.</p>',
+    sms_manage: 'كيفاه Kifeh — تم تسجيل التبليغ {publicId}. لمتابعته أو إغلاقه: {url}',
+    email_manage_subject: 'تبليغك {publicId}',
+    reminder_body: 'كيفاه Kifeh — تبليغك {publicId}: هل ما زال الحادث جاريًا؟ مدّده أو أغلقه عبر رابط المتابعة، وإلا سينتهي تلقائيًا. {url}',
+    reminder_subject: 'تبليغك {publicId} سينتهي قريبًا',
+  },
+};

@@ -1,0 +1,25 @@
+services:
+  kifeh:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      BASE_URL: https://kifeh.tn        # ← votre domaine public
+      SECRET_ENCRYPTION_KEY: ${SECRET_ENCRYPTION_KEY:?définir dans .env}
+      SECRET_HMAC_KEY: ${SECRET_HMAC_KEY:?définir dans .env}
+      SECRET_COOKIE_KEY: ${SECRET_COOKIE_KEY:?définir dans .env}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?définir dans .env}
+      NOTIFIER_DRIVER: ${NOTIFIER_DRIVER:-dev}   # twilio en production
+      TWILIO_SID: ${TWILIO_SID:-}
+      TWILIO_TOKEN: ${TWILIO_TOKEN:-}
+      TWILIO_FROM: ${TWILIO_FROM:-}
+    volumes:
+      - kifeh_data:/app/data
+      - kifeh_uploads:/app/uploads
+
+volumes:
+  kifeh_data:
+  kifeh_uploads:

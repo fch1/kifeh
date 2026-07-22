@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Administration — Kifeh</title>
+<link rel="icon" type="image/svg+xml" href="img/logo.svg">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div id="loginView" class="page" style="max-width:400px">
+  <h1 style="margin:2rem 0 1rem">Administration</h1>
+  <div class="card">
+    <label for="adminUser">Identifiant</label>
+    <input id="adminUser" type="text" autocomplete="username">
+    <label for="adminPass">Mot de passe</label>
+    <input id="adminPass" type="password" autocomplete="current-password">
+    <div class="field-error" id="loginError" role="alert"></div>
+    <button class="btn" id="btnLogin" style="margin-top:.75rem">Se connecter</button>
+  </div>
+</div>
+
+<div id="appView" hidden>
+  <header class="topbar">
+    <img class="brand-logo" src="img/logo.svg" alt="Kifeh">
+    <h1 style="flex:1">Administration</h1>
+    <span class="muted small" id="whoami"></span>
+    <button class="btn ghost small-btn" id="btnLogout">Déconnexion</button>
+  </header>
+  <nav class="admin-nav" role="tablist">
+    <button role="tab" data-tab="queue" aria-selected="true">File d'attente</button>
+    <button role="tab" data-tab="incidents" aria-selected="false">Incidents</button>
+    <button role="tab" data-tab="stats" aria-selected="false">Statistiques</button>
+    <button role="tab" data-tab="settings" aria-selected="false">Configuration</button>
+    <button role="tab" data-tab="audit" aria-selected="false">Journal</button>
+  </nav>
+  <main class="page" style="max-width:900px" id="adminContent"></main>
+</div>
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/api.js"></script>
+<script src="js/map-common.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>

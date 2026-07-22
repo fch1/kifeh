@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#17557E">
+<title>Kifeh كيفاه</title>
+<link rel="icon" type="image/svg+xml" href="img/logo.svg">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div id="map" role="application" data-i18n-aria="map_aria"></div>
+
+<div class="home-top">
+  <div class="home-brandbar">
+    <span class="brand-name"><img src="img/logo.svg" alt=""> Kifeh <span dir="rtl">كيفاه</span></span>
+    <span class="spacer"></span>
+    <button class="lang-switch" type="button">العربية</button>
+  </div>
+  <div class="searchbox">
+    <input id="search" type="text" inputmode="search" autocomplete="off"
+           data-i18n-ph="search_ph" data-i18n-aria="search_aria">
+    <div id="searchResults" class="search-results" role="listbox" hidden></div>
+  </div>
+  <div class="chips" role="group" data-i18n-aria="filters_aria">
+    <button class="chip" data-type="electricity" aria-pressed="false">⚡ <span data-i18n="type_electricity"></span></button>
+    <button class="chip" data-type="water" aria-pressed="false">💧 <span data-i18n="type_water"></span></button>
+    <button class="chip" data-type="fire" aria-pressed="false">🔥 <span data-i18n="type_fire"></span></button>
+    <button class="chip" data-type="internet" aria-pressed="false">📶 <span data-i18n="type_internet"></span></button>
+    <button class="chip" id="chipOngoing" aria-pressed="true" data-i18n="chip_ongoing"></button>
+    <button class="chip" id="chipFilters" aria-pressed="false" data-i18n="chip_filters"></button>
+  </div>
+</div>
+
+<div class="home-bottom">
+  <div class="counter" id="counter" role="status" aria-live="polite" data-i18n="loading"></div>
+  <div class="row">
+    <button class="btn secondary small-btn" id="btnLocate" style="flex:0 0 auto" data-i18n="my_position"></button>
+    <button class="btn secondary small-btn" id="btnList" style="flex:0 0 auto" data-i18n="list_btn"></button>
+    <a class="btn secondary small-btn" href="legal.html" style="flex:0 0 auto" data-i18n-aria="legal_aria">ⓘ</a>
+  </div>
+  <a class="btn btn-declare" href="declare.html" data-i18n="declare_btn"></a>
+</div>
+
+<!-- Feuille : filtres avancés -->
+<div class="sheet" id="filterSheet" role="dialog" aria-modal="true" data-i18n-aria="sheet_filters_aria">
+  <div class="handle"></div>
+  <h2 data-i18n="filters_title"></h2>
+  <label for="fStatus" data-i18n="filter_status"></label>
+  <select id="fStatus">
+    <option value="" data-i18n="filter_status_all"></option>
+    <option value="active" data-i18n="filter_status_active"></option>
+    <option value="resolved" data-i18n="filter_status_resolved"></option>
+  </select>
+  <label for="fPeriod" data-i18n="filter_period"></label>
+  <select id="fPeriod">
+    <option value="" data-i18n="filter_period_all"></option>
+    <option value="3" data-i18n="filter_3h"></option>
+    <option value="24" data-i18n="filter_24h"></option>
+    <option value="168" data-i18n="filter_7d"></option>
+  </select>
+  <div style="margin-top:1rem" class="row">
+    <button class="btn secondary" id="filterReset" data-i18n="reset"></button>
+    <button class="btn" id="filterApply" data-i18n="apply"></button>
+  </div>
+</div>
+
+<!-- Feuille : liste -->
+<div class="sheet" id="listSheet" role="dialog" aria-modal="true" data-i18n-aria="sheet_list_aria">
+  <div class="handle"></div>
+  <div class="row" style="align-items:center">
+    <h2 style="flex:1" data-i18n="list_title"></h2>
+    <select id="sortSelect" data-i18n-aria="sort_aria" style="flex:0 0 auto;width:auto;min-height:40px">
+      <option value="time" data-i18n="sort_time"></option>
+      <option value="near" data-i18n="sort_near"></option>
+      <option value="severity" data-i18n="sort_severity"></option>
+    </select>
+  </div>
+  <div id="listContainer"></div>
+</div>
+
+<!-- Feuille : détail -->
+<div class="sheet" id="detailSheet" role="dialog" aria-modal="true" data-i18n-aria="detail_aria">
+  <div class="handle"></div>
+  <div id="detailContent"></div>
+</div>
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/api.js"></script>
+<script src="js/map-common.js"></script>
+<script src="js/home.js"></script>
+</body>
+</html>
