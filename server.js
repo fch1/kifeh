@@ -45,13 +45,40 @@ app.use((err, req, res, next) => {
 const creds = bootstrapAdmin();
 startScheduler();
 
-app.listen(config.port, () => {
-  console.log(`Kifeh كيفاه — http://localhost:${config.port} (${config.isDev ? 'développement' : 'production'})`);
+const HOST = '0.0.0.0';
+const PORT = Number(config.port);
+
+if (!Number.isInteger(PORT) || PORT <= 0) {
+  throw new Error(`Port invalide : ${config.port}`);
+}
+
+const server = app.listen(PORT, HOST, () => {
+  const address = server.address();
+
+  console.log(
+    `Kifeh كيفاه — serveur actif sur ${HOST}:${address.port} ` +
+    `(${config.isDev ? 'développement' : 'production'})`
+  );
+
   if (creds) {
     console.log('──────────────────────────────────────────────');
-    console.log(`Compte administrateur initial : ${creds.username} / ${creds.password}`);
-    console.log('Changez ce mot de passe (ou définissez ADMIN_PASSWORD).');
+    console.log(`Compte administrateur initial : ${creds.username}`);
+
+    // Ne jamais afficher le mot de passe en production.
+    if (config.isDev) {
+      console.log(`Mot de passe initial : ${creds.password}`);
+    }
+
+    console.log('Définissez ADMIN_PASSWORD dans les variables d’environnement.');
     console.log('──────────────────────────────────────────────');
   }
-  if (config.isDev) console.log('Mode dev : OTP et e-mails visibles sur /api/dev/outbox');
+
+  if (config.isDev) {
+    console.log('Mode dev : OTP et e-mails visibles sur /api/dev/outbox');
+  }
+});
+
+server.on('error', (error) => {
+  console.error('[server:error]', error);
+  process.exit(1);
 });
