@@ -198,9 +198,12 @@ if (!db.prepare(`SELECT 1 FROM settings WHERE key = 'migr_otp_off_202607'`).get(
 // suffit à remettre la base à zéro UNE fois (admin + configuration conservés).
 const WIPE_GENERATION = '2026-07-23-2';
 const lastWipe = db.prepare(`SELECT value FROM settings WHERE key = 'wipe_generation'`).get()?.value;
-if (lastWipe !== WIPE_GENERATION) {
-  db.prepare(`INSERT INTO settings(key, value) VALUES ('wipe_generation', ?)
-              ON CONFLICT(key) DO UPDATE SET value = excluded.value`).run(WIPE_GENERATION);
+if (!lastWipe) {
+  // Première rencontre avec cette base (neuve ou héritée) : on enregistre la
+  // génération SANS rien effacer — une purge n'a lieu que sur demande explicite.
+  db.prepare(`INSERT INTO settings(key, value) VALUES ('wipe_generation', ?)`).run(WIPE_GENERATION);
+} else if (lastWipe !== WIPE_GENERATION) {
+  db.prepare(`UPDATE settings SET value = ? WHERE key = 'wipe_generation'`).run(WIPE_GENERATION);
   db.exec(`
     DELETE FROM confirmations;
     DELETE FROM attachments;
@@ -268,6 +271,12 @@ export function bootstrapAdmin() {
     .run(uuid(), username, scryptHash(password), 'admin');
   return { username, password };
 }
+
+// Diagnostic au démarrage : où vit la base, et combien de données elle contient.
+try {
+  const n = db.prepare('SELECT COUNT(*) AS n FROM incidents').get().n;
+  console.log(`Base de données : ${config.dbPath} — ${n} incident(s)`);
+} catch { /* première création */ }
 
 export function backup() {
   const dest = `${config.dbPath}.backup-${new Date().toISOString().replace(/[:.]/g, '-')}`;

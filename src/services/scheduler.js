@@ -1,6 +1,8 @@
 // Tâches périodiques : rappel avant expiration, expiration automatique,
 // masquage des résolus anciens, purge RGPD, purge des compteurs de rate limiting.
-import { db, getSettingNum, touchIncident } from '../db.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { db, getSetting, setSetting, getSettingNum, touchIncident } from '../db.js';
 import { decrypt } from './crypto.js';
 import { sendSms, sendEmail } from './notifier.js';
 import { broadcast } from '../routes/events.js';
@@ -20,6 +22,24 @@ export async function tick() {
   purgePersonalData();
   pruneRateEvents();
   if (config.isSandbox) purgeSandboxData();
+  if (!config.isSandbox) dailyBackup();
+}
+
+// Sauvegarde quotidienne de la base sur le même disque persistant
+// (dossier backups/, 7 copies conservées).
+async function dailyBackup() {
+  const last = getSetting('last_backup_at');
+  if (last && Date.now() - Date.parse(last) < 24 * 3600_000) return;
+  setSetting('last_backup_at', new Date().toISOString());
+  try {
+    const dir = path.join(path.dirname(config.dbPath), 'backups');
+    fs.mkdirSync(dir, { recursive: true });
+    const dest = path.join(dir, `incidents-${new Date().toISOString().slice(0, 10)}.db`);
+    await db.backup(dest);
+    const files = fs.readdirSync(dir).filter((f) => f.startsWith('incidents-')).sort();
+    for (const f of files.slice(0, -7)) fs.rmSync(path.join(dir, f), { force: true });
+    console.log(`Sauvegarde quotidienne : ${dest}`);
+  } catch (e) { console.error('[backup]', e.message); }
 }
 
 // Sandbox : tout est effacé au bout de 24 h — c'est un bac à sable, pas une archive.

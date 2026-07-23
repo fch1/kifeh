@@ -1,6 +1,12 @@
 // Configuration centralisée. Tout est surchargeable par variable d'environnement,
 // et une partie est administrable à chaud via la table `settings` (voir db.js).
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+
+// Render (et la plupart des hébergeurs) montent le disque persistant sur
+// /var/data : s'il existe, les données y vivent automatiquement — les
+// déploiements ne touchent alors JAMAIS à la base ni aux fichiers.
+const persistentDir = fs.existsSync('/var/data') ? '/var/data' : null;
 
 const env = process.env;
 
@@ -34,8 +40,8 @@ export const config = {
   sandboxPort: Number(env.SANDBOX_PORT || Number(env.PORT || 3000) + 1),
   baseUrl: env.BASE_URL || `http://localhost:${env.PORT || 3000}`,
 
-  dbPath: env.DB_PATH || 'data/incidents.db',
-  uploadsDir: env.UPLOADS_DIR || 'uploads',
+  dbPath: env.DB_PATH || (persistentDir ? `${persistentDir}/incidents.db` : 'data/incidents.db'),
+  uploadsDir: env.UPLOADS_DIR || (persistentDir ? `${persistentDir}/uploads` : 'uploads'),
 
   // Secrets — en production, définir impérativement ces variables d'environnement.
   encryptionKey: env.SECRET_ENCRYPTION_KEY || devSecret('enc'),
