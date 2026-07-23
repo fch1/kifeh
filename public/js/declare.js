@@ -246,7 +246,6 @@ document.getElementById('btnDetailsNext').addEventListener('click', (e) => withB
   state.description = document.getElementById('descInput').value.trim();
   state.comment = document.getElementById('commentInput').value.trim();
   state.affectedCount = document.getElementById('affectedInput').value;
-  if (!state.description) { err.textContent = t('err_desc_required'); return; }
   save();
   // Détection de doublons.
   try {

@@ -108,7 +108,7 @@ const I18N = {
     err_end_required: 'Indiquez la date et l’heure de fin.',
     err_end_before: 'L’heure de fin ne peut pas être antérieure à l’heure de début.',
     // Étape 4
-    desc_q: 'Décrivez l’incident', desc_label: 'Courte description',
+    desc_q: 'Décrivez l’incident', desc_label: 'Courte description (facultatif)',
     desc_ph: 'Ex. : coupure d’électricité dans tout l’immeuble depuis 20 h',
     sev_q: 'Niveau de gravité perçu', sev_aria: 'Gravité', sev_danger_short: 'Danger',
     affected_label: 'Logements ou personnes affectés (facultatif)', affected_ph: 'Ex. : 40',
@@ -278,7 +278,7 @@ const I18N = {
     err_start_future: 'لا يمكن أن يكون تاريخ البداية في المستقبل.',
     err_end_required: 'حدّد تاريخ ووقت النهاية.',
     err_end_before: 'لا يمكن أن يكون وقت النهاية قبل وقت البداية.',
-    desc_q: 'صف الحادث', desc_label: 'وصف قصير',
+    desc_q: 'صف الحادث', desc_label: 'وصف قصير (اختياري)',
     desc_ph: 'مثال: انقطاع الكهرباء في كامل العمارة منذ الساعة الثامنة مساءً',
     sev_q: 'درجة الخطورة حسب تقديرك', sev_aria: 'الخطورة', sev_danger_short: 'خطر',
     affected_label: 'عدد المساكن أو الأشخاص المتضررين (اختياري)', affected_ph: 'مثال: 40',

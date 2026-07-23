@@ -355,6 +355,10 @@ async function main() {
     const reBlocked = await api('POST', '/api/declare/publish-unverified', { incidentId: dv.data.incidentId, draftToken: dv.data.draftToken });
     ok(reBlocked.status === 403, 'réactivation du réglage → OTP de nouveau obligatoire');
 
+    // ── Description facultative ──
+    const noDesc = await declareFull({ lat: 33.88, lng: 10.10, deviceLat: 33.8801, deviceLng: 10.1001, description: '' });
+    ok(noDesc.ok === true, 'déclaration sans description acceptée');
+
     // ── Pages statiques ──
     section('Pages');
     for (const p of ['/', '/declare.html', '/manage.html', '/verify.html', '/admin.html', '/legal.html']) {
