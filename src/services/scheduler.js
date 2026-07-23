@@ -22,23 +22,41 @@ export async function tick() {
   purgePersonalData();
   pruneRateEvents();
   if (config.isSandbox) purgeSandboxData();
-  if (!config.isSandbox) dailyBackup();
+  if (!config.isSandbox) await rollingBackup();
 }
 
-// Sauvegarde quotidienne de la base sur le même disque persistant
-// (dossier backups/, 7 copies conservées).
-async function dailyBackup() {
-  const last = getSetting('last_backup_at');
-  if (last && Date.now() - Date.parse(last) < 24 * 3600_000) return;
-  setSetting('last_backup_at', new Date().toISOString());
+// Sauvegardes sur le disque persistant (dossier backups/) :
+// - CHAQUE MINUTE  → latest.db (écrite de façon atomique) : perte max. 60 s ;
+// - chaque heure   → hourly-HH.db (24 copies tournantes) ;
+// - chaque jour    → incidents-AAAA-MM-JJ.db (7 conservées).
+async function rollingBackup() {
   try {
     const dir = path.join(path.dirname(config.dbPath), 'backups');
     fs.mkdirSync(dir, { recursive: true });
-    const dest = path.join(dir, `incidents-${new Date().toISOString().slice(0, 10)}.db`);
-    await db.backup(dest);
-    const files = fs.readdirSync(dir).filter((f) => f.startsWith('incidents-')).sort();
-    for (const f of files.slice(0, -7)) fs.rmSync(path.join(dir, f), { force: true });
-    console.log(`Sauvegarde quotidienne : ${dest}`);
+    const now = new Date();
+
+    // Minute : copie « dernière version » (tmp puis renommage = jamais corrompue).
+    const tmp = path.join(dir, 'latest.tmp');
+    await db.backup(tmp);
+    fs.renameSync(tmp, path.join(dir, 'latest.db'));
+
+    // Heure : une copie par heure, écrasée toutes les 24 h.
+    const lastHourly = getSetting('last_hourly_backup_at');
+    if (!lastHourly || Date.now() - Date.parse(lastHourly) >= 3600_000) {
+      setSetting('last_hourly_backup_at', now.toISOString());
+      fs.copyFileSync(path.join(dir, 'latest.db'),
+        path.join(dir, `hourly-${String(now.getUTCHours()).padStart(2, '0')}.db`));
+    }
+
+    // Jour : 7 copies datées conservées.
+    const lastDaily = getSetting('last_backup_at');
+    if (!lastDaily || Date.now() - Date.parse(lastDaily) >= 24 * 3600_000) {
+      setSetting('last_backup_at', now.toISOString());
+      fs.copyFileSync(path.join(dir, 'latest.db'),
+        path.join(dir, `incidents-${now.toISOString().slice(0, 10)}.db`));
+      const files = fs.readdirSync(dir).filter((f) => f.startsWith('incidents-')).sort();
+      for (const f of files.slice(0, -7)) fs.rmSync(path.join(dir, f), { force: true });
+    }
   } catch (e) { console.error('[backup]', e.message); }
 }
 
