@@ -57,9 +57,17 @@ document.getElementById('btnBack').addEventListener('click', () => {
 });
 
 // --- Étape 1 : type ---------------------------------------------------------
-// La catégorie « Autre » n'apparaît que si activée côté serveur (admin).
+// Configuration serveur : catégorie « Autre », vérification OTP active ou non.
+let verificationRequired = true;
 API.get('/api/public/config')
-  .then((c) => { document.getElementById('typeOther').hidden = !c.otherCategoryEnabled; })
+  .then((c) => {
+    document.getElementById('typeOther').hidden = !c.otherCategoryEnabled;
+    verificationRequired = c.verificationRequired !== false;
+    if (!verificationRequired) {
+      // La vérification est désactivée : le bouton de l'étape 4 publie directement.
+      document.getElementById('btnDetailsNext').textContent = t('publish_now');
+    }
+  })
   .catch(() => {});
 
 for (const card of document.querySelectorAll('.type-card')) {
@@ -247,6 +255,7 @@ document.getElementById('btnDetailsNext').addEventListener('click', (e) => withB
     });
     if (similar.length) { renderDuplicates(similar); show('stepDup'); return; }
   } catch { /* en cas d'échec réseau on continue le parcours normal */ }
+  if (!verificationRequired) return publishDirect(true);
   show('step5');
 }));
 
@@ -271,7 +280,10 @@ function renderDuplicates(similar) {
     location.href = `index.html?confirm=${encodeURIComponent(b.dataset.confirm)}`;
   }));
 }
-document.getElementById('btnDupNew').addEventListener('click', () => show('step5'));
+document.getElementById('btnDupNew').addEventListener('click', (e) => {
+  if (!verificationRequired) return withButton(e.currentTarget, () => publishDirect(true));
+  show('step5');
+});
 
 // --- Étape 5 : contact ------------------------------------------------------
 for (const b of document.querySelectorAll('[data-method]')) {
@@ -298,36 +310,8 @@ async function submitContact(allowRetry) {
   }
   save();
   try {
-    // 1. Créer le brouillon serveur si pas encore fait.
-    if (!state.incidentId) {
-      const draft = await API.post('/api/declare/draft', {
-        type: state.type, lat: state.lat, lng: state.lng,
-        locationSource: state.locationSource, gpsAccuracy: state.gpsAccuracy,
-        deviceLat: state.deviceLat, deviceLng: state.deviceLng,
-        address: state.address, publicArea: state.publicArea,
-        temporalStatus: state.temporalStatus, startedAt: state.startedAt,
-        endedAt: state.endedAt, timeApproximate: state.timeApproximate,
-        description: state.description, severity: state.severity,
-        affectedCount: state.affectedCount, comment: state.comment,
-        website: document.getElementById('website').value, // honeypot
-        fillSeconds: Math.round((Date.now() - startedFillingAt) / 1000),
-        idempotencyKey: state.idempotencyKey,
-      });
-      state.incidentId = draft.incidentId;
-      state.draftToken = draft.draftToken;
-      save();
-      // 2. Pièce jointe éventuelle.
-      const file = document.getElementById('photoInput').files[0];
-      if (file) {
-        const fd = new FormData();
-        fd.append('incidentId', state.incidentId);
-        fd.append('draftToken', state.draftToken);
-        fd.append('file', file);
-        await API.post('/api/declare/upload', fd, { timeout: 60000 }).catch((ex) => {
-          console.warn('Pièce jointe non envoyée :', ex.message);
-        });
-      }
-    }
+    // 1-2. Brouillon serveur + pièce jointe éventuelle.
+    await ensureDraft();
     // 3. Contact + envoi de la vérification.
     const method = state.method === 'sms' ? 'sms' : (state.emailLink ? 'email_link' : 'email_code');
     const r = await API.post('/api/declare/contact', {
@@ -346,6 +330,56 @@ async function submitContact(allowRetry) {
       state.idempotencyKey = `d-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       save();
       return submitContact(false);
+    }
+    err.textContent = ex.message;
+  }
+}
+
+// --- Publication directe (vérification OTP désactivée par l'admin) -----------
+async function ensureDraft() {
+  if (state.incidentId) return;
+  const draft = await API.post('/api/declare/draft', {
+    type: state.type, lat: state.lat, lng: state.lng,
+    locationSource: state.locationSource, gpsAccuracy: state.gpsAccuracy,
+    deviceLat: state.deviceLat, deviceLng: state.deviceLng,
+    address: state.address, publicArea: state.publicArea,
+    temporalStatus: state.temporalStatus, startedAt: state.startedAt,
+    endedAt: state.endedAt, timeApproximate: state.timeApproximate,
+    description: state.description, severity: state.severity,
+    affectedCount: state.affectedCount, comment: state.comment,
+    website: document.getElementById('website').value, // honeypot
+    fillSeconds: Math.round((Date.now() - startedFillingAt) / 1000),
+    idempotencyKey: state.idempotencyKey,
+  });
+  state.incidentId = draft.incidentId;
+  state.draftToken = draft.draftToken;
+  save();
+  const file = document.getElementById('photoInput').files[0];
+  if (file) {
+    const fd = new FormData();
+    fd.append('incidentId', state.incidentId);
+    fd.append('draftToken', state.draftToken);
+    fd.append('file', file);
+    await API.post('/api/declare/upload', fd, { timeout: 60000 }).catch((ex) => {
+      console.warn('Pièce jointe non envoyée :', ex.message);
+    });
+  }
+}
+
+async function publishDirect(allowRetry) {
+  const err = document.getElementById('detailError'); err.textContent = '';
+  try {
+    await ensureDraft();
+    const r = await API.post('/api/declare/publish-unverified', {
+      incidentId: state.incidentId, draftToken: state.draftToken,
+    });
+    finish(r);
+  } catch (ex) {
+    if (allowRetry && (ex.data?.code === 'draft_expired' || ex.status === 403)) {
+      state.incidentId = null; state.draftToken = null;
+      state.idempotencyKey = `d-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      save();
+      return publishDirect(false);
     }
     err.textContent = ex.message;
   }

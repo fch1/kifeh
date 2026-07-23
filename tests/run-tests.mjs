@@ -336,6 +336,25 @@ async function main() {
     ok(k2.status === 200 && k2.data.incidentId !== k1.data.incidentId,
       'clé d’idempotence obsolète ignorée → nouveau brouillon valide');
 
+    // ── Mode transitoire : vérification OTP désactivée ──
+    section('Vérification désactivée (réglage admin)');
+    const puvBlocked = await api('POST', '/api/declare/publish-unverified', { incidentId: 'x', draftToken: 'y' });
+    ok(puvBlocked.status === 403, 'publication directe refusée quand la vérification est active');
+    await api('POST', '/api/admin/settings', { settings: { verification_required: '0' } }, adminH);
+    const cfgOff = await api('GET', '/api/public/config');
+    ok(cfgOff.data.verificationRequired === false, 'config publique reflète la désactivation');
+    const dv = await api('POST', '/api/declare/draft', draftBody({ lat: 34.74, lng: 10.76, deviceLat: 34.7401, deviceLng: 10.7601 }));
+    const pv = await api('POST', '/api/declare/publish-unverified', { incidentId: dv.data.incidentId, draftToken: dv.data.draftToken });
+    ok(pv.data.ok === true && pv.data.status === 'active', 'publication directe sans OTP → incident actif');
+    ok((pv.data.manageUrl || '').includes('token='), 'lien de gestion fourni sans contact');
+    const cd = await api('POST', '/api/public/confirm/direct', { publicId: pv.data.publicId });
+    ok(cd.data.ok === true && cd.data.confirmations === 1, 'confirmation « aussi concerné » sans OTP');
+    const cd2 = await api('POST', '/api/public/confirm/direct', { publicId: pv.data.publicId });
+    ok(cd2.status === 400, 'double confirmation même IP → refusée');
+    await api('POST', '/api/admin/settings', { settings: { verification_required: '1' } }, adminH);
+    const reBlocked = await api('POST', '/api/declare/publish-unverified', { incidentId: dv.data.incidentId, draftToken: dv.data.draftToken });
+    ok(reBlocked.status === 403, 'réactivation du réglage → OTP de nouveau obligatoire');
+
     // ── Pages statiques ──
     section('Pages');
     for (const p of ['/', '/declare.html', '/manage.html', '/verify.html', '/admin.html', '/legal.html']) {

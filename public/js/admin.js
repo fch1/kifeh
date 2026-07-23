@@ -188,6 +188,7 @@ async function renderStats() {
 
 // --- Configuration ----------------------------------------------------------
 const SETTING_LABELS = {
+  verification_required: 'Vérification OTP obligatoire (1 = oui · 0 = publication directe)',
   other_category_enabled: 'Catégorie « Autre » activée (1/0)',
   anonymize_radius_m: 'Rayon d’anonymisation public (m)',
   otp_ttl_min: 'Validité du code OTP (min)',

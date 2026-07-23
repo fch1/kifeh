@@ -116,6 +116,7 @@ const I18N = {
     photo_note: 'Les métadonnées (dont la position GPS) sont automatiquement retirées des photos.',
     comment_label: 'Commentaire complémentaire (facultatif)',
     err_desc_required: 'Une courte description est nécessaire.',
+    publish_now: 'Publier le signalement',
     // Doublons
     dup_title: 'Un incident similaire existe déjà',
     dup_text: 'Un incident du même type a été signalé à proximité. Êtes-vous concerné par celui-ci ?',
@@ -285,6 +286,7 @@ const I18N = {
     photo_note: 'تُحذف البيانات الوصفية (بما فيها موقع GPS) تلقائيًا من الصور.',
     comment_label: 'تعليق إضافي (اختياري)',
     err_desc_required: 'الوصف القصير ضروري.',
+    publish_now: 'نشر التبليغ',
     dup_title: 'يوجد حادث مشابه بالفعل',
     dup_text: 'تم التبليغ عن حادث من نفس النوع بالقرب منك. هل أنت معني بهذا الحادث؟',
     dup_near: 'منطقة قريبة', dup_confirm: '✔ تأكيد أنني معني أيضًا',

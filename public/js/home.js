@@ -3,6 +3,8 @@
 
 const map = createMap('map');
 let userPos = null;
+let verificationRequired = true;
+API.get('/api/public/config').then((c) => { verificationRequired = c.verificationRequired !== false; }).catch(() => {});
 let incidents = [];
 const filters = { types: new Set(), status: 'active', periodH: '' };
 
@@ -196,7 +198,21 @@ async function openDetail(publicId) {
     <button class="btn ghost small-btn" id="btnReport" style="margin-top:.5rem">${t('report_content')}</button>
     <div id="reportZone"></div>`;
 
-  document.getElementById('btnConfirm')?.addEventListener('click', () => renderConfirmForm(i));
+  document.getElementById('btnConfirm')?.addEventListener('click', (e) => {
+    if (!verificationRequired) {
+      return withButton(e.currentTarget, async () => {
+        try {
+          const r = await API.post('/api/public/confirm/direct', { publicId: i.public_id });
+          document.getElementById('confirmZone').innerHTML =
+            `<p class="notice ok">${r.confirmations > 1 ? t('thanks_n', { n: r.confirmations }) : t('thanks_one')}</p>`;
+          loadIncidents();
+        } catch (ex) {
+          document.getElementById('confirmZone').innerHTML = `<p class="field-error">${esc(ex.message)}</p>`;
+        }
+      });
+    }
+    renderConfirmForm(i);
+  });
   document.getElementById('btnReport').addEventListener('click', () => renderReportForm(i));
 }
 

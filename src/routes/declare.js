@@ -250,6 +250,21 @@ declareRouter.post('/verify', async (req, res) => {
   res.json(out);
 });
 
+// --- Publication directe SANS vérification -----------------------------------
+// Autorisée uniquement quand le réglage admin verification_required vaut 0
+// (période transitoire avant la configuration SMS/e-mail). Le code OTP reste
+// intact : remettre le réglage à 1 réactive la vérification instantanément.
+declareRouter.post('/publish-unverified', async (req, res) => {
+  if (getSettingNum('verification_required') !== 0) {
+    return res.status(403).json({ error: msg(req, 'invalid_params') });
+  }
+  const incident = draftAuth(req, res);
+  if (!incident) return;
+  const out = await publishIncident(incident.id, incident.reporter_id, clientIp(req), getLang(req));
+  if (out.error) return res.status(400).json(out);
+  res.json(out);
+});
+
 // --- Lien e-mail (usage unique) --------------------------------------------
 declareRouter.post('/verify-link', async (req, res) => {
   const { vid, t } = req.body || {};
@@ -266,10 +281,13 @@ async function publishIncident(incidentId, reporterId, ip, lang = 'fr') {
   if (!['pending_verification', 'draft'].includes(incident.status)) {
     return { error: msg(lang, 'already_processed') };
   }
-  const reporter = db.prepare(`SELECT * FROM reporters WHERE id = ?`).get(reporterId);
+  const reporter = reporterId ? db.prepare(`SELECT * FROM reporters WHERE id = ?`).get(reporterId) : null;
 
-  // Score de confiance final (le score provisoire encode déjà les signaux de remplissage).
-  const finalScore = Math.max(0, Math.min(100, incident.trust_score + (reporter?.verified ? 25 : 0)));
+  // Score de confiance final (le score provisoire encode déjà les signaux de
+  // remplissage). Sans vérification (mode transitoire), le bonus est accordé
+  // pour conserver le même comportement de publication.
+  const verifiedBonus = reporter?.verified || getSettingNum('verification_required') === 0 ? 25 : 0;
+  const finalScore = Math.max(0, Math.min(100, incident.trust_score + verifiedBonus));
   const threshold = getSettingNum('trust_publish_threshold');
   const similar = findSimilar(incident.type, incident.lat, incident.lng, incident.started_at)
     .filter((s) => s.id !== incident.id);
@@ -299,8 +317,9 @@ async function publishIncident(incidentId, reporterId, ip, lang = 'fr') {
     .run(uuid(), incident.id, sha256(manageToken), `+${ttlDays} days`);
   const manageUrl = `${config.baseUrl}/manage.html?token=${manageToken}`;
 
-  // Envoi du lien de gestion par SMS / e-mail.
+  // Envoi du lien de gestion par SMS / e-mail (si un contact existe).
   try {
+    if (!reporter) throw new Error('no-contact');
     const contact = decrypt(reporter.contact_encrypted);
     const userLang = reporter.lang || lang;
     const text = msg(userLang, 'sms_manage', { publicId: incident.public_id, url: manageUrl });

@@ -38,6 +38,7 @@ export const config = {
 
 // Valeurs par défaut des réglages administrables (table settings).
 export const defaultSettings = {
+  verification_required: '1',   // 0 = publication directe sans OTP (temporaire, le temps de configurer SMS/e-mail)
   other_category_enabled: '0',        // catégorie « Autre » désactivée par défaut
   anonymize_radius_m: '250',          // rayon d'anonymisation public (100–300 m)
   otp_ttl_min: '10',

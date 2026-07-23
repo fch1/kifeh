@@ -159,6 +159,27 @@ publicRouter.post('/confirm/verify', (req, res) => {
   res.json({ ok: true, confirmations: incident.confirmations_count + 1 });
 });
 
+// Confirmation directe (uniquement quand la vérification OTP est désactivée) :
+// une confirmation par IP et par incident, sans collecte de contact.
+publicRouter.post('/confirm/direct', ipRateLimit('confirm_ip', 10, 60), (req, res) => {
+  if (getSettingNum('verification_required') !== 0) {
+    return res.status(403).json({ error: msg(req, 'invalid_params') });
+  }
+  const incident = db.prepare(`SELECT id, public_id, confirmations_count FROM incidents WHERE public_id = ? AND status = 'active'`)
+    .get(String(req.body?.publicId || ''));
+  if (!incident) return res.status(404).json({ error: msg(req, 'incident_closed_or_missing') });
+  try {
+    db.prepare(`INSERT INTO confirmations(id, incident_id, contact_hash) VALUES (?, ?, ?)`)
+      .run(uuid(), incident.id, hmac(`ipconfirm:${incident.id}:${clientIp(req)}`));
+  } catch {
+    return res.status(400).json({ error: msg(req, 'already_confirmed') });
+  }
+  db.prepare(`UPDATE incidents SET confirmations_count = confirmations_count + 1,
+              updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`).run(incident.id);
+  broadcast('incident', { publicId: incident.public_id, confirmations: incident.confirmations_count + 1 });
+  res.json({ ok: true, confirmations: incident.confirmations_count + 1 });
+});
+
 // --- Signalement d'un contenu incorrect ------------------------------------
 publicRouter.post('/report', ipRateLimit('report_ip', 5, 60), (req, res) => {
   const b = req.body || {};
@@ -188,7 +209,10 @@ publicRouter.get('/geocode/reverse', ipRateLimit('search_ip', 30, 5), async (req
 
 // --- Configuration publique (catégories actives…) ---------------------------
 publicRouter.get('/config', (req, res) => {
-  res.json({ otherCategoryEnabled: getSettingNum('other_category_enabled') === 1 });
+  res.json({
+    otherCategoryEnabled: getSettingNum('other_category_enabled') === 1,
+    verificationRequired: getSettingNum('verification_required') !== 0,
+  });
 });
 
 // --- Statistiques publiques minimales (compteur d'accueil) ------------------
