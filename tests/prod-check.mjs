@@ -59,6 +59,17 @@ try {
   // — carte —
   const map = await api('GET', '/api/public/incidents?minLat=36&maxLat=37&minLng=10&maxLng=11');
   ok(map.data.incidents.length >= 3, `incidents visibles sur la carte (${map.data.incidents.length})`);
+  // — resynchronisation du mot de passe admin via l'environnement —
+  server.kill();
+  await new Promise((r) => setTimeout(r, 500));
+  const server2 = spawn('node', ['server.js'], { env: { ...process.env, NODE_ENV: 'production', PORT: '3996', DB_PATH: 'data/prod.db', BASE_URL: 'http://localhost:3996', ADMIN_PASSWORD: 'nouveau-5678', ADMIN_USERNAME: 'admin', VERIFICATION_REQUIRED: '0' }, stdio: 'ignore' });
+  await new Promise((r) => setTimeout(r, 2500));
+  try {
+    const relog = await api('POST', '/api/admin/login', { username: 'admin', password: 'nouveau-5678' });
+    ok(relog.status === 200, 'ADMIN_PASSWORD modifié dans l’environnement → nouveau mot de passe actif');
+    const cfg2 = await api('GET', '/api/public/config');
+    ok(cfg2.data.verificationRequired === false, 'VERIFICATION_REQUIRED=0 (env) désactive l’OTP sans toucher à l’admin');
+  } finally { server2.kill(); }
 } finally { server.kill(); }
 console.log(`\n${pass} réussis · ${fail} échoués`);
 process.exit(fail ? 1 : 0);

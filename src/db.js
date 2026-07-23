@@ -187,6 +187,10 @@ const insertSetting = db.prepare('INSERT OR IGNORE INTO settings(key, value) VAL
 for (const [k, v] of Object.entries(defaultSettings)) insertSetting.run(k, v);
 
 export function getSetting(key) {
+  // Priorité aux variables d'environnement (ex. VERIFICATION_REQUIRED=0 dans
+  // Render) : permet de piloter la configuration sans passer par l'admin.
+  const envValue = process.env[key.toUpperCase()];
+  if (envValue !== undefined && envValue !== '') return envValue;
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
   return row ? row.value : defaultSettings[key];
 }
@@ -200,14 +204,29 @@ export function touchIncident(id) {
   db.prepare(`UPDATE incidents SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`).run(id);
 }
 
-// Amorçage du compte administrateur au premier démarrage.
+// Amorçage du compte administrateur.
+// Si ADMIN_PASSWORD est défini dans l'environnement, il fait autorité : le mot
+// de passe du compte est (re)synchronisé à chaque démarrage — changer la
+// variable dans Render puis redéployer suffit à récupérer l'accès admin.
 export function bootstrapAdmin() {
+  const username = config.adminBootstrap.username;
+  const existing = db.prepare('SELECT id FROM admins WHERE username = ?').get(username);
+  if (config.adminBootstrap.password) {
+    if (existing) {
+      db.prepare('UPDATE admins SET password_hash = ? WHERE id = ?')
+        .run(scryptHash(config.adminBootstrap.password), existing.id);
+      return null;
+    }
+    db.prepare('INSERT INTO admins(id, username, password_hash, role) VALUES (?, ?, ?, ?)')
+      .run(uuid(), username, scryptHash(config.adminBootstrap.password), 'admin');
+    return { username, password: config.adminBootstrap.password };
+  }
   const count = db.prepare('SELECT COUNT(*) AS n FROM admins').get().n;
   if (count > 0) return null;
-  const password = config.adminBootstrap.password || randomToken(9);
+  const password = randomToken(9);
   db.prepare('INSERT INTO admins(id, username, password_hash, role) VALUES (?, ?, ?, ?)')
-    .run(uuid(), config.adminBootstrap.username, scryptHash(password), 'admin');
-  return { username: config.adminBootstrap.username, password };
+    .run(uuid(), username, scryptHash(password), 'admin');
+  return { username, password };
 }
 
 export function backup() {
