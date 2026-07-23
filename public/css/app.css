@@ -263,6 +263,23 @@ html[dir="rtl"] .topbar .back .arrow { display: inline-block; transform: scaleX(
   padding: .4rem .75rem calc(.4rem + env(safe-area-inset-bottom));
   font-size: .8125rem; font-weight: 600;
 }
+.consent-banner {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 3100;
+  background: var(--primary); color: #fff;
+  padding: .75rem 1rem calc(.75rem + env(safe-area-inset-bottom));
+  font-size: .8125rem; line-height: 1.45;
+  display: flex; flex-wrap: wrap; gap: .5rem .75rem; align-items: center; justify-content: center;
+  box-shadow: 0 -2px 12px rgba(0,0,0,.18);
+}
+.consent-banner p { margin: 0; max-width: 620px; }
+.consent-banner a { color: #fff; text-decoration: underline; }
+.consent-actions { display: flex; gap: .5rem; flex-shrink: 0; }
+.consent-actions button {
+  border: 0; border-radius: 8px; padding: .5rem .9rem; font-size: .8125rem;
+  font-weight: 600; cursor: pointer; font-family: inherit;
+}
+.consent-accept { background: var(--secondary); color: #fff; }
+.consent-refuse { background: rgba(255,255,255,.15); color: #fff; border: 1px solid rgba(255,255,255,.45) !important; }
 .offline-banner {
   position: fixed; top: 0; left: 0; right: 0; z-index: 3000; background: var(--warn); color: #fff;
   text-align: center; padding: .5rem; font-size: .875rem; font-weight: 600; display: none;
