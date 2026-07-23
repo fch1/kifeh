@@ -194,6 +194,30 @@ if (!db.prepare(`SELECT 1 FROM settings WHERE key = 'migr_otp_off_202607'`).get(
   db.prepare(`UPDATE settings SET value = '0' WHERE key = 'verification_required'`).run();
 }
 
+// Purge ponctuelle demandée (23/07/2026) : remise à zéro des données de test
+// de production. Exécutée UNE seule fois (marqueur) — comptes admin et
+// configuration conservés.
+if (!db.prepare(`SELECT 1 FROM settings WHERE key = 'migr_wipe_202607'`).get()) {
+  db.prepare(`INSERT INTO settings(key, value) VALUES ('migr_wipe_202607', 'done')`).run();
+  db.exec(`
+    DELETE FROM confirmations;
+    DELETE FROM attachments;
+    DELETE FROM verifications;
+    DELETE FROM manage_tokens;
+    DELETE FROM reports;
+    DELETE FROM incidents;
+    DELETE FROM reporters;
+    DELETE FROM rate_events;
+  `);
+  try {
+    for (const sub of ['private', 'public']) {
+      const dir = path.join(config.uploadsDir, sub);
+      if (fs.existsSync(dir)) for (const f of fs.readdirSync(dir)) fs.rmSync(path.join(dir, f), { force: true });
+    }
+  } catch { /* fichiers absents : rien à faire */ }
+  console.log('Purge ponctuelle des données effectuée (migr_wipe_202607).');
+}
+
 export function getSetting(key) {
   // Priorité aux variables d'environnement (ex. VERIFICATION_REQUIRED=0 dans
   // Render) : permet de piloter la configuration sans passer par l'admin.
