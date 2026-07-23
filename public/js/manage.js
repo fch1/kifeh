@@ -98,17 +98,83 @@ async function render() {
     } catch (ex) { document.getElementById('updError').textContent = ex.message; }
   }));
 
+  // Correction de localisation par le déclarant : appliquée directement à SA
+  // déclaration (repère déplaçable + recherche d'adresse + position GPS).
   document.getElementById('btnLocIssue').addEventListener('click', () => {
     document.getElementById('locZone').innerHTML = `
-      <label for="locDetail">${t('describe_error')}</label>
-      <textarea id="locDetail" maxlength="500"></textarea>
-      <button class="btn secondary" id="btnLocSend">${t('send')}</button>`;
-    document.getElementById('btnLocSend').addEventListener('click', (e) => withButton(e.currentTarget, async () => {
+      <p class="muted small">${t('loc_correct_hint_owner')}</p>
+      <button class="btn secondary small-btn" id="ownGeo">${t('use_position')}</button>
+      <div class="searchbox" style="margin-top:.5rem">
+        <input id="ownSearch" type="text" autocomplete="off" placeholder="${esc(t('addr_ph'))}">
+        <div id="ownResults" class="search-results" role="listbox" hidden></div>
+      </div>
+      <div id="ownMap" class="mini-map" aria-label="${esc(t('minimap_aria'))}"></div>
+      <p class="muted small" id="ownPreview" aria-live="polite"></p>
+      <div class="field-error" id="ownError" role="alert"></div>
+      <button class="btn" id="ownApply" disabled>${t('loc_correct_apply')}</button>`;
+    const st = { lat: i.lat, lng: i.lng, address: null, area: null };
+    setTimeout(() => {
+      const om = createMap('ownMap', { center: [i.lat, i.lng], zoom: 15 });
+      const mk = L.marker([i.lat, i.lng], { draggable: true, icon: typeIcon(i.type, i.status) }).addTo(om);
+      const setPos = async (lat, lng, address, area) => {
+        st.lat = lat; st.lng = lng; st.address = address || null; st.area = area || null;
+        mk.setLatLng([lat, lng]);
+        document.getElementById('ownApply').disabled = false;
+        document.getElementById('ownPreview').textContent = `${t('loc_correct_preview')} ${address || `${lat.toFixed(5)}, ${lng.toFixed(5)}`}`;
+        if (!address) {
+          try {
+            const { result } = await API.get(`/api/public/geocode/reverse?lat=${lat}&lng=${lng}`);
+            if (result?.label) {
+              st.address = result.label; st.area = result.area || null;
+              document.getElementById('ownPreview').textContent = `${t('loc_correct_preview')} ${result.label}`;
+            }
+          } catch { /* la position seule suffit */ }
+        }
+      };
+      mk.on('dragend', () => { const p = mk.getLatLng(); setPos(p.lat, p.lng); });
+      om.on('click', (e) => setPos(e.latlng.lat, e.latlng.lng));
+      document.getElementById('ownGeo').addEventListener('click', (e) => withButton(e.currentTarget, () => new Promise((resolve) => {
+        if (!navigator.geolocation) { document.getElementById('ownError').textContent = t('geo_unavailable'); return resolve(); }
+        navigator.geolocation.getCurrentPosition(
+          (pos) => { om.setView([pos.coords.latitude, pos.coords.longitude], 16); setPos(pos.coords.latitude, pos.coords.longitude); resolve(); },
+          () => { document.getElementById('ownError').textContent = t('geo_not_found'); resolve(); },
+          { enableHighAccuracy: true, timeout: 8000 });
+      })));
+      const inp = document.getElementById('ownSearch');
+      const resBox = document.getElementById('ownResults');
+      let timer = null;
+      inp.addEventListener('input', () => {
+        clearTimeout(timer);
+        const q = inp.value.trim();
+        if (q.length < 3) { resBox.hidden = true; return; }
+        timer = setTimeout(async () => {
+          try {
+            const { results } = await API.get(`/api/public/geocode/search?q=${encodeURIComponent(q)}`);
+            resBox.innerHTML = '';
+            for (const r of results) {
+              const b = document.createElement('button');
+              b.textContent = r.label;
+              b.addEventListener('click', () => {
+                resBox.hidden = true;
+                inp.value = r.label.split(',').slice(0, 2).join(',');
+                om.setView([r.lat, r.lng], 16);
+                setPos(r.lat, r.lng, r.label, r.area);
+              });
+              resBox.appendChild(b);
+            }
+            resBox.hidden = results.length === 0;
+          } catch { resBox.hidden = true; }
+        }, 350);
+      });
+    }, 60);
+    document.getElementById('ownApply').addEventListener('click', (e) => withButton(e.currentTarget, async () => {
       try {
-        const r = await API.post('/api/manage/location-issue', { token, detail: document.getElementById('locDetail').value });
+        const r = await API.post('/api/manage/update-location', {
+          token, lat: st.lat, lng: st.lng, address: st.address, publicArea: st.area,
+        });
         feedback(r.message);
-        document.getElementById('locZone').innerHTML = '';
-      } catch (ex) { feedback(ex.message, false); }
+        render(); // recharge la fiche avec la nouvelle position
+      } catch (ex) { document.getElementById('ownError').textContent = ex.message; }
     }));
   });
 

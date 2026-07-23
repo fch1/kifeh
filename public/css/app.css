@@ -248,7 +248,30 @@ html[dir="rtl"] .topbar .back .arrow { display: inline-block; transform: scaleX(
 }
 .seg button:last-child { border-inline-end: none; }
 .seg button[aria-pressed="true"] { background: var(--primary); color: #fff; }
-#miniMap, #manageMap { height: 260px; border-radius: var(--radius); z-index: 1; }
+#miniMap, #manageMap, .mini-map { height: 260px; border-radius: var(--radius); z-index: 1; margin-top: .5rem; }
+
+/* Badge du bouton « Plus de filtres » (nombre de filtres actifs) */
+.chip-badge {
+  display: inline-block; min-width: 1.2rem; padding: 0 .3rem; margin-inline-start: .35rem;
+  background: var(--secondary); color: #fff; border-radius: 999px;
+  font-size: .7rem; font-weight: 700; line-height: 1.2rem; text-align: center;
+}
+
+/* Panneau d'urgence (numéros tunisiens vérifiés, après déclaration) */
+.emergency-panel {
+  background: #fff; border: 2px solid var(--primary); border-radius: var(--radius);
+  padding: 1rem; margin-bottom: 1rem;
+}
+.emergency-panel.danger { border-color: #C0392B; background: #FDF3F2; }
+.emergency-panel h2 { margin-top: 0; }
+.emergency-panel .call-btn {
+  display: flex; align-items: center; justify-content: center; width: 100%;
+  margin-top: .5rem; text-decoration: none; text-align: center; line-height: 1.3;
+}
+.emergency-panel .call-primary {
+  background: #C0392B; color: #fff; font-size: 1.05rem; min-height: 56px; font-weight: 700;
+}
+.emergency-panel .call-primary:active { background: #A93226; }
 .checkbox-row { display: flex; align-items: flex-start; gap: .625rem; margin: .875rem 0; }
 .checkbox-row input { width: 22px; height: 22px; margin-top: 2px; flex-shrink: 0; accent-color: var(--primary); }
 .checkbox-row label { margin: 0; font-weight: 400; font-size: .9rem; }
@@ -264,7 +287,8 @@ html[dir="rtl"] .topbar .back .arrow { display: inline-block; transform: scaleX(
   font-size: .8125rem; font-weight: 600;
 }
 .consent-banner {
-  position: fixed; bottom: 0; left: 0; right: 0; z-index: 3100;
+  /* Sous les feuilles (z 1500) : la bannière ne bloque jamais Appliquer/Confirmer. */
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 1400;
   background: var(--primary); color: #fff;
   padding: .75rem 1rem calc(.75rem + env(safe-area-inset-bottom));
   font-size: .8125rem; line-height: 1.45;

@@ -18,6 +18,8 @@ function showSandboxBanner() {
 }
 let incidents = [];
 const filters = { types: new Set(), status: 'active', periodH: '' };
+// Le sélecteur de statut reflète le filtre par défaut (« En cours uniquement »).
+document.getElementById('fStatus').value = filters.status;
 
 const cluster = new GridCluster(map, (it) => openDetail(it.public_id));
 
@@ -31,17 +33,37 @@ async function loadIncidents() {
   });
   if (filters.types.size) params.set('types', [...filters.types].join(','));
   if (filters.status) params.set('status', filters.status);
-  if (filters.periodH) params.set('since', new Date(Date.now() - filters.periodH * 3600_000).toISOString());
+  // Filtre « période » : basé sur la date de PUBLICATION du signalement.
+  if (filters.periodH) params.set('publishedSince', new Date(Date.now() - filters.periodH * 3600_000).toISOString());
   try {
     const data = await API.get(`/api/public/incidents?${params}`);
     incidents = data.incidents;
     cluster.setItems(incidents);
     const n = incidents.filter((i) => i.status === 'active').length;
-    document.getElementById('counter').textContent =
-      n === 0 ? t('counter_none') : n === 1 ? t('counter_one') : t('counter_n', { n });
+    const counter = document.getElementById('counter');
+    if (incidents.length === 0 && activeFilterCount() > 0) counter.textContent = t('filter_results_none');
+    else counter.textContent = n === 0 ? t('counter_none') : n === 1 ? t('counter_one') : t('counter_n', { n });
+    updateFilterCount();
   } catch (e) {
     document.getElementById('counter').textContent = e.message;
   }
+}
+
+// Nombre de filtres actifs (badge du bouton « Plus de filtres »).
+function activeFilterCount() {
+  return filters.types.size + (filters.status !== 'active' ? 1 : 0) + (filters.periodH ? 1 : 0);
+}
+function updateFilterBadge() {
+  const n = activeFilterCount();
+  const badge = document.getElementById('filterBadge');
+  badge.hidden = n === 0;
+  badge.textContent = n;
+}
+function updateFilterCount() {
+  const el = document.getElementById('filterCount');
+  if (!el) return;
+  el.textContent = incidents.length === 0 ? t('filter_results_none')
+    : incidents.length === 1 ? t('filter_results_one') : t('filter_results_n', { n: incidents.length });
 }
 map.on('moveend', () => { clearTimeout(loadTimer); loadTimer = setTimeout(loadIncidents, 350); });
 loadIncidents();
@@ -114,12 +136,27 @@ document.addEventListener('click', (e) => {
 });
 
 // --- Filtres ----------------------------------------------------------------
+// Les puces rapides (types) et la feuille « Plus de filtres » (types, statut,
+// période) agissent sur le MÊME jeu de filtres : carte, liste et compteur
+// restent toujours cohérents.
+function syncTypeControls() {
+  document.querySelectorAll('.chip[data-type]').forEach((c) =>
+    c.setAttribute('aria-pressed', filters.types.has(c.dataset.type)));
+  document.querySelectorAll('.fType').forEach((c) => { c.checked = filters.types.has(c.value); });
+  updateFilterBadge();
+}
 for (const chip of document.querySelectorAll('.chip[data-type]')) {
   chip.addEventListener('click', () => {
-    const t = chip.dataset.type;
-    if (filters.types.has(t)) filters.types.delete(t); else filters.types.add(t);
-    chip.setAttribute('aria-pressed', filters.types.has(t));
+    const ty = chip.dataset.type;
+    if (filters.types.has(ty)) filters.types.delete(ty); else filters.types.add(ty);
+    syncTypeControls();
     loadIncidents();
+  });
+}
+for (const box of document.querySelectorAll('.fType')) {
+  box.addEventListener('change', () => {
+    if (box.checked) filters.types.add(box.value); else filters.types.delete(box.value);
+    syncTypeControls();
   });
 }
 document.getElementById('chipOngoing').addEventListener('click', (e) => {
@@ -127,20 +164,25 @@ document.getElementById('chipOngoing').addEventListener('click', (e) => {
   e.currentTarget.setAttribute('aria-pressed', on);
   filters.status = on ? 'active' : '';
   document.getElementById('fStatus').value = filters.status;
+  updateFilterBadge();
   loadIncidents();
 });
 document.getElementById('chipFilters').addEventListener('click', () => openSheet('filterSheet'));
-document.getElementById('filterApply').addEventListener('click', () => {
+document.getElementById('filterApply').addEventListener('click', async () => {
   filters.status = document.getElementById('fStatus').value;
   filters.periodH = document.getElementById('fPeriod').value;
   document.getElementById('chipOngoing').setAttribute('aria-pressed', filters.status === 'active');
-  closeSheets(); loadIncidents();
+  window.track?.('filters_applied', { types: [...filters.types].join(',') || 'all', period_h: filters.periodH || 'all' });
+  await loadIncidents();
+  updateFilterBadge();
+  closeSheets();
 });
 document.getElementById('filterReset').addEventListener('click', () => {
   filters.types.clear(); filters.status = 'active'; filters.periodH = '';
-  document.querySelectorAll('.chip[data-type]').forEach((c) => c.setAttribute('aria-pressed', 'false'));
   document.getElementById('fStatus').value = 'active';
   document.getElementById('fPeriod').value = '';
+  document.getElementById('chipOngoing').setAttribute('aria-pressed', 'true');
+  syncTypeControls();
   closeSheets(); loadIncidents();
 });
 
@@ -184,7 +226,24 @@ function renderList() {
   }
 }
 
-// --- Détail + confirmation + signalement -----------------------------------
+// --- Détail + confirmation + fin d'incident + corrections --------------------
+// Toutes les actions s'appliquent à l'incident EXISTANT : aucune ne crée de
+// doublon d'incident ni de nouveau marqueur.
+
+// Statut communautaire d'un incendie (jamais présenté comme officiel).
+function fireStatusHtml(i) {
+  if (i.type !== 'fire' || i.status !== 'active') return '';
+  const total = i.fireThreshold || 3;
+  const n = i.confirmations_count;
+  const confirmed = n >= total;
+  return `
+    <div class="notice ${confirmed ? 'ok' : 'warn'}" id="fireStatus">
+      <strong>${confirmed ? t('fire_confirmed_comm') : t('fire_to_confirm')}</strong><br>
+      <span>${confirmed ? t('fire_progress_done', { total }) : t('fire_progress', { n, total })}</span><br>
+      <span class="small muted">${t('fire_not_official')}</span>
+    </div>`;
+}
+
 async function openDetail(publicId) {
   const el = document.getElementById('detailContent');
   el.innerHTML = '<div class="skeleton" style="height:120px"></div>';
@@ -193,39 +252,207 @@ async function openDetail(publicId) {
   try { i = await API.get(`/api/public/incidents/${encodeURIComponent(publicId)}`); }
   catch (e) { el.innerHTML = `<p class="field-error">${esc(e.message)}</p>`; return; }
 
+  const confirmed = isDone('confirmed', i.public_id);
+  const endedReported = isDone('ended', i.public_id);
+  const isFire = i.type === 'fire';
+  const confirmLabel = isFire ? t('confirm_fire_btn') : t('im_affected');
+
   el.innerHTML = `
     <h2><span class="badge ${esc(i.type)}">${TYPE_ICONS[i.type]} ${esc(TYPE_LABELS[i.type])}</span>
         <span class="badge status ${esc(i.status)}">${esc(STATUS_LABELS[i.status] || i.status)}</span></h2>
     <p class="muted">${esc(i.area || t('area_approx'))} · ${t('ref')} ${esc(i.public_id)}</p>
+    ${fireStatusHtml(i)}
     <p><strong>${t('started')}</strong> ${esc(fmtDate(i.started_at))}${i.time_approximate ? ` ${t('approx_suffix')}` : ''}<br>
     ${i.ended_at ? `<strong>${t('ended')}</strong> ${esc(fmtDate(i.ended_at))}<br>` : ''}
     <strong>${t('severity_label')}</strong> ${esc(SEVERITY_LABELS[i.severity])}<br>
     <strong>${t('last_update')}</strong> ${esc(timeAgo(i.updated_at))}</p>
     ${i.description ? `<p>${esc(i.description)}</p>` : ''}
-    ${i.confirmations_count > 0 ? `<p class="notice ok">${i.confirmations_count > 1 ? t('confirmed_n', { n: i.confirmations_count }) : t('confirmed_one')}</p>` : ''}
+    ${i.confirmations_count > 0 ? `<p class="notice ok" id="affectedCount">${i.confirmations_count > 1 ? t('affected_n', { n: i.confirmations_count }) : t('affected_one')}</p>` : '<p hidden id="affectedCount"></p>'}
+    ${i.resolutionReports > 0 && i.status === 'active' ? `<p class="notice warn" id="endedCount">${i.resolutionReports > 1 ? t('ended_reports_n', { n: i.resolutionReports }) : t('ended_reports_one')}</p>` : ''}
     <div id="confirmZone">
-      ${i.status === 'active' ? `<button class="btn" id="btnConfirm">${t('im_affected')}</button>` : ''}
+      ${i.status === 'active' ? (confirmed
+        ? `<p class="notice ok">${t('you_confirmed')}</p>`
+        : `<button class="btn" id="btnConfirm">${confirmLabel}</button>`) : ''}
     </div>
+    ${i.status === 'active' && !endedReported ? `<button class="btn secondary" id="btnEnded" style="margin-top:.5rem">${t('ended_report_btn')}</button>` : ''}
+    <div id="endedZone"></div>
+    <button class="btn ghost small-btn" id="btnLocCorrect" style="margin-top:.5rem">${t('loc_correct_title')}</button>
+    <div id="locCorrectZone"></div>
     <button class="btn ghost small-btn" id="btnReport" style="margin-top:.5rem">${t('report_content')}</button>
     <div id="reportZone"></div>`;
 
   document.getElementById('btnConfirm')?.addEventListener('click', (e) => {
-    if (!verificationRequired) {
-      return withButton(e.currentTarget, async () => {
-        try {
-          const r = await API.post('/api/public/confirm/direct', { publicId: i.public_id });
-          window.track?.('incident_confirmed', { incident_type: i.type });
-          document.getElementById('confirmZone').innerHTML =
-            `<p class="notice ok">${r.confirmations > 1 ? t('thanks_n', { n: r.confirmations }) : t('thanks_one')}</p>`;
-          loadIncidents();
-        } catch (ex) {
-          document.getElementById('confirmZone').innerHTML = `<p class="field-error">${esc(ex.message)}</p>`;
-        }
-      });
-    }
+    if (!verificationRequired) return withButton(e.currentTarget, () => directConfirm(i));
     renderConfirmForm(i);
   });
+  document.getElementById('btnEnded')?.addEventListener('click', () => renderEndedForm(i));
+  document.getElementById('btnLocCorrect').addEventListener('click', () => renderCorrectionForm(i));
   document.getElementById('btnReport').addEventListener('click', () => renderReportForm(i));
+}
+
+// Position rapide et silencieuse (renforce la confirmation d'un incendie) —
+// jamais bloquante : sans réponse en 4 s, la confirmation part sans position.
+function quickPosition() {
+  return new Promise((resolve) => {
+    if (userPos) return resolve(userPos);
+    if (!navigator.geolocation) return resolve(null);
+    const timer = setTimeout(() => resolve(null), 4000);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => { clearTimeout(timer); resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }); },
+      () => { clearTimeout(timer); resolve(null); },
+      { enableHighAccuracy: false, timeout: 3500, maximumAge: 120000 }
+    );
+  });
+}
+
+async function directConfirm(i) {
+  const zone = document.getElementById('confirmZone');
+  try {
+    const pos = i.type === 'fire' ? await quickPosition() : userPos;
+    const r = await API.post('/api/public/confirm/direct', {
+      publicId: i.public_id, deviceId: getDeviceId(),
+      approxLat: pos?.lat, approxLng: pos?.lng,
+    });
+    window.track?.('incident_confirmed', { incident_type: i.type });
+    markDone('confirmed', i.public_id);
+    zone.innerHTML = `<p class="notice ok">${t('you_confirmed')}</p>`;
+    const counts = document.getElementById('affectedCount');
+    counts.hidden = false;
+    counts.className = 'notice ok';
+    counts.textContent = r.confirmations > 1 ? t('affected_n', { n: r.confirmations }) : t('affected_one');
+    if (i.type === 'fire') {
+      i.confirmations_count = r.confirmations;
+      i.fireThreshold = r.fireThreshold;
+      document.getElementById('fireStatus')?.remove();
+      counts.insertAdjacentHTML('beforebegin', fireStatusHtml(i));
+    }
+    loadIncidents();
+  } catch (ex) {
+    if (ex.data?.alreadyConfirmed) {
+      markDone('confirmed', i.public_id);
+      zone.innerHTML = `<p class="notice ok">${t('you_confirmed')}</p>`;
+    } else {
+      zone.insertAdjacentHTML('beforeend', `<p class="field-error">${esc(ex.message)}</p>`);
+    }
+  }
+}
+
+// « Signaler que cet incident est terminé » — signalement communautaire lié à
+// l'incident existant ; clôture automatique seulement au seuil configuré.
+function renderEndedForm(i) {
+  const zone = document.getElementById('endedZone');
+  zone.innerHTML = `
+    <div class="card">
+      <h2>${t('ended_q')}</h2>
+      <label for="endedTime">${t('ended_time_label')}</label>
+      <input id="endedTime" type="datetime-local" value="${toLocalInput(new Date())}">
+      <label for="endedComment">${t('ended_comment_label')}</label>
+      <textarea id="endedComment" maxlength="300"></textarea>
+      <div class="field-error" id="endedError" role="alert"></div>
+      <button class="btn" id="endedSend">${t('ended_send')}</button>
+    </div>`;
+  document.getElementById('endedSend').addEventListener('click', (e) => withButton(e.currentTarget, async () => {
+    try {
+      const v = document.getElementById('endedTime').value;
+      const r = await API.post(`/api/public/incidents/${encodeURIComponent(i.public_id)}/resolution`, {
+        deviceId: getDeviceId(),
+        proposedEndedAt: v ? new Date(v).toISOString() : null,
+        comment: document.getElementById('endedComment').value,
+      });
+      window.track?.('incident_resolution_reported', { incident_type: i.type, resolved: r.resolved });
+      markDone('ended', i.public_id);
+      zone.innerHTML = `<p class="notice ok">${r.reports > 1 ? t('ended_reports_n', { n: r.reports }) : t('ended_reports_one')}</p>`;
+      document.getElementById('btnEnded')?.remove();
+      if (r.resolved) openDetail(i.public_id);
+      loadIncidents();
+    } catch (ex) {
+      if (ex.data?.alreadyReported) {
+        markDone('ended', i.public_id);
+        zone.innerHTML = `<p class="notice ok">${esc(ex.message)}</p>`;
+        document.getElementById('btnEnded')?.remove();
+      } else document.getElementById('endedError').textContent = ex.message;
+    }
+  }));
+}
+
+// Correction de localisation proposée par un visiteur : carte avec repère
+// déplaçable + recherche d'adresse + position GPS. La proposition part en
+// modération — elle ne déplace jamais l'incident de quelqu'un d'autre en direct.
+let correctMap = null, correctMarker = null;
+function renderCorrectionForm(i) {
+  const zone = document.getElementById('locCorrectZone');
+  correctMap = null; correctMarker = null;
+  zone.innerHTML = `
+    <div class="card">
+      <h2>${t('loc_correct_title')}</h2>
+      <p class="muted small">${t('loc_correct_hint_public')}</p>
+      <button class="btn secondary small-btn" id="corrGeo">${t('use_position')}</button>
+      <div class="searchbox" style="margin-top:.5rem">
+        <input id="corrSearch" type="text" autocomplete="off" placeholder="${esc(t('addr_ph'))}">
+        <div id="corrResults" class="search-results" role="listbox" hidden></div>
+      </div>
+      <div id="correctMap" class="mini-map" aria-label="${esc(t('minimap_aria'))}"></div>
+      <p class="muted small" id="corrPreview" aria-live="polite"></p>
+      <div class="field-error" id="corrError" role="alert"></div>
+      <button class="btn" id="corrSend" disabled>${t('loc_correct_send')}</button>
+    </div>`;
+  const state = { lat: i.lat, lng: i.lng, address: null };
+  setTimeout(() => {
+    correctMap = createMap('correctMap', { center: [i.lat, i.lng], zoom: 15 });
+    correctMarker = L.marker([i.lat, i.lng], { draggable: true, icon: typeIcon(i.type, i.status) }).addTo(correctMap);
+    const setPos = (lat, lng, address) => {
+      state.lat = lat; state.lng = lng; state.address = address || null;
+      correctMarker.setLatLng([lat, lng]);
+      document.getElementById('corrSend').disabled = false;
+      document.getElementById('corrPreview').textContent =
+        `${t('loc_correct_preview')} ${address || `${lat.toFixed(5)}, ${lng.toFixed(5)}`}`;
+    };
+    correctMarker.on('dragend', () => { const p = correctMarker.getLatLng(); setPos(p.lat, p.lng); });
+    correctMap.on('click', (e) => setPos(e.latlng.lat, e.latlng.lng));
+    document.getElementById('corrGeo').addEventListener('click', (e) => withButton(e.currentTarget, () => new Promise((resolve) => {
+      if (!navigator.geolocation) { document.getElementById('corrError').textContent = t('geo_unavailable'); return resolve(); }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => { correctMap.setView([pos.coords.latitude, pos.coords.longitude], 16); setPos(pos.coords.latitude, pos.coords.longitude); resolve(); },
+        () => { document.getElementById('corrError').textContent = t('geo_not_found'); resolve(); },
+        { enableHighAccuracy: true, timeout: 8000 });
+    })));
+    // Recherche d'adresse (accepte arabe, français et translittérations).
+    const inp = document.getElementById('corrSearch');
+    const resBox = document.getElementById('corrResults');
+    let timer = null;
+    inp.addEventListener('input', () => {
+      clearTimeout(timer);
+      const q = inp.value.trim();
+      if (q.length < 3) { resBox.hidden = true; return; }
+      timer = setTimeout(async () => {
+        try {
+          const { results } = await API.get(`/api/public/geocode/search?q=${encodeURIComponent(q)}`);
+          resBox.innerHTML = '';
+          for (const r of results) {
+            const b = document.createElement('button');
+            b.textContent = r.label;
+            b.addEventListener('click', () => {
+              resBox.hidden = true;
+              inp.value = r.label.split(',').slice(0, 2).join(',');
+              correctMap.setView([r.lat, r.lng], 16);
+              setPos(r.lat, r.lng, r.label);
+            });
+            resBox.appendChild(b);
+          }
+          resBox.hidden = results.length === 0;
+        } catch { resBox.hidden = true; }
+      }, 350);
+    });
+  }, 60);
+  document.getElementById('corrSend').addEventListener('click', (e) => withButton(e.currentTarget, async () => {
+    try {
+      const r = await API.post(`/api/public/incidents/${encodeURIComponent(i.public_id)}/location-correction`, {
+        deviceId: getDeviceId(), lat: state.lat, lng: state.lng, address: state.address,
+      });
+      window.track?.('location_correction_proposed', { incident_type: i.type });
+      zone.innerHTML = `<p class="notice ok">${esc(r.message)}</p>`;
+    } catch (ex) { document.getElementById('corrError').textContent = ex.message; }
+  }));
 }
 
 function renderConfirmForm(i) {
@@ -289,8 +516,9 @@ function renderConfirmCode(i, verificationId) {
         verificationId, code: document.getElementById('cCode').value.trim(),
         approxLat: userPos?.lat, approxLng: userPos?.lng,
       });
+      markDone('confirmed', i.public_id);
       document.getElementById('confirmZone').innerHTML =
-        `<p class="notice ok">${r.confirmations > 1 ? t('thanks_n', { n: r.confirmations }) : t('thanks_one')}</p>`;
+        `<p class="notice ok">${t('you_confirmed')}<br>${r.confirmations > 1 ? t('affected_n', { n: r.confirmations }) : t('affected_one')}</p>`;
       loadIncidents();
     } catch (ex) { err.textContent = ex.message; }
   }));

@@ -22,12 +22,21 @@ export function isEmail(v) {
   return typeof v === 'string' && v.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
 }
 
-// E.164 : indicatif international obligatoire.
+// E.164 : indicatif international, OU numéro tunisien à 8 chiffres saisi sans
+// +216 (accepté puis normalisé en +216XXXXXXXX avant stockage).
 export function isPhone(v) {
-  return typeof v === 'string' && /^\+[1-9]\d{6,14}$/.test(v.replace(/[\s.-]/g, ''));
+  if (typeof v !== 'string') return false;
+  const n = normalizePhone(v);
+  return /^\+[1-9]\d{6,14}$/.test(n);
 }
 
-export function normalizePhone(v) { return String(v).replace(/[\s.-]/g, ''); }
+export function normalizePhone(v) {
+  let n = String(v).replace(/[\s.\-()]/g, '');
+  if (/^00216\d{8}$/.test(n)) n = `+${n.slice(2)}`;   // 00216… → +216…
+  if (/^216\d{8}$/.test(n)) n = `+${n}`;              // 216… → +216…
+  if (/^[2-9]\d{7}$/.test(n)) n = `+216${n}`;         // 8 chiffres locaux → +216…
+  return n;
+}
 
 export function isFiniteNum(v, min, max) {
   const n = Number(v);

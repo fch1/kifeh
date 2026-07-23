@@ -30,7 +30,7 @@
     <button class="chip" data-type="fire" aria-pressed="false">🔥 <span data-i18n="type_fire"></span></button>
     <button class="chip" data-type="internet" aria-pressed="false">📶 <span data-i18n="type_internet"></span></button>
     <button class="chip" id="chipOngoing" aria-pressed="true" data-i18n="chip_ongoing"></button>
-    <button class="chip" id="chipFilters" aria-pressed="false" data-i18n="chip_filters"></button>
+    <button class="chip" id="chipFilters" aria-pressed="false"><span data-i18n="chip_filters"></span><span class="chip-badge" id="filterBadge" hidden></span></button>
   </div>
 </div>
 
@@ -48,6 +48,13 @@
 <div class="sheet" id="filterSheet" role="dialog" aria-modal="true" data-i18n-aria="sheet_filters_aria">
   <div class="handle"></div>
   <h2 data-i18n="filters_title"></h2>
+  <label data-i18n="filter_types"></label>
+  <div class="filter-types" role="group" data-i18n-aria="filter_types">
+    <label class="checkbox-row"><input type="checkbox" class="fType" value="electricity"> ⚡ <span data-i18n="type_electricity"></span></label>
+    <label class="checkbox-row"><input type="checkbox" class="fType" value="water"> 💧 <span data-i18n="type_water"></span></label>
+    <label class="checkbox-row"><input type="checkbox" class="fType" value="fire"> 🔥 <span data-i18n="type_fire"></span></label>
+    <label class="checkbox-row"><input type="checkbox" class="fType" value="internet"> 📶 <span data-i18n="type_internet"></span></label>
+  </div>
   <label for="fStatus" data-i18n="filter_status"></label>
   <select id="fStatus">
     <option value="" data-i18n="filter_status_all"></option>
@@ -57,10 +64,11 @@
   <label for="fPeriod" data-i18n="filter_period"></label>
   <select id="fPeriod">
     <option value="" data-i18n="filter_period_all"></option>
+    <option value="1" data-i18n="filter_1h"></option>
     <option value="3" data-i18n="filter_3h"></option>
     <option value="24" data-i18n="filter_24h"></option>
-    <option value="168" data-i18n="filter_7d"></option>
   </select>
+  <p class="muted small" id="filterCount" aria-live="polite"></p>
   <div style="margin-top:1rem" class="row">
     <button class="btn secondary" id="filterReset" data-i18n="reset"></button>
     <button class="btn" id="filterApply" data-i18n="apply"></button>

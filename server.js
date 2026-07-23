@@ -5,7 +5,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { config, captureBaseUrl } from './src/config.js';
-import { bootstrapAdmin } from './src/db.js';
+import { db, bootstrapAdmin } from './src/db.js';
 import { securityHeaders } from './src/middleware/security.js';
 import { publicRouter } from './src/routes/public.js';
 import { declareRouter } from './src/routes/declare.js';
@@ -29,7 +29,16 @@ app.use((req, res, next) => { captureBaseUrl(req); next(); });
 // Sonde de santé (Render : Settings → Health Check Path = /healthz →
 // déploiements sans coupure : l'ancienne instance sert jusqu'à ce que la
 // nouvelle soit prête, plus de 502 pendant les mises à jour).
-app.get('/healthz', (req, res) => res.json({ ok: true }));
+app.get('/healthz', (req, res) => {
+  // Preuve vérifiable de l'état des sauvegardes (horodatage de la dernière
+  // copie « minute ») et du volume de données — sans exposer aucun contenu.
+  let backupAt = null, incidents = null;
+  try {
+    backupAt = db.prepare(`SELECT value FROM settings WHERE key = 'last_minute_backup_at'`).get()?.value || null;
+    incidents = db.prepare(`SELECT COUNT(*) AS n FROM incidents WHERE status != 'deleted'`).get().n;
+  } catch { /* la sonde reste valide même sans ces informations */ }
+  res.json({ ok: true, backupAt, incidents });
+});
 
 // ── Sandbox (/sandbox) — environnement de test totalement cloisonné ─────────
 // Activé par SANDBOX_ENABLED=1 : un second processus identique tourne en

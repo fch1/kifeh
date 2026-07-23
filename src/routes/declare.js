@@ -304,7 +304,8 @@ async function publishIncident(incidentId, reporterId, ip, lang = 'fr') {
   const expiresAt = incident.temporal_status === 'ongoing'
     ? new Date(Date.now() + ttlH * 3600_000).toISOString() : null;
 
-  db.prepare(`UPDATE incidents SET status = ?, trust_score = ?, expires_at = ? WHERE id = ?`)
+  db.prepare(`UPDATE incidents SET status = ?, trust_score = ?, expires_at = ?,
+              published_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`)
     .run(status, finalScore, expiresAt, incident.id);
   touchIncident(incident.id);
 

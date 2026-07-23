@@ -39,6 +39,8 @@ async function rollingBackup() {
     const tmp = path.join(dir, 'latest.tmp');
     await db.backup(tmp);
     fs.renameSync(tmp, path.join(dir, 'latest.db'));
+    // Horodatage exposé sur /healthz : preuve vérifiable que les sauvegardes tournent.
+    setSetting('last_minute_backup_at', now.toISOString());
 
     // Heure : une copie par heure, écrasée toutes les 24 h.
     const lastHourly = getSetting('last_hourly_backup_at');

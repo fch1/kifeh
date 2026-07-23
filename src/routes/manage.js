@@ -3,7 +3,8 @@
 import { Router } from 'express';
 import { db, getSettingNum, touchIncident } from '../db.js';
 import { sha256, uuid } from '../services/crypto.js';
-import { isIsoDate, cleanText, containsSuspiciousContent } from '../middleware/security.js';
+import { isIsoDate, isFiniteNum, cleanText, containsSuspiciousContent } from '../middleware/security.js';
+import { anonymizeCoords } from '../services/anonymize.js';
 import { ipRateLimit, clientIp } from '../middleware/rateLimit.js';
 import { schedulePurge } from '../services/scheduler.js';
 import { broadcast } from './events.js';
@@ -100,6 +101,38 @@ manageRouter.post('/location-issue', (req, res) => {
     .run(uuid(), i.id, cleanText(req.body?.detail, 500) || 'Erreur de localisation signalée par le déclarant');
   audit('reporter', 'location_issue', i.id);
   res.json({ ok: true, message: msg(req, 'location_thanks') });
+});
+
+// Corriger la localisation (déclarant vérifié via son lien de gestion) :
+// appliquée DIRECTEMENT sur l'incident existant — jamais de nouvel incident.
+// L'ancienne position est conservée dans l'historique (location_corrections),
+// et la position publique reste anonymisée.
+manageRouter.post('/update-location', (req, res) => {
+  const i = tokenAuth(req, res);
+  if (!i) return;
+  const b = req.body || {};
+  if (!isFiniteNum(b.lat, -90, 90) || !isFiniteNum(b.lng, -180, 180)) {
+    return res.status(400).json({ error: msg(req, 'invalid_location') });
+  }
+  const lat = Number(b.lat), lng = Number(b.lng);
+  const pub = anonymizeCoords(lat, lng, i.id, getSettingNum('anonymize_radius_m'));
+  const address = cleanText(b.address, 300) || null;
+  const publicArea = cleanText(b.publicArea, 200) || null;
+
+  db.transaction(() => {
+    db.prepare(`INSERT INTO location_corrections
+        (id, incident_id, prev_lat, prev_lng, new_lat, new_lng, prev_address, new_address,
+         submitted_by, status, reviewed_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'reporter', 'applied', strftime('%Y-%m-%dT%H:%M:%fZ','now'))`)
+      .run(uuid(), i.id, i.lat, i.lng, lat, lng, i.address, address);
+    db.prepare(`UPDATE incidents SET lat = ?, lng = ?, public_lat = ?, public_lng = ?,
+                address = ?, public_area = COALESCE(?, public_area) WHERE id = ?`)
+      .run(lat, lng, pub.lat, pub.lng, address, publicArea, i.id);
+  })();
+  touchIncident(i.id);
+  audit('reporter', 'location_corrected', i.id);
+  broadcast('incident', { publicId: i.public_id });
+  res.json({ ok: true, message: msg(req, 'correction_applied'), lat, lng, area: publicArea || i.public_area });
 });
 
 // Suppression par le déclarant (droit à l'effacement).

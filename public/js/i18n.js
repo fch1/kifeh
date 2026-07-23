@@ -39,9 +39,13 @@ const I18N = {
     filters_title: 'Filtres', filter_status: 'Statut',
     filter_status_all: 'En cours + récemment résolus', filter_status_active: 'En cours uniquement',
     filter_status_resolved: 'Récemment résolus',
-    filter_period: 'Période de début', filter_period_all: 'Toutes',
-    filter_3h: 'Dernières 3 h', filter_24h: 'Dernières 24 h', filter_7d: '7 derniers jours',
-    reset: 'Réinitialiser', apply: 'Appliquer',
+    filter_types: 'Types d’incident',
+    filter_period: 'Période de signalement', filter_period_all: 'Toute la période',
+    filter_1h: 'Dernière heure', filter_3h: 'Trois dernières heures', filter_24h: 'Dernières 24 heures',
+    reset: 'Réinitialiser les filtres', apply: 'Appliquer',
+    filter_results_none: 'Aucun incident ne correspond à ces filtres.',
+    filter_results_one: '1 incident correspond à ces filtres',
+    filter_results_n: '{n} incidents correspondent à ces filtres',
     list_title: 'Incidents visibles', sort_aria: 'Trier la liste',
     sort_time: 'Plus récents', sort_near: 'Proximité', sort_severity: 'Gravité',
     list_empty: 'Aucun incident dans la zone affichée.',
@@ -52,6 +56,41 @@ const I18N = {
     confirmed_one: '👥 1 personne a confirmé cet incident.',
     confirmed_n: '👥 {n} personnes ont confirmé cet incident.',
     im_affected: 'Je suis aussi concerné', report_content: 'Signaler un contenu incorrect',
+    you_confirmed: '✔ Vous avez confirmé cet incident',
+    affected_one: '1 personne est concernée', affected_n: '{n} personnes sont concernées',
+    // Incendies — confirmation communautaire
+    fire_to_confirm: 'Incendie à confirmer',
+    fire_confirmed_comm: 'Incendie confirmé par la communauté',
+    confirm_fire_btn: '🔥 Confirmer cet incendie',
+    fire_progress: '{n} confirmation(s) sur {total}',
+    fire_progress_done: '{total} confirmations — confirmé par la communauté',
+    fire_not_official: 'Signal communautaire uniquement — ne représente pas une confirmation officielle des services de secours.',
+    // Fin d'incident signalée par la communauté
+    ended_report_btn: 'Signaler que cet incident est terminé',
+    ended_q: 'Cet incident est-il vraiment terminé ?',
+    ended_time_label: 'Heure de fin approximative',
+    ended_comment_label: 'Commentaire (facultatif)',
+    ended_send: 'Confirmer la fin de l’incident',
+    ended_reports_one: '1 personne signale que cet incident est terminé',
+    ended_reports_n: '{n} personnes signalent que cet incident est terminé',
+    // Correction de localisation
+    loc_correct_title: 'Corriger la localisation',
+    loc_correct_hint_public: 'Déplacez le repère, recherchez une adresse ou utilisez votre position. La proposition sera vérifiée avant d’être appliquée à l’incident existant.',
+    loc_correct_hint_owner: 'Déplacez le repère, recherchez une adresse ou utilisez votre position. La correction est appliquée immédiatement à votre déclaration.',
+    loc_correct_send: 'Envoyer la proposition de correction',
+    loc_correct_apply: 'Appliquer la nouvelle position',
+    loc_correct_preview: 'Nouvelle position :',
+    // Numéros utiles / urgences (les numéros viennent de l'annuaire vérifié)
+    emergency_title: 'En cas d’urgence',
+    useful_numbers: 'Numéros utiles',
+    call_btn: '📞 Appeler {name} — {num}',
+    fire_safety_msg: 'En cas de danger immédiat, éloignez-vous de la zone et appelez immédiatement la Protection civile au 198. Votre déclaration sur Kifeh ne contacte pas automatiquement les secours.',
+    fire_safety_donts: 'N’approchez pas du feu, n’entrez pas dans un bâtiment enfumé, et n’attendez ni confirmations communautaires, ni détection satellite, ni modération pour appeler les secours.',
+    provider_note_electricity: 'Kifeh enregistre un signalement communautaire : il n’est pas transmis automatiquement à la STEG. Pour une intervention officielle, contactez directement la STEG (la référence client de votre facture peut vous être demandée).',
+    provider_note_water: 'Kifeh enregistre un signalement communautaire : il n’est pas transmis automatiquement à la SONEDE. Pour une réclamation officielle ou une intervention, contactez directement la SONEDE.',
+    provider_note_danger: 'En cas de danger immédiat (incendie, câbles exposés, inondation dangereuse), appelez d’abord la Protection civile au 198.',
+    done_success_note: 'Votre signalement a été enregistré. Il contribue à informer les personnes présentes dans la zone, mais ne remplace pas un appel aux autorités.',
+    kifeh_disclaimer: 'Kifeh est une initiative citoyenne tunisienne indépendante. Elle permet de partager des informations avec la communauté, mais ne remplace pas les autorités, les services d’urgence, la STEG ou la SONEDE.',
     map_aria: 'Carte des incidents', you_are_here: 'Vous êtes ici (position non partagée)',
     geo_unavailable: 'La géolocalisation n’est pas disponible sur cet appareil.',
     geo_not_found: 'Position indisponible. Vous pouvez rechercher une adresse à la place.',
@@ -217,9 +256,13 @@ const I18N = {
     filters_title: 'الفلاتر', filter_status: 'الحالة',
     filter_status_all: 'الجارية + المعالجة حديثًا', filter_status_active: 'الجارية فقط',
     filter_status_resolved: 'المعالجة حديثًا',
-    filter_period: 'فترة البداية', filter_period_all: 'الكل',
-    filter_3h: 'آخر 3 ساعات', filter_24h: 'آخر 24 ساعة', filter_7d: 'آخر 7 أيام',
-    reset: 'إعادة تعيين', apply: 'تطبيق',
+    filter_types: 'أنواع الحوادث',
+    filter_period: 'فترة التبليغ', filter_period_all: 'كامل الفترة',
+    filter_1h: 'آخر ساعة', filter_3h: 'آخر ثلاث ساعات', filter_24h: 'آخر 24 ساعة',
+    reset: 'إعادة تعيين الفلاتر', apply: 'تطبيق',
+    filter_results_none: 'لا يوجد أي حادث مطابق لهذه الفلاتر.',
+    filter_results_one: 'حادث واحد مطابق لهذه الفلاتر',
+    filter_results_n: '{n} حوادث مطابقة لهذه الفلاتر',
     list_title: 'الحوادث الظاهرة', sort_aria: 'ترتيب القائمة',
     sort_time: 'الأحدث', sort_near: 'الأقرب', sort_severity: 'الخطورة',
     list_empty: 'لا توجد حوادث في المنطقة المعروضة.',
@@ -230,6 +273,37 @@ const I18N = {
     confirmed_one: '👥 أكّد شخص واحد هذا الحادث.',
     confirmed_n: '👥 أكّد {n} أشخاص هذا الحادث.',
     im_affected: 'أنا معني أيضًا', report_content: 'الإبلاغ عن محتوى غير صحيح',
+    you_confirmed: '✔ لقد أكّدت هذا الحادث',
+    affected_one: 'شخص واحد معني بهذا الحادث', affected_n: '{n} أشخاص معنيون بهذا الحادث',
+    fire_to_confirm: 'حريق في انتظار التأكيد',
+    fire_confirmed_comm: 'حريق مؤكّد من المجتمع',
+    confirm_fire_btn: '🔥 تأكيد هذا الحريق',
+    fire_progress: '{n} تأكيد من {total}',
+    fire_progress_done: '{total} تأكيدات — مؤكّد من المجتمع',
+    fire_not_official: 'إشارة مجتمعية فقط — لا تمثّل تأكيدًا رسميًا من مصالح النجدة.',
+    ended_report_btn: 'الإبلاغ عن انتهاء هذا الحادث',
+    ended_q: 'هل انتهى هذا الحادث فعلاً؟',
+    ended_time_label: 'وقت الانتهاء التقريبي',
+    ended_comment_label: 'تعليق (اختياري)',
+    ended_send: 'تأكيد انتهاء الحادث',
+    ended_reports_one: 'شخص واحد يبلّغ عن انتهاء هذا الحادث',
+    ended_reports_n: '{n} أشخاص يبلّغون عن انتهاء هذا الحادث',
+    loc_correct_title: 'تصحيح الموقع',
+    loc_correct_hint_public: 'حرّك العلامة أو ابحث عن عنوان أو استعمل موقعك. سيتم التحقق من الاقتراح قبل اعتماده على الحادث الموجود.',
+    loc_correct_hint_owner: 'حرّك العلامة أو ابحث عن عنوان أو استعمل موقعك. يُعتمد التصحيح فورًا على تبليغك.',
+    loc_correct_send: 'إرسال اقتراح التصحيح',
+    loc_correct_apply: 'اعتماد الموقع الجديد',
+    loc_correct_preview: 'الموقع الجديد:',
+    emergency_title: 'في حالة الطوارئ',
+    useful_numbers: 'أرقام مفيدة',
+    call_btn: '📞 الاتصال: {name} — {num}',
+    fire_safety_msg: 'في حالة وجود خطر مباشر، ابتعد عن المكان واتصل فورًا بالحماية المدنية على الرقم 198. الإبلاغ عبر Kifeh لا يعني أنه تم الاتصال تلقائيًا بفرق النجدة.',
+    fire_safety_donts: 'لا تقترب من النار، ولا تدخل مبنى مليئًا بالدخان، ولا تنتظر تأكيدات المجتمع أو الرصد عبر الأقمار الاصطناعية أو المراجعة للاتصال بالنجدة.',
+    provider_note_electricity: 'يسجّل «كيفاه» بلاغًا مجتمعيًا لا يُحال تلقائيًا إلى الشركة التونسية للكهرباء والغاز. للتدخل الرسمي، اتصل بالشركة مباشرة (قد يُطلب منك المعرّف الموجود على فاتورتك).',
+    provider_note_water: 'يسجّل «كيفاه» بلاغًا مجتمعيًا لا يُحال تلقائيًا إلى الشركة الوطنية لاستغلال وتوزيع المياه. للشكاوى الرسمية أو التدخل، اتصل بالشركة مباشرة.',
+    provider_note_danger: 'في حالة الخطر المباشر (حريق، أسلاك مكشوفة، فيضان خطير)، اتصل أولاً بالحماية المدنية على الرقم 198.',
+    done_success_note: 'تم تسجيل بلاغك. يساهم البلاغ في إعلام الأشخاص الموجودين في المنطقة، لكنه لا يعوّض الاتصال بالسلطات المختصة.',
+    kifeh_disclaimer: 'Kifeh مبادرة مواطنية تونسية مستقلة تهدف إلى مشاركة المعلومات مع المجتمع، ولا تعوّض السلطات أو خدمات النجدة أو الشركة التونسية للكهرباء والغاز أو الشركة الوطنية لاستغلال وتوزيع المياه.',
     map_aria: 'خريطة الحوادث', you_are_here: 'أنت هنا (موقعك غير منشور)',
     geo_unavailable: 'تحديد الموقع غير متاح على هذا الجهاز.',
     geo_not_found: 'تعذّر تحديد الموقع. يمكنك البحث عن عنوان بدلاً من ذلك.',
@@ -353,9 +427,27 @@ const I18N = {
 };
 
 // --- Sélection de la langue -------------------------------------------------
+// La préférence est mémorisée dans localStorage ET dans un cookie (1 an) :
+// certains WebViews (navigation privée, restrictions iOS/Android) bloquent
+// localStorage — le cookie sert alors de mémoire durable de secours.
+function readStoredLang() {
+  try {
+    const v = localStorage.getItem('lang');
+    if (v === 'fr' || v === 'ar') return v;
+  } catch { /* stockage indisponible */ }
+  const m = document.cookie.match(/(?:^|;\s*)kifeh_lang=(fr|ar)/);
+  return m ? m[1] : null;
+}
+
+function writeStoredLang(l) {
+  try { localStorage.setItem('lang', l); } catch { /* stockage indisponible */ }
+  try { document.cookie = `kifeh_lang=${l}; path=/; max-age=31536000; SameSite=Lax`; } catch {}
+}
+
 function detectLang() {
-  const saved = localStorage.getItem('lang');
-  if (saved === 'fr' || saved === 'ar') return saved;
+  // 1. Préférence enregistrée → 2. paramètre d'URL → 3. langue de l'appareil → 4. français.
+  const saved = readStoredLang();
+  if (saved) return saved;
   const url = new URLSearchParams(location.search).get('lang');
   if (url === 'fr' || url === 'ar') return url;
   const device = (navigator.languages || [navigator.language || 'fr']).map((l) => String(l).toLowerCase());
@@ -363,6 +455,10 @@ function detectLang() {
 }
 
 let LANG = detectLang();
+// Direction et langue appliquées IMMÉDIATEMENT au niveau du document
+// (pas d'attente du DOM : évite tout éclair d'interface dans le mauvais sens).
+document.documentElement.lang = LANG;
+document.documentElement.dir = LANG === 'ar' ? 'rtl' : 'ltr';
 
 function t(key, params = {}) {
   let s = (I18N[LANG] && I18N[LANG][key]) ?? I18N.fr[key] ?? key;
@@ -372,7 +468,7 @@ function t(key, params = {}) {
 
 function setLang(l) {
   if (l !== 'fr' && l !== 'ar') return;
-  localStorage.setItem('lang', l);
+  writeStoredLang(l);
   location.reload(); // ré-applique toutes les chaînes (statiques et dynamiques)
 }
 
@@ -410,9 +506,11 @@ const SEVERITY_LABELS = new Proxy({}, { get: (_, k) => t(`sev_${String(k)}`) });
 
 function fmtDate(iso) {
   if (!iso) return '—';
+  // Stockage en UTC, affichage en heure de Tunis (Africa/Tunis) quel que soit
+  // le fuseau de l'appareil.
   try {
     return new Date(iso).toLocaleString(LANG === 'ar' ? 'ar-TN' : 'fr-FR',
-      { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+      { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Tunis' });
   } catch { return iso; }
 }
 

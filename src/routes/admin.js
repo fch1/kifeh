@@ -7,6 +7,7 @@ import { scryptVerify, scryptHash, uuid } from '../services/crypto.js';
 import { createSession, destroySession, requireAdmin, can } from '../middleware/adminAuth.js';
 import { ipRateLimit, clientIp } from '../middleware/rateLimit.js';
 import { mergeAsDuplicate } from '../services/dedup.js';
+import { anonymizeCoords } from '../services/anonymize.js';
 import { cleanText } from '../middleware/security.js';
 import { broadcast } from './events.js';
 import { audit } from '../services/audit.js';
@@ -170,6 +171,100 @@ adminRouter.post('/reporters/:id/suspend', requireAdmin('suspend'), (req, res) =
 // Traiter un signalement.
 adminRouter.post('/reports/:id/handle', requireAdmin('review'), (req, res) => {
   db.prepare(`UPDATE reports SET status = 'handled' WHERE id = ?`).run(String(req.params.id));
+  res.json({ ok: true });
+});
+
+// Réouvrir un incident clôturé (par erreur ou clôture communautaire abusive).
+adminRouter.post('/incidents/:id/reopen', requireAdmin('moderate'), (req, res) => {
+  const i = mustIncident(req, res); if (!i) return;
+  const ttlH = Number(getSetting('active_incident_ttl_h')) || 24;
+  db.prepare(`UPDATE incidents SET status = 'active', temporal_status = 'ongoing', ended_at = NULL,
+              expires_at = strftime('%Y-%m-%dT%H:%M:%fZ','now', ?) WHERE id = ?`)
+    .run(`+${ttlH} hours`, i.id);
+  db.prepare(`UPDATE resolution_reports SET status = 'dismissed' WHERE incident_id = ? AND status IN ('pending','applied')`)
+    .run(i.id);
+  touchIncident(i.id);
+  audit(req.admin.username, 'incident_reopened', i.id, null, clientIp(req));
+  broadcast('incident', { publicId: i.public_id, status: 'active' });
+  res.json({ ok: true });
+});
+
+// --- Corrections de localisation proposées par des visiteurs -----------------
+adminRouter.get('/corrections', requireAdmin('review'), (req, res) => {
+  const rows = db.prepare(
+    `SELECT c.*, i.public_id, i.type FROM location_corrections c
+     JOIN incidents i ON i.id = c.incident_id
+     WHERE c.status = 'pending' ORDER BY c.created_at DESC LIMIT 100`
+  ).all();
+  res.json({ corrections: rows });
+});
+
+adminRouter.post('/corrections/:id/approve', requireAdmin('moderate'), (req, res) => {
+  const c = db.prepare(`SELECT * FROM location_corrections WHERE id = ? AND status = 'pending'`)
+    .get(String(req.params.id));
+  if (!c) return res.status(404).json({ error: 'Correction introuvable ou déjà traitée.' });
+  const i = db.prepare('SELECT * FROM incidents WHERE id = ?').get(c.incident_id);
+  const pub = anonymizeCoords(c.new_lat, c.new_lng, i.id, Number(getSetting('anonymize_radius_m')) || 250);
+  db.transaction(() => {
+    db.prepare(`UPDATE incidents SET lat = ?, lng = ?, public_lat = ?, public_lng = ?,
+                public_area = COALESCE(NULLIF(?, ''), public_area) WHERE id = ?`)
+      .run(c.new_lat, c.new_lng, pub.lat, pub.lng, c.new_address, i.id);
+    db.prepare(`UPDATE location_corrections SET status = 'applied',
+                reviewed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`).run(c.id);
+  })();
+  touchIncident(i.id);
+  audit(req.admin.username, 'correction_approved', i.id, { correction: c.id }, clientIp(req));
+  broadcast('incident', { publicId: i.public_id });
+  res.json({ ok: true });
+});
+
+adminRouter.post('/corrections/:id/reject', requireAdmin('moderate'), (req, res) => {
+  db.prepare(`UPDATE location_corrections SET status = 'rejected',
+              reviewed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ? AND status = 'pending'`)
+    .run(String(req.params.id));
+  audit(req.admin.username, 'correction_rejected', String(req.params.id), null, clientIp(req));
+  res.json({ ok: true });
+});
+
+// --- Annuaire de contacts tunisiens ------------------------------------------
+// Modifiable sans redéploiement ; l'ancienne valeur est conservée dans le
+// journal d'audit (retour arrière possible). Alerte si vérification > 6 mois.
+adminRouter.get('/contacts', requireAdmin('config'), (req, res) => {
+  const rows = db.prepare('SELECT * FROM contacts ORDER BY priority, name_fr').all();
+  const sixMonthsAgo = Date.now() - 182 * 24 * 3600_000;
+  res.json({
+    contacts: rows.map((c) => ({
+      ...c,
+      needsVerification: !c.verified_at || Date.parse(c.verified_at) < sixMonthsAgo,
+    })),
+  });
+});
+
+adminRouter.post('/contacts/:id', requireAdmin('config'), (req, res) => {
+  const c = db.prepare('SELECT * FROM contacts WHERE id = ?').get(String(req.params.id));
+  if (!c) return res.status(404).json({ error: 'Contact introuvable.' });
+  const b = req.body || {};
+  const phoneTel = cleanText(String(b.phoneTel ?? c.phone_tel), 20).replace(/[^\d+]/g, '');
+  if (!/^\+?\d{3,15}$/.test(phoneTel)) return res.status(400).json({ error: 'Numéro invalide.' });
+  // Historique : l'ancienne valeur part au journal d'audit AVANT modification.
+  audit(req.admin.username, 'contact_updated', c.id, {
+    before: { phone_display: c.phone_display, phone_tel: c.phone_tel, is_active: c.is_active },
+  }, clientIp(req));
+  db.prepare(`UPDATE contacts SET
+      name_fr = COALESCE(NULLIF(?, ''), name_fr),
+      name_ar = COALESCE(NULLIF(?, ''), name_ar),
+      phone_display = COALESCE(NULLIF(?, ''), phone_display),
+      phone_tel = ?,
+      is_active = ?,
+      source_name = COALESCE(NULLIF(?, ''), source_name),
+      source_url = COALESCE(NULLIF(?, ''), source_url),
+      verified_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+      verified_by = ?
+      WHERE id = ?`)
+    .run(cleanText(b.nameFr, 120), cleanText(b.nameAr, 120), cleanText(b.phoneDisplay, 30),
+      phoneTel, b.isActive === false ? 0 : 1,
+      cleanText(b.sourceName, 200), cleanText(b.sourceUrl, 300),
+      req.admin.username, c.id);
   res.json({ ok: true });
 });
 

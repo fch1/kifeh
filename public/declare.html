@@ -40,6 +40,7 @@
       <strong data-i18n="fire_warning"></strong><br>
       <span data-i18n="fire_warning_suffix"></span>
     </div>
+    <p class="muted small" style="margin-top:1rem" data-i18n="kifeh_disclaimer"></p>
   </section>
 
   <!-- Étape 2 : localisation -->
@@ -174,7 +175,11 @@
 
   <!-- Confirmation finale -->
   <section id="stepDone" class="step" hidden>
-    <div class="notice ok"><strong data-i18n="done_saved"></strong></div>
+    <!-- Panneau d'urgence (rempli selon le type d'incident, AVANT le message
+         de succès — numéros tunisiens vérifiés uniquement, via l'annuaire) -->
+    <div id="emergencyPanel"></div>
+    <div class="notice ok"><strong data-i18n="done_saved"></strong>
+      <span data-i18n="done_success_note"></span></div>
     <div class="card" id="doneSummary"></div>
     <div class="card" id="followCard">
       <h2 data-i18n="done_follow"></h2>

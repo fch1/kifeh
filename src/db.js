@@ -182,6 +182,100 @@ if (!reporterCols.includes('lang')) {
   db.exec(`ALTER TABLE reporters ADD COLUMN lang TEXT NOT NULL DEFAULT 'fr'`);
 }
 
+// 3. Migrations additives (juillet 2026) — AUCUNE donnée existante n'est
+//    modifiée ni supprimée : uniquement des colonnes et tables nouvelles,
+//    idempotentes (IF NOT EXISTS / vérification de colonne), dans une
+//    transaction. Retour arrière : ces ajouts sont ignorés par l'ancien code.
+db.transaction(() => {
+  // 3a. Date de publication (filtre « période ») — les incidents existants
+  //     reçoivent leur date de création comme valeur initiale.
+  const incidentCols = db.prepare(`PRAGMA table_info(incidents)`).all().map((c) => c.name);
+  if (!incidentCols.includes('published_at')) {
+    db.exec(`ALTER TABLE incidents ADD COLUMN published_at TEXT`);
+    db.exec(`UPDATE incidents SET published_at = created_at
+             WHERE published_at IS NULL AND status IN ('active','resolved','expired')`);
+  }
+
+  // 3b. Type et statut des confirmations (« affected », « fire_seen »…).
+  const confCols = db.prepare(`PRAGMA table_info(confirmations)`).all().map((c) => c.name);
+  if (!confCols.includes('confirmation_type')) {
+    db.exec(`ALTER TABLE confirmations ADD COLUMN confirmation_type TEXT NOT NULL DEFAULT 'affected'`);
+    db.exec(`ALTER TABLE confirmations ADD COLUMN verification_status TEXT NOT NULL DEFAULT 'unverified'`);
+    db.exec(`ALTER TABLE confirmations ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1`);
+  }
+
+  // 3c. Signalements de fin d'incident par la communauté.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS resolution_reports (
+      id TEXT PRIMARY KEY,
+      incident_id TEXT NOT NULL REFERENCES incidents(id),
+      contributor_hash TEXT NOT NULL,
+      proposed_ended_at TEXT,
+      comment TEXT,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','applied','dismissed')),
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      UNIQUE(incident_id, contributor_hash)
+    );
+    CREATE INDEX IF NOT EXISTS idx_resolution_incident ON resolution_reports(incident_id, status);
+  `);
+
+  // 3d. Corrections de localisation (historique complet, jamais de doublon d'incident).
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS location_corrections (
+      id TEXT PRIMARY KEY,
+      incident_id TEXT NOT NULL REFERENCES incidents(id),
+      prev_lat REAL NOT NULL, prev_lng REAL NOT NULL,
+      new_lat REAL NOT NULL, new_lng REAL NOT NULL,
+      prev_address TEXT, new_address TEXT,
+      submitted_by TEXT NOT NULL CHECK (submitted_by IN ('reporter','public','admin')),
+      contributor_hash TEXT,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','applied','rejected')),
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      reviewed_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_corrections_incident ON location_corrections(incident_id, status);
+  `);
+
+  // 3e. Annuaire de contacts tunisiens vérifiés (source unique : jamais de
+  //     numéro en dur dispersé dans le frontend). Modifiable via l'admin.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS contacts (
+      id TEXT PRIMARY KEY,
+      name_fr TEXT NOT NULL,
+      name_ar TEXT NOT NULL,
+      phone_display TEXT NOT NULL,
+      phone_tel TEXT NOT NULL,
+      incident_types TEXT NOT NULL,       -- csv : fire,electricity,water,internet,other
+      coverage TEXT NOT NULL DEFAULT 'national',
+      region TEXT,
+      note_fr TEXT, note_ar TEXT,
+      source_name TEXT, source_url TEXT,
+      verified_at TEXT, verified_by TEXT,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      priority INTEGER NOT NULL DEFAULT 100,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
+  `);
+  // Amorçage (INSERT OR IGNORE : les modifications faites via l'admin priment).
+  const seedContact = db.prepare(`INSERT OR IGNORE INTO contacts
+    (id, name_fr, name_ar, phone_display, phone_tel, incident_types, coverage,
+     source_name, source_url, verified_at, verified_by, is_active, priority)
+    VALUES (@id, @fr, @ar, @disp, @tel, @types, 'national', @src, @url, @vat, 'seed', 1, @prio)`);
+  const VAT = '2026-07-23T00:00:00.000Z';
+  const SRC = 'Ministère de l’Intérieur (services.interieur.gov.tn)';
+  const SRCURL = 'https://services.interieur.gov.tn/wap/fr/';
+  for (const c of [
+    { id: 'protection_civile', fr: 'Protection civile / Pompiers', ar: 'الحماية المدنية', disp: '198', tel: '198', types: 'fire,water,electricity', prio: 1, src: SRC, url: SRCURL, vat: VAT },
+    { id: 'samu', fr: 'SAMU', ar: 'الإسعاف الطبي الاستعجالي', disp: '190', tel: '190', types: 'fire', prio: 2, src: SRC, url: SRCURL, vat: VAT },
+    { id: 'police_secours', fr: 'Police secours', ar: 'شرطة النجدة', disp: '197', tel: '197', types: 'fire', prio: 3, src: SRC, url: SRCURL, vat: VAT },
+    { id: 'garde_nationale', fr: 'Garde nationale', ar: 'الحرس الوطني', disp: '193', tel: '193', types: 'fire', prio: 4, src: SRC, url: SRCURL, vat: VAT },
+    { id: 'steg_urgence', fr: 'Urgences STEG', ar: 'مصلحة الطوارئ — الشركة التونسية للكهرباء والغاز', disp: '80 100 444', tel: '80100444', types: 'electricity', prio: 1, src: 'STEG (steg.com.tn)', url: 'https://www.steg.com.tn', vat: VAT },
+    { id: 'steg_contact', fr: 'STEG — services clients', ar: 'الشركة التونسية للكهرباء والغاز', disp: '71 239 222', tel: '+21671239222', types: 'electricity', prio: 2, src: 'STEG (steg.com.tn)', url: 'https://www.steg.com.tn', vat: VAT },
+    { id: 'sonede_urgence', fr: 'SONEDE — numéro vert', ar: 'الشركة الوطنية لاستغلال وتوزيع المياه — الرقم الأخضر', disp: '80 100 319', tel: '80100319', types: 'water', prio: 1, src: 'SONEDE (sonede.com.tn)', url: 'https://www.sonede.com.tn', vat: VAT },
+    { id: 'sonede_contact', fr: 'SONEDE — contact général', ar: 'الشركة الوطنية لاستغلال وتوزيع المياه', disp: '71 887 000', tel: '+21671887000', types: 'water', prio: 2, src: 'SONEDE (sonede.com.tn)', url: 'https://www.sonede.com.tn', vat: VAT },
+  ]) seedContact.run(c);
+})();
+
 // Réglages par défaut (sans écraser les valeurs administrées).
 const insertSetting = db.prepare('INSERT OR IGNORE INTO settings(key, value) VALUES (?, ?)');
 for (const [k, v] of Object.entries(defaultSettings)) insertSetting.run(k, v);
@@ -206,6 +300,8 @@ if (!lastWipe) {
   db.prepare(`UPDATE settings SET value = ? WHERE key = 'wipe_generation'`).run(WIPE_GENERATION);
   db.exec(`
     DELETE FROM confirmations;
+    DELETE FROM resolution_reports;
+    DELETE FROM location_corrections;
     DELETE FROM attachments;
     DELETE FROM verifications;
     DELETE FROM manage_tokens;

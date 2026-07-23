@@ -90,6 +90,13 @@ export const defaultSettings = {
   dedup_radius_m: '500',
   dedup_window_h: '6',
   manage_link_ttl_days: '30',
+  // Confirmation communautaire des incendies : seuil et distance maximale
+  // (km) entre la position du confirmateur et l'incendie (si position fournie).
+  fire_confirm_threshold: '3',
+  fire_confirm_max_km: '20',
+  // Fin d'incident signalée par la communauté : nombre de signalements
+  // indépendants avant clôture automatique.
+  resolution_threshold: '3',
 };
 
 function devSecret(label) {

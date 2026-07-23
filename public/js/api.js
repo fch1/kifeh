@@ -39,6 +39,34 @@ class ApiError extends Error {
   constructor(message, status, data) { super(message); this.status = status; this.data = data; }
 }
 
+// Identifiant d'appareil pseudonymisé : évite les doubles confirmations
+// (une seule confirmation / signalement de fin par personne et par incident).
+// Aléatoire, sans lien avec l'identité ; haché côté serveur avant stockage.
+function getDeviceId() {
+  try {
+    let id = localStorage.getItem('kifeh_device');
+    if (!id || !/^[A-Za-z0-9_-]{16,64}$/.test(id)) {
+      id = Array.from(crypto.getRandomValues(new Uint8Array(18)), (b) => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'[b % 64]).join('');
+      localStorage.setItem('kifeh_device', id);
+    }
+    return id;
+  } catch { return null; }
+}
+
+// Mémoire locale des actions déjà faites (état « Vous avez confirmé »).
+function markDone(kind, publicId) {
+  try {
+    const k = `kifeh_${kind}`;
+    const s = JSON.parse(localStorage.getItem(k) || '{}');
+    s[publicId] = Date.now();
+    localStorage.setItem(k, JSON.stringify(s));
+  } catch {}
+}
+function isDone(kind, publicId) {
+  try { return Boolean(JSON.parse(localStorage.getItem(`kifeh_${kind}`) || '{}')[publicId]); }
+  catch { return false; }
+}
+
 // Échappement systématique de tout contenu dynamique inséré dans le DOM.
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

@@ -461,10 +461,53 @@ document.getElementById('btnVerify').addEventListener('click', (e) => withButton
   }
 }));
 
+// --- Panneau d'urgence tunisien (selon le type d'incident) -------------------
+// Les numéros viennent EXCLUSIVEMENT de l'annuaire vérifié du serveur : aucun
+// numéro en dur ici, jamais de numéro étranger. Incendie → Protection civile
+// en action principale ; électricité → STEG ; eau → SONEDE. La Protection
+// civile est ajoutée aux pannes uniquement en cas de danger déclaré.
+async function renderEmergencyPanel(type, severity) {
+  const host = document.getElementById('emergencyPanel');
+  if (!host) return;
+  host.innerHTML = '';
+  if (!['fire', 'electricity', 'water'].includes(type)) return;
+  let contacts;
+  try { ({ contacts } = await API.get(`/api/public/contacts?type=${encodeURIComponent(type)}`)); }
+  catch { return; }
+  if (!contacts?.length) return;
+
+  const danger = severity === 'immediate_danger' || severity === 'high';
+  let list = contacts;
+  if (type !== 'fire') {
+    // Panne ordinaire : fournisseur d'abord ; Protection civile seulement en cas de danger.
+    const pc = contacts.find((c) => c.id === 'protection_civile');
+    list = contacts.filter((c) => c.id !== 'protection_civile');
+    if (danger && pc) list = [pc, ...list];
+  }
+  const isFire = type === 'fire';
+  const nameOf = (c) => (LANG === 'ar' ? c.name_ar : c.name_fr);
+  const callBtn = (c, primary) =>
+    `<a class="btn call-btn${primary ? ' call-primary' : ' secondary'}" href="tel:${esc(c.phone_tel)}">
+       ${esc(t('call_btn', { name: nameOf(c), num: c.phone_display }))}</a>`;
+
+  const [first, ...rest] = list;
+  host.innerHTML = `
+    <div class="emergency-panel${isFire || danger ? ' danger' : ''}" role="alert">
+      <h2>${isFire ? t('emergency_title') : t('useful_numbers')}</h2>
+      ${isFire ? `<p><strong>${t('fire_safety_msg')}</strong></p><p class="small">${t('fire_safety_donts')}</p>` : ''}
+      ${danger && !isFire ? `<p><strong>${t('provider_note_danger')}</strong></p>` : ''}
+      ${callBtn(first, true)}
+      ${rest.slice(0, 3).map((c) => callBtn(c, false)).join('')}
+      ${type === 'electricity' ? `<p class="small">${t('provider_note_electricity')}</p>` : ''}
+      ${type === 'water' ? `<p class="small">${t('provider_note_water')}</p>` : ''}
+    </div>`;
+}
+
 function finish(r) {
   clearInterval(pollTimer);
   clearDraft();
   window.track?.('incident_published', { incident_type: r.incident?.type, status: r.status });
+  renderEmergencyPanel(r.incident?.type || state.type, state.severity);
   const i = r.incident;
   document.getElementById('doneSummary').innerHTML = `
     <h2>${t('ref')} ${esc(r.publicId)}</h2>
@@ -483,6 +526,7 @@ function finish(r) {
 
 function finishFromManage(r) {
   clearDraft();
+  renderEmergencyPanel(r.type, state.severity);
   document.getElementById('doneSummary').innerHTML = `
     <h2>${t('ref')} ${esc(r.publicId)}</h2>
     <p><span class="badge ${esc(r.type)}">${TYPE_ICONS[r.type]} ${esc(TYPE_LABELS[r.type])}</span>
