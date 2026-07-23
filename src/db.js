@@ -186,6 +186,14 @@ if (!reporterCols.includes('lang')) {
 const insertSetting = db.prepare('INSERT OR IGNORE INTO settings(key, value) VALUES (?, ?)');
 for (const [k, v] of Object.entries(defaultSettings)) insertSetting.run(k, v);
 
+// Bascule ponctuelle (juillet 2026) : OTP désactivé le temps de configurer un
+// fournisseur SMS/e-mail. Exécutée UNE seule fois (marqueur) — réactivable à
+// tout moment via Admin → Configuration ou la variable VERIFICATION_REQUIRED=1.
+if (!db.prepare(`SELECT 1 FROM settings WHERE key = 'migr_otp_off_202607'`).get()) {
+  db.prepare(`INSERT INTO settings(key, value) VALUES ('migr_otp_off_202607', 'done')`).run();
+  db.prepare(`UPDATE settings SET value = '0' WHERE key = 'verification_required'`).run();
+}
+
 export function getSetting(key) {
   // Priorité aux variables d'environnement (ex. VERIFICATION_REQUIRED=0 dans
   // Render) : permet de piloter la configuration sans passer par l'admin.
