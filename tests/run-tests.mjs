@@ -72,7 +72,7 @@ async function main() {
 
   const server = spawn('node', ['server.js'], {
     env: { ...process.env, NODE_ENV: 'development', PORT: String(PORT), DB_PATH: DB,
-           BASE_URL: BASE, ADMIN_PASSWORD, ADMIN_USERNAME: 'admin' },
+           BASE_URL: BASE, ADMIN_PASSWORD, ADMIN_USERNAME: 'admin', SANDBOX_ENABLED: '0' },
     stdio: ['ignore', 'pipe', 'inherit'],
   });
   server.stdout.on('data', () => {});

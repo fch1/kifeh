@@ -22,7 +22,8 @@ export const config = {
   // de test cloisonné sous /sandbox (base + fichiers séparés, purge auto).
   // SANDBOX=1 est posé automatiquement sur le processus enfant — ne pas le définir soi-même.
   isSandbox: env.SANDBOX === '1',
-  sandboxEnabled: env.SANDBOX_ENABLED === '1',
+  // Activée par défaut ; SANDBOX_ENABLED=0 pour la couper.
+  sandboxEnabled: env.SANDBOX_ENABLED !== '0' ,
   sandboxPort: Number(env.SANDBOX_PORT || Number(env.PORT || 3000) + 1),
   baseUrl: env.BASE_URL || `http://localhost:${env.PORT || 3000}`,
 

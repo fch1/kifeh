@@ -1,6 +1,6 @@
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
-const server = spawn('node', ['server.js'], { env: { ...process.env, NODE_ENV: 'development', PORT: '3998', DB_PATH: 'data/smoke.db', BASE_URL: 'http://localhost:3998' }, stdio: 'ignore' });
+const server = spawn('node', ['server.js'], { env: { ...process.env, NODE_ENV: 'development', PORT: '3998', DB_PATH: 'data/smoke.db', BASE_URL: 'http://localhost:3998', SANDBOX_ENABLED: '0' }, stdio: 'ignore' });
 await new Promise(r => setTimeout(r, 1200));
 const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' }).catch(() => chromium.launch());
 const errors = [];

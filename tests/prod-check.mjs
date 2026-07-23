@@ -4,7 +4,7 @@
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 fs.rmSync('data/prod.db', { force: true }); fs.rmSync('data/prod.db-wal', { force: true }); fs.rmSync('data/prod.db-shm', { force: true });
-const server = spawn('node', ['server.js'], { env: { ...process.env, NODE_ENV: 'production', PORT: '3996', DB_PATH: 'data/prod.db', BASE_URL: 'http://localhost:3996', ADMIN_PASSWORD: 'check-1234', ADMIN_USERNAME: 'admin' }, stdio: 'ignore' });
+const server = spawn('node', ['server.js'], { env: { ...process.env, NODE_ENV: 'production', PORT: '3996', DB_PATH: 'data/prod.db', BASE_URL: 'http://localhost:3996', ADMIN_PASSWORD: 'check-1234', ADMIN_USERNAME: 'admin', SANDBOX_ENABLED: '0' }, stdio: 'ignore' });
 await new Promise(r => setTimeout(r, 2500));
 const B = 'http://localhost:3996';
 let pass = 0, fail = 0;
@@ -62,7 +62,7 @@ try {
   // — resynchronisation du mot de passe admin via l'environnement —
   server.kill();
   await new Promise((r) => setTimeout(r, 500));
-  const server2 = spawn('node', ['server.js'], { env: { ...process.env, NODE_ENV: 'production', PORT: '3996', DB_PATH: 'data/prod.db', BASE_URL: 'http://localhost:3996', ADMIN_PASSWORD: 'nouveau-5678', ADMIN_USERNAME: 'admin', VERIFICATION_REQUIRED: '0' }, stdio: 'ignore' });
+  const server2 = spawn('node', ['server.js'], { env: { ...process.env, NODE_ENV: 'production', PORT: '3996', DB_PATH: 'data/prod.db', BASE_URL: 'http://localhost:3996', ADMIN_PASSWORD: 'nouveau-5678', ADMIN_USERNAME: 'admin', VERIFICATION_REQUIRED: '0', SANDBOX_ENABLED: '0' }, stdio: 'ignore' });
   await new Promise((r) => setTimeout(r, 2500));
   try {
     const relog = await api('POST', '/api/admin/login', { username: 'admin', password: 'nouveau-5678' });
