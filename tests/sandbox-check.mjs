@@ -5,7 +5,7 @@ for (const f of ['data/sbx-main.db', 'data/sandbox.db']) { fs.rmSync(f, { force:
 const server = spawn('node', ['server.js'], {
   env: { ...process.env, NODE_ENV: 'production', PORT: '3995', DB_PATH: 'data/sbx-main.db',
          BASE_URL: 'http://localhost:3995', ADMIN_PASSWORD: 'sbx-1234', SANDBOX_ENABLED: '1',
-         SANDBOX_VERIFICATION_REQUIRED: '0' },
+         SANDBOX_VERIFICATION_REQUIRED: '0', SANDBOX_OTHER_CATEGORY_ENABLED: '1' },
   stdio: 'ignore',
 });
 await new Promise((r) => setTimeout(r, 4500));
@@ -19,8 +19,10 @@ try {
   const cfgS = await api('GET', '/sandbox/api/public/config');
   ok(cfgS.data.sandbox === true, 'la sandbox se déclare comme telle (bandeau de test)');
   ok(cfgS.data.verificationRequired === false, 'SANDBOX_VERIFICATION_REQUIRED=0 : OTP désactivé dans la sandbox uniquement');
+  ok(cfgS.data.otherCategoryEnabled === true, 'réglage SANDBOX_ spécifique appliqué dans la sandbox');
   const cfgP = await api('GET', '/api/public/config');
-  ok(cfgP.data.sandbox === false && cfgP.data.verificationRequired === true, 'la prod garde sa propre configuration');
+  ok(cfgP.data.sandbox === false && cfgP.data.otherCategoryEnabled === false,
+    'la prod garde sa propre configuration (cloisonnement des réglages)');
   const page = await fetch(B + '/sandbox/declare.html');
   ok(page.status === 200 && (await page.text()).includes('Kifeh'), 'pages statiques servies sous /sandbox');
   // Déclaration DANS la sandbox

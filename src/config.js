@@ -4,6 +4,17 @@ import crypto from 'node:crypto';
 
 const env = process.env;
 
+// URL publique détectée à partir des requêtes entrantes quand BASE_URL n'est
+// pas définie (ex. liens de gestion corrects sans configuration manuelle).
+let runtimeBaseUrl = null;
+export function captureBaseUrl(req) {
+  if (env.BASE_URL) return;
+  try { runtimeBaseUrl = `${req.protocol}://${req.get('host')}`; } catch {}
+}
+export function getBaseUrl() {
+  return env.BASE_URL || runtimeBaseUrl || `http://localhost:${env.PORT || 3000}`;
+}
+
 export const config = {
   port: Number(env.PORT || 3000),
   isDev: (env.NODE_ENV || 'development') !== 'production',

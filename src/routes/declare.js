@@ -15,7 +15,7 @@ import { storeAttachment, MAX_UPLOAD_BYTES } from '../services/media.js';
 import { sendSms, sendEmail } from '../services/notifier.js';
 import { broadcast } from './events.js';
 import { audit } from '../services/audit.js';
-import { config } from '../config.js';
+import { config, getBaseUrl } from '../config.js';
 import { getLang, msg } from '../i18n.js';
 
 export const declareRouter = Router();
@@ -315,7 +315,7 @@ async function publishIncident(incidentId, reporterId, ip, lang = 'fr') {
   db.prepare(`INSERT INTO manage_tokens(id, incident_id, token_hash, expires_at)
               VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now', ?))`)
     .run(uuid(), incident.id, sha256(manageToken), `+${ttlDays} days`);
-  const manageUrl = `${config.baseUrl}/manage.html?token=${manageToken}`;
+  const manageUrl = `${getBaseUrl()}/manage.html?token=${manageToken}`;
 
   // Envoi du lien de gestion par SMS / e-mail (si un contact existe).
   try {

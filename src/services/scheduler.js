@@ -6,7 +6,7 @@ import { sendSms, sendEmail } from './notifier.js';
 import { broadcast } from '../routes/events.js';
 import { audit } from './audit.js';
 import { pruneRateEvents } from '../middleware/rateLimit.js';
-import { config } from '../config.js';
+import { config, getBaseUrl } from '../config.js';
 import { msg } from '../i18n.js';
 
 export function startScheduler() {
@@ -51,7 +51,7 @@ async function sendExpiryReminders() {
     try {
       const contact = decrypt(row.contact_encrypted);
       const lang = row.lang || 'fr';
-      const url = `${config.baseUrl}/manage.html`;
+      const url = `${getBaseUrl()}/manage.html`;
       const text = msg(lang, 'reminder_body', { publicId: row.public_id, url });
       if (row.channel === 'sms') await sendSms(contact, text);
       else await sendEmail(contact, msg(lang, 'reminder_subject', { publicId: row.public_id }), text);

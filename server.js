@@ -4,7 +4,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { config } from './src/config.js';
+import { config, captureBaseUrl } from './src/config.js';
 import { bootstrapAdmin } from './src/db.js';
 import { securityHeaders } from './src/middleware/security.js';
 import { publicRouter } from './src/routes/public.js';
@@ -24,6 +24,7 @@ app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
 app.use(securityHeaders);
+app.use((req, res, next) => { captureBaseUrl(req); next(); });
 
 // Sonde de santé (Render : Settings → Health Check Path = /healthz →
 // déploiements sans coupure : l'ancienne instance sert jusqu'à ce que la

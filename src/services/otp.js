@@ -5,7 +5,7 @@ import { db, getSettingNum } from '../db.js';
 import { sha256, otpCode, randomToken, uuid } from './crypto.js';
 import { sendSms, sendEmail } from './notifier.js';
 import { audit } from './audit.js';
-import { config } from '../config.js';
+import { config, getBaseUrl } from '../config.js';
 import { msg } from '../i18n.js';
 
 const nowIso = () => new Date().toISOString();
@@ -37,7 +37,7 @@ async function deliver(channel, contact, codePlain, verificationId, ttlMin, lang
     await sendEmail(contact, msg(lang, 'email_otp_subject'),
       msg(lang, 'email_otp_body', { code: codePlain, ttl: ttlMin }));
   } else {
-    const link = `${config.baseUrl}/verify.html?vid=${verificationId}&t=${codePlain}&lang=${lang}`;
+    const link = `${getBaseUrl()}/verify.html?vid=${verificationId}&t=${codePlain}&lang=${lang}`;
     await sendEmail(contact, msg(lang, 'email_link_subject'),
       msg(lang, 'email_link_body', { link, ttl: ttlMin }),
       msg(lang, 'email_link_html', { link, ttl: ttlMin }));
