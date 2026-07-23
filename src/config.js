@@ -19,7 +19,7 @@ export function getBaseUrl() {
 
 // Google Analytics 4 : identifiant de mesure (G-XXXXXXXXXX).
 // Renseigné soit ici, soit via la variable d'environnement GA_MEASUREMENT_ID.
-const DEFAULT_GA_ID = 'G-B33KFSSPS';
+const DEFAULT_GA_ID = 'G-B33KFSSPSG';
 
 export const config = {
   gaId: env.GA_MEASUREMENT_ID || DEFAULT_GA_ID,
