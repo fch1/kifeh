@@ -16,6 +16,7 @@ const I18N = {
     err_offline: 'Connexion internet indisponible. Vos saisies sont conservées, réessayez.',
     err_server: 'Le serveur ne répond pas. Vérifiez votre connexion et réessayez.',
     lang_button: 'العربية',
+    sandbox_banner: '🧪 Environnement de test (sandbox) — les données sont fictives et effacées automatiquement.',
     // Types / statuts / gravité
     type_electricity: 'Électricité', type_water: 'Eau', type_fire: 'Incendie',
     type_internet: 'Internet', type_other: 'Autre',
@@ -195,6 +196,7 @@ const I18N = {
     err_offline: 'لا يوجد اتصال بالإنترنت. مدخلاتك محفوظة، حاول مرة أخرى.',
     err_server: 'الخادم لا يستجيب. تحقق من اتصالك وحاول مرة أخرى.',
     lang_button: 'Français',
+    sandbox_banner: '🧪 بيئة تجريبية (Sandbox) — البيانات وهمية وتُحذف تلقائيًا.',
     type_electricity: 'كهرباء', type_water: 'ماء', type_fire: 'حريق',
     type_internet: 'إنترنت', type_other: 'أخرى',
     status_active: 'جارٍ', status_resolved: 'تمت المعالجة', status_expired: 'منتهي',

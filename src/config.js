@@ -7,6 +7,12 @@ const env = process.env;
 export const config = {
   port: Number(env.PORT || 3000),
   isDev: (env.NODE_ENV || 'development') !== 'production',
+  // Sandbox : SANDBOX_ENABLED=1 sur l'instance principale monte un environnement
+  // de test cloisonné sous /sandbox (base + fichiers séparés, purge auto).
+  // SANDBOX=1 est posé automatiquement sur le processus enfant — ne pas le définir soi-même.
+  isSandbox: env.SANDBOX === '1',
+  sandboxEnabled: env.SANDBOX_ENABLED === '1',
+  sandboxPort: Number(env.SANDBOX_PORT || Number(env.PORT || 3000) + 1),
   baseUrl: env.BASE_URL || `http://localhost:${env.PORT || 3000}`,
 
   dbPath: env.DB_PATH || 'data/incidents.db',

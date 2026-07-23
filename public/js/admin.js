@@ -61,7 +61,7 @@ async function renderIncidentList(status) {
     <select id="statusFilter">${statuses.map((s) =>
       `<option value="${s}" ${s === status ? 'selected' : ''}>${s ? esc(STATUS_LABELS[s] || s) : 'File d’attente (à traiter + actifs)'}</option>`).join('')}
     </select>
-    <p class="muted small">${rows.length} incident(s) · <a href="/api/admin/export">Exporter en CSV</a></p>
+    <p class="muted small">${rows.length} incident(s) · <a href="${API_BASE}/api/admin/export">Exporter en CSV</a></p>
     <div id="rows"></div>
     <div id="incidentDetail"></div>`;
   document.getElementById('statusFilter').addEventListener('change', (e) => renderIncidentList(e.target.value));
@@ -116,7 +116,7 @@ async function renderDetail(id) {
 
       ${i.attachments.length ? `<h2>Pièces jointes</h2>` + i.attachments.map((a) =>
         `<p class="small">📎 ${esc(a.mime)} — ${esc(a.moderation_status)} ${a.public ? '(publique)' : '(privée)'}
-         <a href="/api/admin/attachments/${esc(a.id)}/file" target="_blank">voir</a>
+         <a href="${API_BASE}/api/admin/attachments/${esc(a.id)}/file" target="_blank">voir</a>
          <button class="btn ghost small-btn" data-approve-att="${esc(a.id)}">Approuver + publier</button>
          <button class="btn ghost small-btn" data-reject-att="${esc(a.id)}">Rejeter</button></p>`).join('') : ''}
 

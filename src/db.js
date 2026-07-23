@@ -189,6 +189,12 @@ for (const [k, v] of Object.entries(defaultSettings)) insertSetting.run(k, v);
 export function getSetting(key) {
   // Priorité aux variables d'environnement (ex. VERIFICATION_REQUIRED=0 dans
   // Render) : permet de piloter la configuration sans passer par l'admin.
+  // Dans la sandbox, SANDBOX_<CLÉ> prime (ex. SANDBOX_VERIFICATION_REQUIRED=0
+  // pour tester sans OTP pendant que la prod le garde).
+  if (config.isSandbox) {
+    const sv = process.env['SANDBOX_' + key.toUpperCase()];
+    if (sv !== undefined && sv !== '') return sv;
+  }
   const envValue = process.env[key.toUpperCase()];
   if (envValue !== undefined && envValue !== '') return envValue;
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);

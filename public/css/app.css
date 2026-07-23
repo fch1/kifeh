@@ -257,6 +257,12 @@ html[dir="rtl"] .topbar .back .arrow { display: inline-block; transform: scaleX(
 .otp-input { letter-spacing: .5em; text-align: center; font-size: 1.5rem; font-variant-numeric: tabular-nums; font-weight: 600; }
 
 /* États */
+.sandbox-banner {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 2900;
+  background: var(--secondary); color: #fff; text-align: center;
+  padding: .4rem .75rem calc(.4rem + env(safe-area-inset-bottom));
+  font-size: .8125rem; font-weight: 600;
+}
 .offline-banner {
   position: fixed; top: 0; left: 0; right: 0; z-index: 3000; background: var(--warn); color: #fff;
   text-align: center; padding: .5rem; font-size: .875rem; font-weight: 600; display: none;

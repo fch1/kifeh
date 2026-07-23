@@ -62,6 +62,12 @@ let verificationRequired = true;
 API.get('/api/public/config')
   .then((c) => {
     document.getElementById('typeOther').hidden = !c.otherCategoryEnabled;
+    if (c.sandbox) {
+      const b = document.createElement('div');
+      b.className = 'sandbox-banner';
+      b.textContent = t('sandbox_banner');
+      document.body.appendChild(b);
+    }
     verificationRequired = c.verificationRequired !== false;
     if (!verificationRequired) {
       // La vérification est désactivée : le bouton de l'étape 4 publie directement.

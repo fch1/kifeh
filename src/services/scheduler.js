@@ -19,6 +19,21 @@ export async function tick() {
   expireIncidents();
   purgePersonalData();
   pruneRateEvents();
+  if (config.isSandbox) purgeSandboxData();
+}
+
+// Sandbox : tout est effacé au bout de 24 h — c'est un bac à sable, pas une archive.
+function purgeSandboxData() {
+  const cutoff = `strftime('%Y-%m-%dT%H:%M:%fZ','now','-24 hours')`;
+  db.exec(`
+    DELETE FROM confirmations WHERE incident_id IN (SELECT id FROM incidents WHERE created_at < ${cutoff});
+    DELETE FROM attachments WHERE incident_id IN (SELECT id FROM incidents WHERE created_at < ${cutoff});
+    DELETE FROM verifications WHERE incident_id IN (SELECT id FROM incidents WHERE created_at < ${cutoff});
+    DELETE FROM manage_tokens WHERE incident_id IN (SELECT id FROM incidents WHERE created_at < ${cutoff});
+    DELETE FROM reports WHERE incident_id IN (SELECT id FROM incidents WHERE created_at < ${cutoff});
+    DELETE FROM incidents WHERE created_at < ${cutoff};
+    DELETE FROM reporters WHERE created_at < ${cutoff} AND id NOT IN (SELECT DISTINCT reporter_id FROM incidents WHERE reporter_id IS NOT NULL);
+  `);
 }
 
 // « Cet incident est-il toujours en cours ? » N heures avant expiration.

@@ -1,6 +1,8 @@
 // Kifeh كيفاه — serveur principal.
 import express from 'express';
+import http from 'node:http';
 import path from 'node:path';
+import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { config } from './src/config.js';
 import { bootstrapAdmin } from './src/db.js';
@@ -22,12 +24,65 @@ app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
 app.use(securityHeaders);
-app.use(express.json({ limit: '100kb' }));
 
 // Sonde de santé (Render : Settings → Health Check Path = /healthz →
 // déploiements sans coupure : l'ancienne instance sert jusqu'à ce que la
 // nouvelle soit prête, plus de 502 pendant les mises à jour).
 app.get('/healthz', (req, res) => res.json({ ok: true }));
+
+// ── Sandbox (/sandbox) — environnement de test totalement cloisonné ─────────
+// Activé par SANDBOX_ENABLED=1 : un second processus identique tourne en
+// interne avec SA PROPRE base de données et SES PROPRES fichiers ; ce proxy
+// lui transmet tout ce qui commence par /sandbox. Rien n'est partagé avec la
+// production. Monté AVANT express.json pour transmettre les corps tels quels.
+if (config.sandboxEnabled && !config.isSandbox) {
+  const sandboxDb = path.join(path.dirname(config.dbPath), 'sandbox.db');
+  const sandboxUploads = `${config.uploadsDir.replace(/\/$/, '')}-sandbox`;
+  let sandboxChild = null;
+  let shuttingDown = false;
+  const startSandbox = () => {
+    const child = sandboxChild = spawn(process.execPath, [fileURLToPath(import.meta.url)], {
+      env: {
+        ...process.env,
+        SANDBOX: '1', SANDBOX_ENABLED: '',
+        PORT: String(config.sandboxPort),
+        DB_PATH: sandboxDb,
+        UPLOADS_DIR: sandboxUploads,
+        BASE_URL: `${config.baseUrl}/sandbox`,
+      },
+      stdio: 'inherit',
+    });
+    child.on('exit', (code) => {
+      if (shuttingDown) return;
+      console.error(`[sandbox] processus arrêté (code ${code}), relance dans 3 s`);
+      setTimeout(startSandbox, 3000);
+    });
+  };
+  startSandbox();
+  const stopAll = () => { shuttingDown = true; try { sandboxChild?.kill(); } catch {} process.exit(0); };
+  process.on('SIGTERM', stopAll);
+  process.on('SIGINT', stopAll);
+
+  app.use('/sandbox', (req, res) => {
+    const targetPath = req.originalUrl.replace(/^\/sandbox/, '') || '/';
+    const proxyReq = http.request({
+      host: '127.0.0.1', port: config.sandboxPort, path: targetPath,
+      method: req.method,
+      headers: { ...req.headers, host: `127.0.0.1:${config.sandboxPort}` },
+    }, (proxyRes) => {
+      res.writeHead(proxyRes.statusCode, { ...proxyRes.headers, 'X-Robots-Tag': 'noindex' });
+      proxyRes.pipe(res);
+    });
+    proxyReq.on('error', () => {
+      if (!res.headersSent) res.status(503).json({ error: 'Sandbox en cours de démarrage — réessayez dans quelques secondes.' });
+    });
+    req.pipe(proxyReq);
+  });
+} else if (!config.isSandbox) {
+  app.use('/sandbox', (req, res) => res.status(404).json({ error: 'Sandbox non activée (définir SANDBOX_ENABLED=1).' }));
+}
+
+app.use(express.json({ limit: '100kb' }));
 
 app.use('/api/public', publicRouter);
 app.use('/api/declare', declareRouter);
@@ -69,7 +124,7 @@ const server = app.listen(PORT, HOST, () => {
   const address = server.address();
 
   console.log(
-    `Kifeh كيفاه — serveur actif sur ${HOST}:${address.port} ` +
+    `Kifeh كيفاه${config.isSandbox ? ' [SANDBOX]' : ''} — serveur actif sur ${HOST}:${address.port} ` +
     `(${config.isDev ? 'développement' : 'production'})`
   );
 

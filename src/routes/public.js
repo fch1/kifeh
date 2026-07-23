@@ -12,6 +12,7 @@ import { createVerification, verifyCode } from '../services/otp.js';
 import { broadcast } from './events.js';
 import { audit } from '../services/audit.js';
 import { getLang, msg } from '../i18n.js';
+import { config } from '../config.js';
 
 export const publicRouter = Router();
 
@@ -212,6 +213,7 @@ publicRouter.get('/config', (req, res) => {
   res.json({
     otherCategoryEnabled: getSettingNum('other_category_enabled') === 1,
     verificationRequired: getSettingNum('verification_required') !== 0,
+    sandbox: config.isSandbox,
   });
 });
 

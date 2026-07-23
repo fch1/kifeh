@@ -179,6 +179,17 @@ de migrer vers PostgreSQL + stockage objet — hors périmètre du MVP.
    et compléter le pilote SMTP dans `src/services/notifier.js` (une dizaine de
    lignes, indiqué en commentaire), puis `NOTIFIER_DRIVER=smtp`.
 
+## Sandbox de test (/sandbox)
+
+Ajouter `SANDBOX_ENABLED=1` dans les variables d'environnement : un environnement
+de test complet devient accessible sur `https://votre-domaine/sandbox` — mêmes
+écrans, mais **base de données et fichiers totalement séparés** de la production,
+bandeau « environnement de test » affiché, données purgées automatiquement après
+24 h, et exclusion des moteurs de recherche. Tout réglage peut différer de la
+prod avec le préfixe `SANDBOX_` (ex. `SANDBOX_VERIFICATION_REQUIRED=0` pour
+tester sans OTP pendant que la prod le garde). Vérification locale :
+`npm run check:sandbox`.
+
 ## Intégration WebView (iOS / Android)
 
 - Charger simplement `https://votre-domaine/` dans la WebView.

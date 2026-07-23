@@ -2,8 +2,12 @@
 // (Les libellés, fmtDate et timeAgo sont fournis par i18n.js, chargé avant.)
 'use strict';
 
+// Sous /sandbox, toutes les requêtes API restent dans la sandbox.
+const API_BASE = location.pathname.startsWith('/sandbox') ? '/sandbox' : '';
+
 const API = {
   async call(method, url, body = null, opts = {}) {
+    if (url.startsWith('/api')) url = API_BASE + url;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), opts.timeout || 15000);
     try {

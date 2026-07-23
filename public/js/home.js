@@ -4,7 +4,18 @@
 const map = createMap('map');
 let userPos = null;
 let verificationRequired = true;
-API.get('/api/public/config').then((c) => { verificationRequired = c.verificationRequired !== false; }).catch(() => {});
+API.get('/api/public/config').then((c) => {
+  verificationRequired = c.verificationRequired !== false;
+  if (c.sandbox) showSandboxBanner();
+}).catch(() => {});
+
+function showSandboxBanner() {
+  const b = document.createElement('div');
+  b.className = 'sandbox-banner';
+  b.setAttribute('role', 'status');
+  b.textContent = t('sandbox_banner');
+  document.body.appendChild(b);
+}
 let incidents = [];
 const filters = { types: new Set(), status: 'active', periodH: '' };
 
@@ -37,7 +48,7 @@ loadIncidents();
 
 // --- Temps réel (SSE) -------------------------------------------------------
 try {
-  const es = new EventSource('/api/events');
+  const es = new EventSource(`${API_BASE}/api/events`);
   es.addEventListener('incident', () => { clearTimeout(loadTimer); loadTimer = setTimeout(loadIncidents, 500); });
 } catch { /* repli : rechargement au déplacement de carte */ }
 
