@@ -214,6 +214,7 @@ async function openDetail(publicId) {
       return withButton(e.currentTarget, async () => {
         try {
           const r = await API.post('/api/public/confirm/direct', { publicId: i.public_id });
+          window.track?.('incident_confirmed', { incident_type: i.type });
           document.getElementById('confirmZone').innerHTML =
             `<p class="notice ok">${r.confirmations > 1 ? t('thanks_n', { n: r.confirmations }) : t('thanks_one')}</p>`;
           loadIncidents();

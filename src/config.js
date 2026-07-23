@@ -17,7 +17,12 @@ export function getBaseUrl() {
   return !env.BASE_URL && env.SANDBOX === '1' ? `${base}/sandbox` : base;
 }
 
+// Google Analytics 4 : identifiant de mesure (G-XXXXXXXXXX).
+// Renseigné soit ici, soit via la variable d'environnement GA_MEASUREMENT_ID.
+const DEFAULT_GA_ID = '';
+
 export const config = {
+  gaId: env.GA_MEASUREMENT_ID || DEFAULT_GA_ID,
   port: Number(env.PORT || 3000),
   isDev: (env.NODE_ENV || 'development') !== 'production',
   // Sandbox : SANDBOX_ENABLED=1 sur l'instance principale monte un environnement

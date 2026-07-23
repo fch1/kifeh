@@ -79,6 +79,7 @@ API.get('/api/public/config')
 for (const card of document.querySelectorAll('.type-card')) {
   card.addEventListener('click', () => {
     state.type = card.dataset.type;
+    window.track?.('declare_started', { incident_type: state.type });
     document.querySelectorAll('.type-card').forEach((c) => c.setAttribute('aria-pressed', c === card));
     const isFire = state.type === 'fire';
     document.getElementById('fireWarning').hidden = !isFire;
@@ -463,6 +464,7 @@ document.getElementById('btnVerify').addEventListener('click', (e) => withButton
 function finish(r) {
   clearInterval(pollTimer);
   clearDraft();
+  window.track?.('incident_published', { incident_type: r.incident?.type, status: r.status });
   const i = r.incident;
   document.getElementById('doneSummary').innerHTML = `
     <h2>${t('ref')} ${esc(r.publicId)}</h2>

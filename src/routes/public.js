@@ -214,6 +214,7 @@ publicRouter.get('/config', (req, res) => {
     otherCategoryEnabled: getSettingNum('other_category_enabled') === 1,
     verificationRequired: getSettingNum('verification_required') !== 0,
     sandbox: config.isSandbox,
+    gaId: config.isSandbox ? '' : config.gaId, // pas de mesure d'audience dans la sandbox
   });
 });
 
