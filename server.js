@@ -49,7 +49,7 @@ if (config.sandboxEnabled && !config.isSandbox) {
         PORT: String(config.sandboxPort),
         DB_PATH: sandboxDb,
         UPLOADS_DIR: sandboxUploads,
-        BASE_URL: `${config.baseUrl}/sandbox`,
+        BASE_URL: process.env.BASE_URL ? `${process.env.BASE_URL}/sandbox` : '',
       },
       stdio: 'inherit',
     });
@@ -69,7 +69,7 @@ if (config.sandboxEnabled && !config.isSandbox) {
     const proxyReq = http.request({
       host: '127.0.0.1', port: config.sandboxPort, path: targetPath,
       method: req.method,
-      headers: { ...req.headers, host: `127.0.0.1:${config.sandboxPort}` },
+      headers: { ...req.headers }, // Host d'origine conservé : la sandbox déduit sa vraie URL publique
     }, (proxyRes) => {
       res.writeHead(proxyRes.statusCode, { ...proxyRes.headers, 'X-Robots-Tag': 'noindex' });
       proxyRes.pipe(res);

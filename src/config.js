@@ -12,7 +12,9 @@ export function captureBaseUrl(req) {
   try { runtimeBaseUrl = `${req.protocol}://${req.get('host')}`; } catch {}
 }
 export function getBaseUrl() {
-  return env.BASE_URL || runtimeBaseUrl || `http://localhost:${env.PORT || 3000}`;
+  const base = env.BASE_URL || runtimeBaseUrl || `http://localhost:${env.PORT || 3000}`;
+  // Processus sandbox sans BASE_URL explicite : les liens restent sous /sandbox.
+  return !env.BASE_URL && env.SANDBOX === '1' ? `${base}/sandbox` : base;
 }
 
 export const config = {
