@@ -194,11 +194,13 @@ if (!db.prepare(`SELECT 1 FROM settings WHERE key = 'migr_otp_off_202607'`).get(
   db.prepare(`UPDATE settings SET value = '0' WHERE key = 'verification_required'`).run();
 }
 
-// Purge ponctuelle demandée (23/07/2026) : remise à zéro des données de test
-// de production. Exécutée UNE seule fois (marqueur) — comptes admin et
-// configuration conservés.
-if (!db.prepare(`SELECT 1 FROM settings WHERE key = 'migr_wipe_202607'`).get()) {
-  db.prepare(`INSERT INTO settings(key, value) VALUES ('migr_wipe_202607', 'done')`).run();
+// Purge des données sur demande : incrémenter WIPE_GENERATION et déployer
+// suffit à remettre la base à zéro UNE fois (admin + configuration conservés).
+const WIPE_GENERATION = '2026-07-23-2';
+const lastWipe = db.prepare(`SELECT value FROM settings WHERE key = 'wipe_generation'`).get()?.value;
+if (lastWipe !== WIPE_GENERATION) {
+  db.prepare(`INSERT INTO settings(key, value) VALUES ('wipe_generation', ?)
+              ON CONFLICT(key) DO UPDATE SET value = excluded.value`).run(WIPE_GENERATION);
   db.exec(`
     DELETE FROM confirmations;
     DELETE FROM attachments;
@@ -215,7 +217,7 @@ if (!db.prepare(`SELECT 1 FROM settings WHERE key = 'migr_wipe_202607'`).get()) 
       if (fs.existsSync(dir)) for (const f of fs.readdirSync(dir)) fs.rmSync(path.join(dir, f), { force: true });
     }
   } catch { /* fichiers absents : rien à faire */ }
-  console.log('Purge ponctuelle des données effectuée (migr_wipe_202607).');
+  console.log(`Purge des données effectuée (génération ${WIPE_GENERATION}).`);
 }
 
 export function getSetting(key) {
