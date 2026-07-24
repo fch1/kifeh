@@ -9,6 +9,7 @@ import { broadcast } from '../routes/events.js';
 import { audit } from './audit.js';
 import { pruneRateEvents } from '../middleware/rateLimit.js';
 import { config, getBaseUrl } from '../config.js';
+import { syncFirms } from './firms.js';
 import { msg } from '../i18n.js';
 
 export function startScheduler() {
@@ -23,6 +24,11 @@ export async function tick() {
   pruneRateEvents();
   if (config.isSandbox) purgeSandboxData();
   if (!config.isSandbox) await rollingBackup();
+  // NASA FIRMS : synchronisation automatique (cadence réglée par
+  // firms_sync_interval_min, 15 min par défaut ; inactif sans clé API).
+  if (!config.isSandbox) {
+    try { await syncFirms(); } catch (e) { console.error('[firms]', e.message); }
+  }
 }
 
 // Sauvegardes sur le disque persistant (dossier backups/) :
@@ -107,7 +113,9 @@ function expireIncidents() {
      WHERE status = 'active' AND expires_at IS NOT NULL AND expires_at < strftime('%Y-%m-%dT%H:%M:%fZ','now')`
   ).all();
   for (const { id, public_id } of expired) {
-    db.prepare(`UPDATE incidents SET status = 'expired' WHERE id = ?`).run(id);
+    db.prepare(`UPDATE incidents SET status = 'expired',
+                resolved_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+                resolution_source = 'automatic_expiration' WHERE id = ?`).run(id);
     touchIncident(id);
     audit('system', 'incident_expired', id);
     broadcast('incident', { publicId: public_id, status: 'expired' });

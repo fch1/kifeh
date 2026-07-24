@@ -64,11 +64,25 @@ class GridCluster {
     }
   }
   addMarker(it) {
-    const m = L.marker([it.lat, it.lng], {
+    // Détection satellite : marqueur visuellement distinct des signalements citoyens.
+    const m = L.marker([it.lat, it.lng], it.satellite ? {
+      icon: satelliteIcon(it.max_confidence), keyboard: true,
+      title: `${t('sat_detection')} — NASA FIRMS`,
+    } : {
       icon: typeIcon(it.type, it.status), keyboard: true,
       title: `${TYPE_LABELS[it.type]} — ${STATUS_LABELS[it.status] || it.status}`,
     });
     m.on('click', () => this.onMarkerClick?.(it));
     this.layer.addLayer(m);
   }
+}
+
+// Marqueur « détection satellite » (contour pointillé, icône satellite).
+function satelliteIcon(confidence) {
+  return L.divIcon({
+    className: '',
+    html: `<div class="marker-sat ${confidence === 'high' ? 'high' : ''}"><span>🛰️</span></div>`,
+    iconSize: [34, 34],
+    iconAnchor: [17, 17],
+  });
 }

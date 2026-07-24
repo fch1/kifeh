@@ -68,7 +68,20 @@
     <option value="3" data-i18n="filter_3h"></option>
     <option value="24" data-i18n="filter_24h"></option>
   </select>
+  <label for="fSource" data-i18n="filter_source"></label>
+  <select id="fSource">
+    <option value="" data-i18n="filter_source_all"></option>
+    <option value="citizen" data-i18n="filter_source_citizen"></option>
+    <option value="satellite" data-i18n="filter_source_satellite"></option>
+    <option value="corroborated" data-i18n="filter_source_corroborated"></option>
+  </select>
+  <label for="fSatConf" data-i18n="filter_sat_conf"></label>
+  <select id="fSatConf">
+    <option value="" data-i18n="filter_sat_conf_all"></option>
+    <option value="high" data-i18n="filter_sat_conf_high"></option>
+  </select>
   <p class="muted small" id="filterCount" aria-live="polite"></p>
+  <p class="muted small" id="satSyncInfo" hidden></p>
   <div style="margin-top:1rem" class="row">
     <button class="btn secondary" id="filterReset" data-i18n="reset"></button>
     <button class="btn" id="filterApply" data-i18n="apply"></button>

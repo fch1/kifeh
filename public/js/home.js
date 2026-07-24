@@ -17,11 +17,25 @@ function showSandboxBanner() {
   document.body.appendChild(b);
 }
 let incidents = [];
-const filters = { types: new Set(), status: 'active', periodH: '' };
+let satEvents = [];
+let satLastSync = null;
+const filters = { types: new Set(), status: 'active', periodH: '', source: '', satConf: '' };
 // Le sélecteur de statut reflète le filtre par défaut (« En cours uniquement »).
 document.getElementById('fStatus').value = filters.status;
 
-const cluster = new GridCluster(map, (it) => openDetail(it.public_id));
+const cluster = new GridCluster(map, (it) => it.satellite ? openSatDetail(it.id) : openDetail(it.public_id));
+
+// Jeu d'éléments affichés selon le filtre de source (carte + liste + compteurs
+// utilisent le MÊME jeu — cohérence garantie).
+function visibleItems() {
+  const showFire = !filters.types.size || filters.types.has('fire');
+  const sats = (filters.source === 'citizen' || filters.source === 'corroborated' || !showFire)
+    ? [] : satEvents.map((e) => ({ ...e, satellite: true }));
+  let incs = incidents;
+  if (filters.source === 'satellite') incs = [];
+  else if (filters.source === 'corroborated') incs = incidents.filter((i) => i.satellite_last_seen);
+  return [...incs, ...sats];
+}
 
 // --- Chargement des incidents de la zone -----------------------------------
 let loadTimer = null;
@@ -38,12 +52,25 @@ async function loadIncidents() {
   try {
     const data = await API.get(`/api/public/incidents?${params}`);
     incidents = data.incidents;
-    cluster.setItems(incidents);
+    // Détections satellitaires (NASA FIRMS) — récupérées depuis l'API Kifeh
+    // uniquement (jamais d'appel direct FIRMS depuis le navigateur).
+    try {
+      const sat = await API.get(`/api/public/satellite/events${filters.satConf ? `?confidence=${filters.satConf}` : ''}`);
+      satEvents = sat.events || [];
+      satLastSync = sat.lastSyncAt;
+    } catch { /* la carte citoyenne fonctionne même sans données satellite */ }
+    const shown = visibleItems();
+    cluster.setItems(shown);
     const n = incidents.filter((i) => i.status === 'active').length;
     const counter = document.getElementById('counter');
-    if (incidents.length === 0 && activeFilterCount() > 0) counter.textContent = t('filter_results_none');
+    if (shown.length === 0 && activeFilterCount() > 0) counter.textContent = t('filter_results_none');
     else counter.textContent = n === 0 ? t('counter_none') : n === 1 ? t('counter_one') : t('counter_n', { n });
     updateFilterCount();
+    const syncEl = document.getElementById('satSyncInfo');
+    if (syncEl) {
+      syncEl.hidden = !satLastSync;
+      if (satLastSync) syncEl.textContent = t('sat_last_sync', { t: fmtDate(satLastSync) });
+    }
   } catch (e) {
     document.getElementById('counter').textContent = e.message;
   }
@@ -51,7 +78,8 @@ async function loadIncidents() {
 
 // Nombre de filtres actifs (badge du bouton « Plus de filtres »).
 function activeFilterCount() {
-  return filters.types.size + (filters.status !== 'active' ? 1 : 0) + (filters.periodH ? 1 : 0);
+  return filters.types.size + (filters.status !== 'active' ? 1 : 0) + (filters.periodH ? 1 : 0)
+    + (filters.source ? 1 : 0) + (filters.satConf ? 1 : 0);
 }
 function updateFilterBadge() {
   const n = activeFilterCount();
@@ -62,8 +90,9 @@ function updateFilterBadge() {
 function updateFilterCount() {
   const el = document.getElementById('filterCount');
   if (!el) return;
-  el.textContent = incidents.length === 0 ? t('filter_results_none')
-    : incidents.length === 1 ? t('filter_results_one') : t('filter_results_n', { n: incidents.length });
+  const n = visibleItems().length;
+  el.textContent = n === 0 ? t('filter_results_none')
+    : n === 1 ? t('filter_results_one') : t('filter_results_n', { n });
 }
 map.on('moveend', () => { clearTimeout(loadTimer); loadTimer = setTimeout(loadIncidents, 350); });
 loadIncidents();
@@ -171,16 +200,21 @@ document.getElementById('chipFilters').addEventListener('click', () => openSheet
 document.getElementById('filterApply').addEventListener('click', async () => {
   filters.status = document.getElementById('fStatus').value;
   filters.periodH = document.getElementById('fPeriod').value;
+  filters.source = document.getElementById('fSource').value;
+  filters.satConf = document.getElementById('fSatConf').value;
   document.getElementById('chipOngoing').setAttribute('aria-pressed', filters.status === 'active');
-  window.track?.('filters_applied', { types: [...filters.types].join(',') || 'all', period_h: filters.periodH || 'all' });
+  window.track?.('filters_applied', { types: [...filters.types].join(',') || 'all', period_h: filters.periodH || 'all', source: filters.source || 'all' });
   await loadIncidents();
   updateFilterBadge();
   closeSheets();
 });
 document.getElementById('filterReset').addEventListener('click', () => {
   filters.types.clear(); filters.status = 'active'; filters.periodH = '';
+  filters.source = ''; filters.satConf = '';
   document.getElementById('fStatus').value = 'active';
   document.getElementById('fPeriod').value = '';
+  document.getElementById('fSource').value = '';
+  document.getElementById('fSatConf').value = '';
   document.getElementById('chipOngoing').setAttribute('aria-pressed', 'true');
   syncTypeControls();
   closeSheets(); loadIncidents();
@@ -261,14 +295,17 @@ async function openDetail(publicId) {
     <h2><span class="badge ${esc(i.type)}">${TYPE_ICONS[i.type]} ${esc(TYPE_LABELS[i.type])}</span>
         <span class="badge status ${esc(i.status)}">${esc(STATUS_LABELS[i.status] || i.status)}</span></h2>
     <p class="muted">${esc(i.area || t('area_approx'))} · ${t('ref')} ${esc(i.public_id)}</p>
+    ${i.satellite_last_seen ? `<p class="notice sat">🛰️ <strong>${t('sat_corroborated')}</strong><br>
+      <span class="small">${t('sat_last_seen')} ${esc(fmtDate(i.satellite_last_seen))} · ${t('sat_source')}</span></p>` : ''}
     ${fireStatusHtml(i)}
     <p><strong>${t('started')}</strong> ${esc(fmtDate(i.started_at))}${i.time_approximate ? ` ${t('approx_suffix')}` : ''}<br>
-    ${i.ended_at ? `<strong>${t('ended')}</strong> ${esc(fmtDate(i.ended_at))}<br>` : ''}
+    ${i.ended_at ? `<strong>${t('ended')}</strong> ${esc(fmtDate(i.ended_at))}<br>
+    <strong>${t('duration_label')}</strong> ${esc(fmtDuration(i.started_at, i.ended_at))}<br>` : ''}
     <strong>${t('severity_label')}</strong> ${esc(SEVERITY_LABELS[i.severity])}<br>
     <strong>${t('last_update')}</strong> ${esc(timeAgo(i.updated_at))}</p>
     ${i.description ? `<p>${esc(i.description)}</p>` : ''}
     ${i.confirmations_count > 0 ? `<p class="notice ok" id="affectedCount">${i.confirmations_count > 1 ? t('affected_n', { n: i.confirmations_count }) : t('affected_one')}</p>` : '<p hidden id="affectedCount"></p>'}
-    ${i.resolutionReports > 0 && i.status === 'active' ? `<p class="notice warn" id="endedCount">${i.resolutionReports > 1 ? t('ended_reports_n', { n: i.resolutionReports }) : t('ended_reports_one')}</p>` : ''}
+    ${i.resolutionReports > 0 && i.status === 'active' ? `<p class="notice warn" id="endedCount"><strong>${t('ended_pending')}</strong><br>${i.resolutionReports > 1 ? t('ended_reports_n', { n: i.resolutionReports }) : t('ended_reports_one')}</p>` : ''}
     <div id="confirmZone">
       ${i.status === 'active' ? (confirmed
         ? `<p class="notice ok">${t('you_confirmed')}</p>`
@@ -288,6 +325,67 @@ async function openDetail(publicId) {
   document.getElementById('btnEnded')?.addEventListener('click', () => renderEndedForm(i));
   document.getElementById('btnLocCorrect').addEventListener('click', () => renderCorrectionForm(i));
   document.getElementById('btnReport').addEventListener('click', () => renderReportForm(i));
+}
+
+// --- Fiche d'un événement satellite (NASA FIRMS) -----------------------------
+// Anomalie thermique détectée par satellite : présentation distincte des
+// signalements citoyens, jamais comme confirmation officielle d'incendie.
+async function openSatDetail(id) {
+  const el = document.getElementById('detailContent');
+  el.innerHTML = '<div class="skeleton" style="height:120px"></div>';
+  openSheet('detailSheet');
+  let ev;
+  try { ev = await API.get(`/api/public/satellite/events/${encodeURIComponent(id)}`); }
+  catch (e) { el.innerHTML = `<p class="field-error">${esc(e.message)}</p>`; return; }
+
+  const confirmed = isDone('sat_confirmed', ev.id);
+  const confLabel = t(`sat_conf_${ev.max_confidence}`) || ev.max_confidence;
+  el.innerHTML = `
+    <h2><span class="badge sat">🛰️ ${t('sat_detection')}</span>
+        ${ev.status === 'no_new_detection' ? `<span class="badge status expired">${t('sat_no_new')}</span>` : ''}</h2>
+    <p><strong>${t('sat_potential_fire')}</strong></p>
+    <p class="muted small">${t('area_approx')} · ${t('sat_source')}</p>
+    <p><strong>${t('sat_first_seen')}</strong> ${esc(fmtDate(ev.first_detected_at))}<br>
+    <strong>${t('sat_last_seen')}</strong> ${esc(fmtDate(ev.last_detected_at))}<br>
+    <strong>${t('sat_confidence')}</strong> ${esc(confLabel)}<br>
+    ${ev.detection_count > 1 ? t('sat_detections_n', { n: ev.detection_count }) : t('sat_detections_one')}
+    ${ev.satellites ? `<br><strong>${t('sat_satellites')}</strong> ${esc(ev.satellites)}` : ''}
+    ${ev.max_frp ? `<br><strong>${t('sat_frp')}</strong> ${esc(String(Math.round(ev.max_frp)))} MW` : ''}
+    ${ev.lastSyncAt ? `<br><span class="muted small">${t('sat_last_sync', { t: fmtDate(ev.lastSyncAt) })}</span>` : ''}</p>
+    ${ev.confirmations_count > 0 ? `<p class="notice ok">${ev.confirmations_count > 1 ? t('affected_n', { n: ev.confirmations_count }) : t('affected_one')}</p>` : ''}
+    <p class="notice warn small">${t('sat_disclaimer')}</p>
+    <p class="notice danger small">${t('sat_danger')}</p>
+    <div id="satConfirmZone">
+      ${confirmed ? `<p class="notice ok">${t('sat_you_confirmed')}</p>` : `<button class="btn" id="btnSatSee">${t('sat_i_see')}</button>`}
+    </div>
+    <button class="btn ghost small-btn" id="btnSatNotFire" style="margin-top:.5rem">${t('sat_not_fire')}</button>
+    <button class="btn ghost small-btn" id="btnSatError" style="margin-top:.5rem">${t('sat_report_error')}</button>
+    <div id="satFeedbackZone"></div>`;
+
+  const feedback = async (kind, btn) => {
+    try {
+      const r = await API.post(`/api/public/satellite/events/${encodeURIComponent(ev.id)}/feedback`,
+        { kind, deviceId: getDeviceId() });
+      window.track?.('satellite_event_feedback', { kind });
+      if (kind === 'confirm') {
+        markDone('sat_confirmed', ev.id);
+        document.getElementById('satConfirmZone').innerHTML = `<p class="notice ok">${t('sat_you_confirmed')}<br>
+          ${r.confirmations > 1 ? t('affected_n', { n: r.confirmations }) : t('affected_one')}</p>`;
+        loadIncidents();
+      } else {
+        document.getElementById('satFeedbackZone').innerHTML = `<p class="notice ok">${t('sat_thanks')}</p>`;
+        btn?.remove();
+      }
+    } catch (ex) {
+      if (ex.data?.alreadyConfirmed && kind === 'confirm') {
+        markDone('sat_confirmed', ev.id);
+        document.getElementById('satConfirmZone').innerHTML = `<p class="notice ok">${t('sat_you_confirmed')}</p>`;
+      } else document.getElementById('satFeedbackZone').innerHTML = `<p class="field-error">${esc(ex.message)}</p>`;
+    }
+  };
+  document.getElementById('btnSatSee')?.addEventListener('click', (e) => withButton(e.currentTarget, () => feedback('confirm')));
+  document.getElementById('btnSatNotFire').addEventListener('click', (e) => feedback('not_fire', e.currentTarget));
+  document.getElementById('btnSatError').addEventListener('click', (e) => feedback('error', e.currentTarget));
 }
 
 // Position rapide et silencieuse (renforce la confirmation d'un incendie) —
@@ -344,19 +442,44 @@ function renderEndedForm(i) {
   zone.innerHTML = `
     <div class="card">
       <h2>${t('ended_q')}</h2>
-      <label for="endedTime">${t('ended_time_label')}</label>
-      <input id="endedTime" type="datetime-local" value="${toLocalInput(new Date())}">
+      <div class="seg" role="group">
+        <button id="endedModeNow" aria-pressed="true">${t('ended_now')}</button>
+        <button id="endedModePick" aria-pressed="false">${t('ended_pick')}</button>
+      </div>
+      <div id="endedTimeField" hidden>
+        <label for="endedTime">${t('ended_time_label')}</label>
+        <input id="endedTime" type="datetime-local" value="${toLocalInput(new Date())}"
+               min="${toLocalInput(i.started_at)}" max="${toLocalInput(new Date())}">
+      </div>
       <label for="endedComment">${t('ended_comment_label')}</label>
       <textarea id="endedComment" maxlength="300"></textarea>
       <div class="field-error" id="endedError" role="alert"></div>
       <button class="btn" id="endedSend">${t('ended_send')}</button>
     </div>`;
+  let mode = 'now';
+  const setMode = (m) => {
+    mode = m;
+    document.getElementById('endedModeNow').setAttribute('aria-pressed', m === 'now');
+    document.getElementById('endedModePick').setAttribute('aria-pressed', m === 'pick');
+    document.getElementById('endedTimeField').hidden = m !== 'pick';
+  };
+  document.getElementById('endedModeNow').addEventListener('click', () => setMode('now'));
+  document.getElementById('endedModePick').addEventListener('click', () => setMode('pick'));
   document.getElementById('endedSend').addEventListener('click', (e) => withButton(e.currentTarget, async () => {
+    const err = document.getElementById('endedError'); err.textContent = '';
     try {
       const v = document.getElementById('endedTime').value;
+      // Validation côté client (le serveur revalide toujours) :
+      if (mode === 'pick') {
+        if (!v) { err.textContent = t('err_end_required'); return; }
+        const ts = new Date(v).getTime();
+        if (ts <= Date.parse(i.started_at)) { err.textContent = t('err_end_before'); return; }
+        if (ts > Date.now() + 60_000) { err.textContent = t('err_end_future'); return; }
+      }
       const r = await API.post(`/api/public/incidents/${encodeURIComponent(i.public_id)}/resolution`, {
         deviceId: getDeviceId(),
-        proposedEndedAt: v ? new Date(v).toISOString() : null,
+        isNow: mode === 'now',
+        proposedEndedAt: mode === 'pick' && v ? new Date(v).toISOString() : null,
         comment: document.getElementById('endedComment').value,
       });
       window.track?.('incident_resolution_reported', { incident_type: i.type, resolved: r.resolved });

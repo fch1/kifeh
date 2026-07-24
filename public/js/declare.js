@@ -498,7 +498,8 @@ async function renderEmergencyPanel(type, severity) {
       ${danger && !isFire ? `<p><strong>${t('provider_note_danger')}</strong></p>` : ''}
       ${callBtn(first, true)}
       ${rest.slice(0, 3).map((c) => callBtn(c, false)).join('')}
-      ${type === 'electricity' ? `<p class="small">${t('provider_note_electricity')}</p>` : ''}
+      ${type === 'electricity' ? `<p class="small">${t('provider_note_electricity')}</p>
+        <p class="small"><a href="https://www.steg.com.tn" target="_blank" rel="noopener">${t('steg_site_link')}</a></p>` : ''}
       ${type === 'water' ? `<p class="small">${t('provider_note_water')}</p>` : ''}
     </div>`;
 }

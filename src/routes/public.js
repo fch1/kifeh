@@ -3,7 +3,8 @@
 // sort d'ici : les requêtes SQL ne sélectionnent jamais lat/lng exacts,
 // adresse exacte ni contact.
 import { Router } from 'express';
-import { db, getSettingNum } from '../db.js';
+import { db, getSetting, getSettingNum } from '../db.js';
+import { publicConfidenceList } from '../services/firms.js';
 import { uuid, hmac, encrypt } from '../services/crypto.js';
 import { isEmail, isPhone, normalizePhone, isFiniteNum, isIsoDate, cleanText } from '../middleware/security.js';
 import { clientIp, countEvents, recordEvent, ipRateLimit } from '../middleware/rateLimit.js';
@@ -22,7 +23,9 @@ const PUBLIC_COLS = `public_id, type, status, severity,
   temporal_status, started_at, ended_at, time_approximate,
   public_lat AS lat, public_lng AS lng, public_area AS area,
   confirmations_count, COALESCE(published_at, created_at) AS published_at,
-  created_at, updated_at`;
+  created_at, updated_at,
+  (SELECT MAX(se.last_detected_at) FROM satellite_events se
+   WHERE se.linked_incident_id = incidents.id AND se.status != 'false_positive') AS satellite_last_seen`;
 
 const nowIso = () => new Date().toISOString();
 
@@ -246,25 +249,34 @@ publicRouter.post('/confirm/direct', ipRateLimit('confirm_ip', 10, 60), (req, re
 // Un signalement par personne ; clôture automatique au seuil configuré
 // (résolution communautaire), avec heure de fin médiane proposée.
 publicRouter.post('/incidents/:publicId/resolution', ipRateLimit('resolution_ip', 10, 60), (req, res) => {
+  if (getSetting('community_resolution_enabled') === '0') {
+    return res.status(403).json({ error: msg(req, 'invalid_params') });
+  }
   const incident = db.prepare(`SELECT id, public_id, started_at, confirmations_count FROM incidents
                                WHERE public_id = ? AND status = 'active'`)
     .get(String(req.params.publicId));
   if (!incident) return res.status(404).json({ error: msg(req, 'incident_closed_or_missing') });
 
   const b = req.body || {};
-  let proposedEndedAt = null;
-  if (b.proposedEndedAt && isIsoDate(b.proposedEndedAt)) {
+  // « Terminé maintenant » → heure serveur ; sinon validation stricte de
+  // l'heure choisie : postérieure au début, jamais dans le futur.
+  const isNow = b.isNow === true || !b.proposedEndedAt;
+  let proposedEndedAt = nowIso();
+  if (!isNow) {
+    if (!isIsoDate(b.proposedEndedAt)) return res.status(400).json({ error: msg(req, 'invalid_end') });
     const ts = Date.parse(b.proposedEndedAt);
-    if (ts >= Date.parse(incident.started_at) && ts <= Date.now() + 60_000) {
-      proposedEndedAt = new Date(ts).toISOString();
+    if (ts <= Date.parse(incident.started_at)) {
+      return res.status(400).json({ error: msg(req, 'end_before_start') });
     }
+    if (ts > Date.now() + 60_000) return res.status(400).json({ error: msg(req, 'end_in_future') });
+    proposedEndedAt = new Date(ts).toISOString();
   }
 
   try {
-    db.prepare(`INSERT INTO resolution_reports(id, incident_id, contributor_hash, proposed_ended_at, comment)
-                VALUES (?, ?, ?, ?, ?)`)
+    db.prepare(`INSERT INTO resolution_reports(id, incident_id, contributor_hash, proposed_ended_at, is_now, comment)
+                VALUES (?, ?, ?, ?, ?, ?)`)
       .run(uuid(), incident.id, contributorHash(req, incident.id, 'resolution'),
-        proposedEndedAt, cleanText(b.comment, 300) || null);
+        proposedEndedAt, isNow ? 1 : 0, cleanText(b.comment, 300) || null);
   } catch {
     return res.status(400).json({ error: msg(req, 'resolution_already'), alreadyReported: true });
   }
@@ -278,6 +290,7 @@ publicRouter.post('/incidents/:publicId/resolution', ipRateLimit('resolution_ip'
     const proposed = pending.map((r) => r.proposed_ended_at).filter(Boolean).sort();
     const endedAt = proposed.length ? proposed[proposed.length - 1] : nowIso();
     db.prepare(`UPDATE incidents SET status = 'resolved', temporal_status = 'finished', ended_at = ?,
+                resolved_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), resolution_source = 'community',
                 updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`).run(endedAt, incident.id);
     db.prepare(`UPDATE resolution_reports SET status = 'applied' WHERE incident_id = ? AND status = 'pending'`)
       .run(incident.id);
@@ -312,6 +325,85 @@ publicRouter.post('/incidents/:publicId/location-correction', ipRateLimit('corre
       cleanText(b.address, 300) || null, contributorHash(req, incident.id, 'correction'));
   audit('public', 'location_correction_proposed', incident.id, null, clientIp(req));
   res.json({ ok: true, message: msg(req, 'correction_thanks') });
+});
+
+// --- Détections satellitaires NASA FIRMS ------------------------------------
+// Données importées et stockées côté serveur (l'API FIRMS n'est JAMAIS appelée
+// depuis le navigateur, la clé n'est jamais exposée). Anomalies thermiques —
+// jamais présentées comme confirmation officielle d'incendie.
+publicRouter.get('/satellite/events', (req, res) => {
+  if (getSetting('nasa_firms_public_layer_enabled') === '0') {
+    return res.json({ count: 0, events: [], lastSyncAt: null });
+  }
+  const confList = publicConfidenceList();
+  const wanted = String(req.query.confidence || '');
+  const conf = wanted === 'high' ? ['high'] : confList;
+  const rows = db.prepare(
+    `SELECT id, centroid_lat AS lat, centroid_lng AS lng, uncertainty_radius_m,
+            first_detected_at, last_detected_at, max_confidence, max_frp,
+            detection_count, satellite_count, satellites, confirmations_count, status
+     FROM satellite_events
+     WHERE status IN ('active','no_new_detection')
+       AND linked_incident_id IS NULL
+       AND max_confidence IN (${conf.map(() => '?').join(',')})
+     ORDER BY last_detected_at DESC LIMIT 300`
+  ).all(...conf);
+  res.json({
+    count: rows.length,
+    events: rows,
+    lastSyncAt: getSetting('firms_last_success_at') || null,
+  });
+});
+
+publicRouter.get('/satellite/events/:id', (req, res) => {
+  const ev = db.prepare(
+    `SELECT id, centroid_lat AS lat, centroid_lng AS lng, uncertainty_radius_m,
+            first_detected_at, last_detected_at, max_confidence, max_frp,
+            detection_count, satellite_count, satellites, confirmations_count, status
+     FROM satellite_events WHERE id = ? AND status != 'false_positive'`
+  ).get(String(req.params.id));
+  if (!ev) return res.status(404).json({ error: msg(req, 'incident_not_found') });
+  res.json({ ...ev, lastSyncAt: getSetting('firms_last_success_at') || null });
+});
+
+// « Je vois cet incendie / je suis concerné » sur un événement satellite :
+// confirmation rattachée à l'événement EXISTANT — jamais de doublon.
+publicRouter.post('/satellite/events/:id/feedback', ipRateLimit('sat_feedback_ip', 10, 60), (req, res) => {
+  const ev = db.prepare(`SELECT * FROM satellite_events WHERE id = ? AND status IN ('active','no_new_detection')`)
+    .get(String(req.params.id));
+  if (!ev) return res.status(404).json({ error: msg(req, 'incident_closed_or_missing') });
+  const kind = ['confirm', 'not_fire', 'error'].includes(req.body?.kind) ? req.body.kind : 'confirm';
+  try {
+    db.prepare(`INSERT INTO satellite_event_feedback(id, event_id, kind, contributor_hash) VALUES (?, ?, ?, ?)`)
+      .run(uuid(), ev.id, kind, contributorHash(req, ev.id, `satfb-${kind}`));
+  } catch {
+    return res.status(400).json({ error: msg(req, 'already_confirmed'), alreadyConfirmed: true });
+  }
+  let confirmations = ev.confirmations_count;
+  if (kind === 'confirm') {
+    confirmations += 1;
+    db.prepare(`UPDATE satellite_events SET confirmations_count = confirmations_count + 1,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`).run(ev.id);
+  } else {
+    audit('public', 'satellite_event_feedback', ev.id, { kind }, clientIp(req));
+  }
+  broadcast('incident', { satellite: true });
+  res.json({ ok: true, confirmations, threshold: getSettingNum('fire_confirm_threshold') });
+});
+
+// --- Coupures officielles STEG (uniquement si la couche officielle est
+// activée ET que les enregistrements viennent d'une source autorisée) --------
+publicRouter.get('/steg/outages', (req, res) => {
+  if (getSetting('steg_official_layer_enabled') !== '1') return res.json({ count: 0, outages: [] });
+  const rows = db.prepare(
+    `SELECT id, official_status, planned, reason, affected_governorate, affected_delegation,
+            affected_locality, lat, lng, started_at, estimated_restoration_at, ended_at,
+            published_at, source_updated_at
+     FROM steg_official_outages
+     WHERE official_status IN ('planned','ongoing','restoration_in_progress')
+     ORDER BY COALESCE(started_at, published_at) DESC LIMIT 200`
+  ).all();
+  res.json({ count: rows.length, outages: rows });
 });
 
 // --- Annuaire de contacts tunisiens vérifiés --------------------------------
@@ -361,6 +453,9 @@ publicRouter.get('/config', (req, res) => {
     verificationRequired: getSettingNum('verification_required') !== 0,
     sandbox: config.isSandbox,
     gaId: config.isSandbox ? '' : config.gaId, // pas de mesure d'audience dans la sandbox
+    satelliteLayer: getSetting('nasa_firms_public_layer_enabled') !== '0',
+    stegOfficialLayer: getSetting('steg_official_layer_enabled') === '1',
+    communityResolution: getSetting('community_resolution_enabled') !== '0',
   });
 });
 

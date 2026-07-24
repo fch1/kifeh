@@ -70,7 +70,11 @@ manageRouter.post('/close', (req, res) => {
   if (Date.parse(endedAt) < Date.parse(i.started_at)) {
     return res.status(400).json({ error: msg(req, 'end_before_start') });
   }
+  if (Date.parse(endedAt) > Date.now() + 60_000) {
+    return res.status(400).json({ error: msg(req, 'end_in_future') });
+  }
   db.prepare(`UPDATE incidents SET status = 'resolved', temporal_status = 'finished', ended_at = ?,
+              resolved_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), resolution_source = 'creator',
               time_approximate = CASE WHEN ? THEN 1 ELSE time_approximate END WHERE id = ?`)
     .run(endedAt, req.body?.timeApproximate ? 1 : 0, i.id);
   touchIncident(i.id);

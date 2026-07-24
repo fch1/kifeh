@@ -138,10 +138,17 @@ html[dir="rtl"] .topbar .back .arrow { display: inline-block; transform: scaleX(
 /* Page container */
 .page { max-width: 640px; margin: 0 auto; padding: 1rem 1rem 5rem; }
 
-/* Accueil : carte plein écran */
-#map { position: fixed; inset: 0; z-index: 1; }
+/* Accueil : carte plein écran — hauteur de fenêtre DYNAMIQUE (100dvh) :
+   barres du navigateur, WebView iOS/Android et clavier virtuel pris en compte,
+   plus aucun contenu masqué derrière la zone de navigation du bas. */
+#map {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1;
+  height: 100vh;   /* repli navigateurs anciens */
+  height: 100dvh;  /* fenêtre visible réelle sur mobile */
+}
 .home-top {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 1000; padding: .75rem;
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+  padding: calc(.75rem + env(safe-area-inset-top)) .75rem .75rem;
   display: flex; flex-direction: column; gap: .5rem; pointer-events: none;
 }
 .home-top > * { pointer-events: auto; }
@@ -190,7 +197,12 @@ html[dir="rtl"] .topbar .back .arrow { display: inline-block; transform: scaleX(
 .sheet {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 1500;
   background: var(--surface); border-radius: 18px 18px 0 0; box-shadow: 0 -4px 24px rgba(15,58,87,.22);
-  max-height: 80vh; overflow-y: auto; padding: 1rem 1rem calc(1.25rem + env(safe-area-inset-bottom));
+  /* Hauteur bornée à la fenêtre VISIBLE (dvh) : les cartes arrondies et les
+     boutons du bas ne sont plus jamais rognés ; contenu entièrement défilable. */
+  max-height: 80vh;
+  max-height: calc(100dvh - 5.5rem - env(safe-area-inset-top));
+  overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+  padding: 1rem 1rem calc(1.5rem + env(safe-area-inset-bottom));
   transform: translateY(105%); transition: transform .25s ease;
 }
 .sheet.open { transform: translateY(0); }
@@ -249,6 +261,17 @@ html[dir="rtl"] .topbar .back .arrow { display: inline-block; transform: scaleX(
 .seg button:last-child { border-inline-end: none; }
 .seg button[aria-pressed="true"] { background: var(--primary); color: #fff; }
 #miniMap, #manageMap, .mini-map { height: 260px; border-radius: var(--radius); z-index: 1; margin-top: .5rem; }
+
+/* Détections satellitaires (NASA FIRMS) : style distinct des signalements citoyens */
+.marker-sat {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: rgba(255, 244, 230, .95); border: 2px dashed #C4622D;
+  display: flex; align-items: center; justify-content: center; font-size: 16px;
+  box-shadow: 0 1px 6px rgba(0,0,0,.25);
+}
+.marker-sat.high { border-style: solid; border-width: 3px; }
+.badge.sat { background: #FFF4E6; color: #8A4514; border: 1px dashed #C4622D; }
+.notice.sat { background: #FFF4E6; border-inline-start: 4px solid #C4622D; }
 
 /* Badge du bouton « Plus de filtres » (nombre de filtres actifs) */
 .chip-badge {
@@ -357,10 +380,21 @@ th, td { text-align: start; padding: .5rem .4rem; border-bottom: 1px solid var(-
 /* Leaflet reste LTR même quand la page est RTL (contrôles, attribution) */
 .leaflet-container { direction: ltr; }
 
+/* Contrôles et attribution de la GRANDE carte : remontés au-dessus de la barre
+   du bas (compteur + boutons) pour ne jamais être masqués ni collés au bord.
+   Les mini-cartes (déclaration, corrections) ne sont pas concernées. */
+#map .leaflet-bottom.leaflet-right {
+  margin-bottom: calc(148px + env(safe-area-inset-bottom));
+  margin-right: .4rem;
+}
+html, body { overscroll-behavior: none; }
+
 @media (min-width: 700px) {
   .sheet { max-width: 480px; left: auto; right: 1rem; border-radius: 18px; bottom: 1rem; }
   html[dir="rtl"] .sheet { right: auto; left: 1rem; }
   .home-bottom { max-width: 480px; left: 50%; transform: translateX(-50%); }
+  /* Barre du bas centrée sur grand écran : le coin de la carte redevient libre. */
+  #map .leaflet-bottom.leaflet-right { margin-bottom: .5rem; margin-right: .5rem; }
 }
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }

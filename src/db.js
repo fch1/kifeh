@@ -196,6 +196,19 @@ db.transaction(() => {
              WHERE published_at IS NULL AND status IN ('active','resolved','expired')`);
   }
 
+  // 3b-bis. Métadonnées de résolution (qui a clôturé, comment, quand) et
+  //         détection satellite : colonnes additives sur les tables existantes.
+  const incCols2 = db.prepare(`PRAGMA table_info(incidents)`).all().map((c) => c.name);
+  if (!incCols2.includes('resolved_at')) {
+    db.exec(`ALTER TABLE incidents ADD COLUMN resolved_at TEXT`);
+    db.exec(`ALTER TABLE incidents ADD COLUMN resolution_source TEXT`);
+    db.exec(`ALTER TABLE incidents ADD COLUMN resolved_by TEXT`);
+  }
+  const resCols = db.prepare(`PRAGMA table_info(resolution_reports)`).all().map((c) => c.name);
+  if (resCols.length && !resCols.includes('is_now')) {
+    db.exec(`ALTER TABLE resolution_reports ADD COLUMN is_now INTEGER NOT NULL DEFAULT 0`);
+  }
+
   // 3b. Type et statut des confirmations (« affected », « fire_seen »…).
   const confCols = db.prepare(`PRAGMA table_info(confirmations)`).all().map((c) => c.name);
   if (!confCols.includes('confirmation_type')) {
@@ -211,6 +224,7 @@ db.transaction(() => {
       incident_id TEXT NOT NULL REFERENCES incidents(id),
       contributor_hash TEXT NOT NULL,
       proposed_ended_at TEXT,
+      is_now INTEGER NOT NULL DEFAULT 0,
       comment TEXT,
       status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','applied','dismissed')),
       created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
@@ -274,6 +288,107 @@ db.transaction(() => {
     { id: 'sonede_urgence', fr: 'SONEDE — numéro vert', ar: 'الشركة الوطنية لاستغلال وتوزيع المياه — الرقم الأخضر', disp: '80 100 319', tel: '80100319', types: 'water', prio: 1, src: 'SONEDE (sonede.com.tn)', url: 'https://www.sonede.com.tn', vat: VAT },
     { id: 'sonede_contact', fr: 'SONEDE — contact général', ar: 'الشركة الوطنية لاستغلال وتوزيع المياه', disp: '71 887 000', tel: '+21671887000', types: 'water', prio: 2, src: 'SONEDE (sonede.com.tn)', url: 'https://www.sonede.com.tn', vat: VAT },
   ]) seedContact.run(c);
+
+  // 3f. NASA FIRMS — détections satellitaires et événements regroupés.
+  //     Tables entièrement nouvelles : aucune donnée existante touchée.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS satellite_detections (
+      id TEXT PRIMARY KEY,
+      provider TEXT NOT NULL DEFAULT 'nasa_firms',
+      source TEXT NOT NULL,               -- VIIRS_SNPP_NRT, MODIS_NRT…
+      satellite TEXT, instrument TEXT,
+      external_fingerprint TEXT UNIQUE NOT NULL, -- anti-réimport
+      lat REAL NOT NULL, lng REAL NOT NULL,
+      scan REAL, track REAL,
+      acq_date TEXT NOT NULL, acq_time TEXT NOT NULL,
+      acquired_at TEXT NOT NULL,          -- UTC normalisé
+      confidence TEXT NOT NULL CHECK (confidence IN ('low','nominal','high')),
+      frp REAL, brightness REAL,
+      day_night TEXT, version TEXT,
+      raw_payload TEXT,                   -- ligne brute (audit technique)
+      imported_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      satellite_event_id TEXT REFERENCES satellite_events(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_satdet_event ON satellite_detections(satellite_event_id);
+    CREATE INDEX IF NOT EXISTS idx_satdet_acquired ON satellite_detections(acquired_at);
+
+    CREATE TABLE IF NOT EXISTS satellite_events (
+      id TEXT PRIMARY KEY,
+      centroid_lat REAL NOT NULL, centroid_lng REAL NOT NULL,
+      uncertainty_radius_m INTEGER NOT NULL DEFAULT 750,
+      first_detected_at TEXT NOT NULL,
+      last_detected_at TEXT NOT NULL,
+      max_confidence TEXT NOT NULL CHECK (max_confidence IN ('low','nominal','high')),
+      max_frp REAL,
+      detection_count INTEGER NOT NULL DEFAULT 0,
+      satellite_count INTEGER NOT NULL DEFAULT 0,
+      satellites TEXT NOT NULL DEFAULT '',       -- liste csv
+      confirmations_count INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'active' CHECK (status IN
+        ('active','no_new_detection','archived','false_positive')),
+      linked_incident_id TEXT REFERENCES incidents(id),
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_satevents_status ON satellite_events(status, last_detected_at);
+    CREATE INDEX IF NOT EXISTS idx_satevents_incident ON satellite_events(linked_incident_id);
+
+    CREATE TABLE IF NOT EXISTS satellite_event_feedback (
+      id TEXT PRIMARY KEY,
+      event_id TEXT NOT NULL REFERENCES satellite_events(id),
+      kind TEXT NOT NULL CHECK (kind IN ('confirm','not_fire','error')),
+      contributor_hash TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      UNIQUE(event_id, contributor_hash, kind)
+    );
+
+    -- Coupures officielles STEG (connecteur préparé, ingestion désactivée tant
+    -- qu'aucune source AUTORISÉE n'est configurée — jamais de scraping).
+    CREATE TABLE IF NOT EXISTS steg_official_outages (
+      id TEXT PRIMARY KEY,
+      external_id TEXT UNIQUE,
+      source TEXT NOT NULL,               -- 'manual_admin' | 'official_api' | 'webhook' | 'sftp' | 'feed'
+      official_status TEXT NOT NULL CHECK (official_status IN
+        ('planned','ongoing','restoration_in_progress','resolved','cancelled')),
+      incident_type TEXT NOT NULL DEFAULT 'electricity',
+      planned INTEGER NOT NULL DEFAULT 0,
+      reason TEXT,
+      affected_governorate TEXT, affected_delegation TEXT, affected_locality TEXT,
+      affected_geometry TEXT,             -- GeoJSON éventuel
+      lat REAL, lng REAL,
+      started_at TEXT, estimated_restoration_at TEXT, ended_at TEXT,
+      published_at TEXT, source_updated_at TEXT,
+      steg_district TEXT, source_reference TEXT,
+      verified_at TEXT, verified_by TEXT,
+      linked_incident_id TEXT REFERENCES incidents(id),
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
+
+    -- Annuaire vérifié des districts STEG (gouvernorat, contact public, source).
+    CREATE TABLE IF NOT EXISTS steg_districts (
+      id TEXT PRIMARY KEY,
+      governorate TEXT NOT NULL,
+      district_name TEXT NOT NULL,
+      address TEXT,
+      phone TEXT,
+      source_name TEXT, source_url TEXT,
+      verified_at TEXT, verified_by TEXT,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
+
+    -- Sources thermiques persistantes connues (industries, torchères…) :
+    -- masquées de la publication automatique pour éviter les faux incendies.
+    CREATE TABLE IF NOT EXISTS thermal_sources (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      lat REAL NOT NULL, lng REAL NOT NULL,
+      radius_m INTEGER NOT NULL DEFAULT 1500,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
+  `);
 })();
 
 // Réglages par défaut (sans écraser les valeurs administrées).
@@ -302,6 +417,9 @@ if (!lastWipe) {
     DELETE FROM confirmations;
     DELETE FROM resolution_reports;
     DELETE FROM location_corrections;
+    DELETE FROM satellite_event_feedback;
+    DELETE FROM satellite_detections;
+    DELETE FROM satellite_events;
     DELETE FROM attachments;
     DELETE FROM verifications;
     DELETE FROM manage_tokens;

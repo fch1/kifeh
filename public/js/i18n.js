@@ -68,6 +68,12 @@ const I18N = {
     // Fin d'incident signalée par la communauté
     ended_report_btn: 'Signaler que cet incident est terminé',
     ended_q: 'Cet incident est-il vraiment terminé ?',
+    ended_now: 'Terminé maintenant',
+    ended_pick: 'Choisir la date et l’heure de fin',
+    ended_pending: 'Fin signalée, en attente de confirmation',
+    duration_label: 'Durée :',
+    dur_d: '{d} j {h} h', dur_hm: '{h} h {m} min', dur_m: '{m} min',
+    steg_site_link: 'Accéder au site officiel de la STEG (réclamations, espace client) ↗',
     ended_time_label: 'Heure de fin approximative',
     ended_comment_label: 'Commentaire (facultatif)',
     ended_send: 'Confirmer la fin de l’incident',
@@ -80,6 +86,32 @@ const I18N = {
     loc_correct_send: 'Envoyer la proposition de correction',
     loc_correct_apply: 'Appliquer la nouvelle position',
     loc_correct_preview: 'Nouvelle position :',
+    // Détections satellitaires (NASA FIRMS) — jamais « confirmé par la NASA »
+    sat_detection: 'Détection satellite',
+    sat_potential_fire: 'Incendie potentiel détecté par satellite',
+    sat_corroborated: 'Signalement corroboré par satellite',
+    sat_source: 'Source : NASA FIRMS',
+    sat_first_seen: 'Première détection :', sat_last_seen: 'Dernière détection :',
+    sat_confidence: 'Niveau de confiance :',
+    sat_conf_low: 'faible', sat_conf_nominal: 'nominal', sat_conf_high: 'élevé',
+    sat_detections_one: '1 détection', sat_detections_n: '{n} détections regroupées',
+    sat_satellites: 'Satellites :', sat_frp: 'Puissance radiative max. :',
+    sat_last_sync: 'Dernière mise à jour satellite : {t}',
+    sat_no_new: 'Aucune nouvelle détection récente',
+    sat_disclaimer: 'Cette information provient d’une détection satellitaire d’anomalie thermique. Elle ne constitue pas à elle seule une confirmation officielle d’incendie. La position affichée est approximative.',
+    sat_danger: 'En cas de danger immédiat, éloignez-vous de la zone et contactez la Protection civile (198). Kifeh ne remplace pas les services d’urgence.',
+    sat_i_see: '🔥 Je vois cet incendie',
+    sat_not_fire: 'Ce point ne semble pas correspondre à un incendie',
+    sat_report_error: 'Signaler une erreur',
+    sat_thanks: 'Merci pour votre retour.',
+    sat_you_confirmed: '✔ Vous avez confirmé cet incendie',
+    filter_source: 'Source', filter_source_all: 'Toutes les sources',
+    filter_source_citizen: 'Signalements citoyens',
+    filter_source_satellite: 'Détections satellite',
+    filter_source_corroborated: 'Corroborés par satellite',
+    filter_sat_conf: 'Confiance satellite',
+    filter_sat_conf_all: 'Toutes les détections visibles',
+    filter_sat_conf_high: 'Confiance élevée uniquement',
     // Numéros utiles / urgences (les numéros viennent de l'annuaire vérifié)
     emergency_title: 'En cas d’urgence',
     useful_numbers: 'Numéros utiles',
@@ -147,6 +179,7 @@ const I18N = {
     err_start_future: 'La date de début ne peut pas être dans le futur.',
     err_end_required: 'Indiquez la date et l’heure de fin.',
     err_end_before: 'L’heure de fin ne peut pas être antérieure à l’heure de début.',
+    err_end_future: 'L’heure de fin ne peut pas être dans le futur.',
     // Étape 4
     desc_q: 'Décrivez l’incident', desc_label: 'Courte description (facultatif)',
     desc_ph: 'Ex. : coupure d’électricité dans tout l’immeuble depuis 20 h',
@@ -283,6 +316,12 @@ const I18N = {
     fire_not_official: 'إشارة مجتمعية فقط — لا تمثّل تأكيدًا رسميًا من مصالح النجدة.',
     ended_report_btn: 'الإبلاغ عن انتهاء هذا الحادث',
     ended_q: 'هل انتهى هذا الحادث فعلاً؟',
+    ended_now: 'انتهى الآن',
+    ended_pick: 'اختيار تاريخ ووقت الانتهاء',
+    ended_pending: 'تم الإبلاغ عن الانتهاء، في انتظار التأكيد',
+    duration_label: 'المدة:',
+    dur_d: '{d} يوم و{h} ساعة', dur_hm: '{h} ساعة و{m} دقيقة', dur_m: '{m} دقيقة',
+    steg_site_link: 'الانتقال إلى الموقع الرسمي للشركة التونسية للكهرباء والغاز ↗',
     ended_time_label: 'وقت الانتهاء التقريبي',
     ended_comment_label: 'تعليق (اختياري)',
     ended_send: 'تأكيد انتهاء الحادث',
@@ -294,6 +333,31 @@ const I18N = {
     loc_correct_send: 'إرسال اقتراح التصحيح',
     loc_correct_apply: 'اعتماد الموقع الجديد',
     loc_correct_preview: 'الموقع الجديد:',
+    sat_detection: 'رصد عبر الأقمار الاصطناعية',
+    sat_potential_fire: 'حريق محتمل مرصود عبر الأقمار الاصطناعية',
+    sat_corroborated: 'بلاغ معزَّز برصد عبر الأقمار الاصطناعية',
+    sat_source: 'المصدر: NASA FIRMS',
+    sat_first_seen: 'أول رصد:', sat_last_seen: 'آخر رصد:',
+    sat_confidence: 'مستوى الثقة:',
+    sat_conf_low: 'ضعيف', sat_conf_nominal: 'متوسط', sat_conf_high: 'مرتفع',
+    sat_detections_one: 'رصد واحد', sat_detections_n: '{n} رصدًا مجمّعًا',
+    sat_satellites: 'الأقمار الاصطناعية:', sat_frp: 'أقصى قدرة إشعاعية:',
+    sat_last_sync: 'آخر تحديث للأقمار الاصطناعية: {t}',
+    sat_no_new: 'لا يوجد رصد جديد مؤخرًا',
+    sat_disclaimer: 'هذه المعلومة ناتجة عن رصد شذوذ حراري عبر الأقمار الاصطناعية، ولا تشكّل وحدها تأكيدًا رسميًا لوجود حريق. الموقع المعروض تقريبي.',
+    sat_danger: 'في حالة الخطر المباشر، ابتعد عن المكان واتصل بالحماية المدنية (198). «كيفاه» لا يعوّض خدمات النجدة.',
+    sat_i_see: '🔥 أرى هذا الحريق',
+    sat_not_fire: 'لا يبدو أن هذه النقطة تخص حريقًا',
+    sat_report_error: 'الإبلاغ عن خطأ',
+    sat_thanks: 'شكرًا على ملاحظتك.',
+    sat_you_confirmed: '✔ لقد أكّدت هذا الحريق',
+    filter_source: 'المصدر', filter_source_all: 'كل المصادر',
+    filter_source_citizen: 'بلاغات المواطنين',
+    filter_source_satellite: 'رصد الأقمار الاصطناعية',
+    filter_source_corroborated: 'المعزَّزة بالأقمار الاصطناعية',
+    filter_sat_conf: 'ثقة الرصد',
+    filter_sat_conf_all: 'كل الرصدات الظاهرة',
+    filter_sat_conf_high: 'الثقة المرتفعة فقط',
     emergency_title: 'في حالة الطوارئ',
     useful_numbers: 'أرقام مفيدة',
     call_btn: '📞 الاتصال: {name} — {num}',
@@ -354,6 +418,7 @@ const I18N = {
     err_start_future: 'لا يمكن أن يكون تاريخ البداية في المستقبل.',
     err_end_required: 'حدّد تاريخ ووقت النهاية.',
     err_end_before: 'لا يمكن أن يكون وقت النهاية قبل وقت البداية.',
+    err_end_future: 'لا يمكن أن يكون وقت الانتهاء في المستقبل.',
     desc_q: 'صف الحادث', desc_label: 'وصف قصير (اختياري)',
     desc_ph: 'مثال: انقطاع الكهرباء في كامل العمارة منذ الساعة الثامنة مساءً',
     sev_q: 'درجة الخطورة حسب تقديرك', sev_aria: 'الخطورة', sev_danger_short: 'خطر',
@@ -512,6 +577,15 @@ function fmtDate(iso) {
     return new Date(iso).toLocaleString(LANG === 'ar' ? 'ar-TN' : 'fr-FR',
       { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Tunis' });
   } catch { return iso; }
+}
+
+// Durée lisible entre deux instants (ex. « 3 h 20 min »).
+function fmtDuration(startIso, endIso) {
+  const mins = Math.max(0, Math.round((Date.parse(endIso) - Date.parse(startIso)) / 60000));
+  const d = Math.floor(mins / 1440), h = Math.floor((mins % 1440) / 60), m = mins % 60;
+  if (d > 0) return t('dur_d', { d, h });
+  if (h > 0) return t('dur_hm', { h, m });
+  return t('dur_m', { m });
 }
 
 function timeAgo(iso) {

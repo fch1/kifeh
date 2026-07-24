@@ -60,6 +60,15 @@ export const config = {
   // Géocodeur de repli (utilisé si Nominatim ne répond pas ou ne trouve rien).
   photonUrl: env.PHOTON_URL || 'https://photon.komoot.io',
 
+  // NASA FIRMS (détections satellitaires d'anomalies thermiques).
+  // La clé reste STRICTEMENT côté serveur : jamais envoyée au navigateur,
+  // jamais journalisée. Sans clé, l'intégration est simplement inactive.
+  firms: {
+    mapKey: env.NASA_FIRMS_MAP_KEY || '',
+    // URL surchargeable pour les tests (serveur simulé) — jamais la clé.
+    baseUrl: env.FIRMS_URL || 'https://firms.modaps.eosdis.nasa.gov',
+  },
+
   adminBootstrap: {
     username: env.ADMIN_USERNAME || 'admin',
     // Mot de passe initial : généré et affiché au premier démarrage si non fourni.
@@ -97,6 +106,25 @@ export const defaultSettings = {
   // Fin d'incident signalée par la communauté : nombre de signalements
   // indépendants avant clôture automatique.
   resolution_threshold: '3',
+  // NASA FIRMS — tout est réglable à chaud (admin) ou par variable d'environnement.
+  firms_sync_interval_min: '15',      // fréquence de synchronisation
+  firms_sources: 'VIIRS_SNPP_NRT,VIIRS_NOAA20_NRT,VIIRS_NOAA21_NRT,MODIS_NRT',
+  firms_day_range: '1',               // jours d'historique demandés à l'API
+  firms_cluster_radius_m: '1000',     // regroupement des détections (500–1500 m)
+  firms_cluster_window_h: '12',       // fenêtre temporelle de regroupement (3–12 h)
+  firms_backfill_days: '7',           // premier import : 7 jours d'historique
+  firms_corroborate_km: '2',          // distance max. signalement citoyen ↔ détection
+  firms_corroborate_window_h: '12',   // fenêtre temporelle de corroboration
+  firms_min_public_confidence: 'nominal', // 'nominal' | 'high' — 'low' jamais publié par défaut
+  firms_event_stale_h: '24',          // sans nouvelle détection → « aucune nouvelle détection »
+  firms_event_archive_h: '72',        // puis archivage (historique conservé)
+  // Interrupteurs de fonctionnalités (env : NASA_FIRMS_ENABLED=0, etc.) —
+  // l'application fonctionne normalement quelle que soit leur valeur.
+  nasa_firms_enabled: '1',
+  nasa_firms_public_layer_enabled: '1',
+  steg_connector_enabled: '0',        // ingestion officielle STEG : désactivée tant
+  steg_official_layer_enabled: '0',   // qu'aucune source autorisée n'est configurée
+  community_resolution_enabled: '1',
 };
 
 function devSecret(label) {

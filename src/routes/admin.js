@@ -11,7 +11,9 @@ import { anonymizeCoords } from '../services/anonymize.js';
 import { cleanText } from '../middleware/security.js';
 import { broadcast } from './events.js';
 import { audit } from '../services/audit.js';
-import { defaultSettings } from '../config.js';
+import { defaultSettings, config as firmsConfig } from '../config.js';
+import { syncFirms } from '../services/firms.js';
+import { upsertOfficialOutage } from '../services/steg.js';
 import { devOutbox } from '../services/notifier.js';
 
 export const adminRouter = Router();
@@ -224,6 +226,139 @@ adminRouter.post('/corrections/:id/reject', requireAdmin('moderate'), (req, res)
     .run(String(req.params.id));
   audit(req.admin.username, 'correction_rejected', String(req.params.id), null, clientIp(req));
   res.json({ ok: true });
+});
+
+// --- NASA FIRMS : supervision et modération ----------------------------------
+adminRouter.get('/firms/status', requireAdmin('review'), (req, res) => {
+  res.json({
+    keyConfigured: Boolean(firmsConfig.firms.mapKey),
+    lastSyncAt: getSetting('firms_last_sync_at') || null,
+    lastSuccessAt: getSetting('firms_last_success_at') || null,
+    lastError: getSetting('firms_last_error') || null,
+    txCount: Number(getSetting('firms_tx_count') || 0),
+    sources: String(getSetting('firms_sources') || ''),
+    detections: db.prepare('SELECT COUNT(*) AS n FROM satellite_detections').get().n,
+    events: db.prepare(`SELECT status, COUNT(*) AS n FROM satellite_events GROUP BY status`).all(),
+  });
+});
+
+adminRouter.post('/firms/sync', requireAdmin('moderate'), async (req, res) => {
+  audit(req.admin.username, 'firms_manual_sync', null, null, clientIp(req));
+  const result = await syncFirms({ force: true });
+  res.json({ ok: true, result });
+});
+
+adminRouter.get('/firms/detections', requireAdmin('review'), (req, res) => {
+  const rows = db.prepare(
+    `SELECT id, source, satellite, instrument, lat, lng, acquired_at, confidence, frp,
+            day_night, raw_payload, imported_at, satellite_event_id
+     FROM satellite_detections ORDER BY acquired_at DESC LIMIT 200`
+  ).all();
+  res.json({ detections: rows });
+});
+
+adminRouter.get('/firms/events', requireAdmin('review'), (req, res) => {
+  const rows = db.prepare(
+    `SELECT e.*, i.public_id AS linked_public_id FROM satellite_events e
+     LEFT JOIN incidents i ON i.id = e.linked_incident_id
+     ORDER BY e.last_detected_at DESC LIMIT 200`
+  ).all();
+  res.json({ events: rows });
+});
+
+adminRouter.post('/firms/events/:id/false-positive', requireAdmin('moderate'), (req, res) => {
+  db.prepare(`UPDATE satellite_events SET status = 'false_positive', linked_incident_id = NULL,
+              updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`).run(String(req.params.id));
+  audit(req.admin.username, 'satellite_event_false_positive', String(req.params.id), null, clientIp(req));
+  broadcast('incident', { satellite: true });
+  res.json({ ok: true });
+});
+
+// Association / dissociation manuelle détection ↔ incident citoyen.
+adminRouter.post('/firms/events/:id/link', requireAdmin('moderate'), (req, res) => {
+  const ev = db.prepare(`SELECT id FROM satellite_events WHERE id = ?`).get(String(req.params.id));
+  if (!ev) return res.status(404).json({ error: 'Événement introuvable.' });
+  const incidentId = req.body?.incidentId ? String(req.body.incidentId) : null;
+  if (incidentId) {
+    const i = db.prepare('SELECT id, public_id FROM incidents WHERE id = ? OR public_id = ?').get(incidentId, incidentId);
+    if (!i) return res.status(404).json({ error: 'Incident introuvable.' });
+    db.prepare(`UPDATE satellite_events SET linked_incident_id = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`)
+      .run(i.id, ev.id);
+    broadcast('incident', { publicId: i.public_id, satellite: true });
+  } else {
+    db.prepare(`UPDATE satellite_events SET linked_incident_id = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`)
+      .run(ev.id);
+    broadcast('incident', { satellite: true });
+  }
+  audit(req.admin.username, 'satellite_event_linked', ev.id, { incidentId }, clientIp(req));
+  res.json({ ok: true });
+});
+
+// Sources thermiques persistantes (industries, torchères…) — masquées.
+adminRouter.get('/firms/thermal-sources', requireAdmin('review'), (req, res) => {
+  res.json({ sources: db.prepare('SELECT * FROM thermal_sources ORDER BY created_at DESC').all() });
+});
+
+adminRouter.post('/firms/thermal-sources', requireAdmin('moderate'), (req, res) => {
+  const b = req.body || {};
+  const lat = Number(b.lat), lng = Number(b.lng);
+  if (!cleanText(b.name, 120) || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return res.status(400).json({ error: 'Nom et coordonnées requis.' });
+  }
+  const id = uuid();
+  db.prepare(`INSERT INTO thermal_sources(id, name, lat, lng, radius_m) VALUES (?, ?, ?, ?, ?)`)
+    .run(id, cleanText(b.name, 120), lat, lng, Math.min(20000, Math.max(100, Number(b.radiusM) || 1500)));
+  audit(req.admin.username, 'thermal_source_added', id, null, clientIp(req));
+  res.json({ ok: true, id });
+});
+
+adminRouter.post('/firms/thermal-sources/:id/toggle', requireAdmin('moderate'), (req, res) => {
+  db.prepare(`UPDATE thermal_sources SET is_active = 1 - is_active WHERE id = ?`).run(String(req.params.id));
+  res.json({ ok: true });
+});
+
+// --- STEG : import manuel d'annonces officielles + annuaire des districts ----
+// Seule voie autorisée aujourd'hui : un administrateur saisit une coupure
+// PLANIFIÉE issue d'une communication officielle STEG vérifiable (référence
+// de source obligatoire). Jamais de scraping, jamais d'étiquette « STEG »
+// sans source officielle.
+adminRouter.get('/steg/outages', requireAdmin('review'), (req, res) => {
+  res.json({
+    connectorEnabled: getSetting('steg_connector_enabled') === '1',
+    layerEnabled: getSetting('steg_official_layer_enabled') === '1',
+    outages: db.prepare('SELECT * FROM steg_official_outages ORDER BY created_at DESC LIMIT 100').all(),
+  });
+});
+
+adminRouter.post('/steg/outages', requireAdmin('moderate'), (req, res) => {
+  const result = upsertOfficialOutage(req.body, 'manual_admin', req.admin.username);
+  if (result.error) {
+    const messages = {
+      source_reference_required: 'La référence de la communication officielle STEG est obligatoire.',
+      invalid_status: 'Statut officiel invalide.',
+    };
+    return res.status(400).json({ error: messages[result.error] || 'Import refusé.' });
+  }
+  res.json(result);
+});
+
+adminRouter.get('/steg/districts', requireAdmin('review'), (req, res) => {
+  res.json({ districts: db.prepare('SELECT * FROM steg_districts ORDER BY governorate, district_name').all() });
+});
+
+adminRouter.post('/steg/districts', requireAdmin('moderate'), (req, res) => {
+  const b = req.body || {};
+  const gov = cleanText(b.governorate, 80), name = cleanText(b.districtName, 120);
+  if (!gov || !name) return res.status(400).json({ error: 'Gouvernorat et nom du district requis.' });
+  const id = uuid();
+  db.prepare(`INSERT INTO steg_districts(id, governorate, district_name, address, phone,
+              source_name, source_url, verified_at, verified_by)
+              VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), ?)`)
+    .run(id, gov, name, cleanText(b.address, 300) || null,
+      cleanText(b.phone, 30).replace(/[^\d+ ]/g, '') || null,
+      cleanText(b.sourceName, 200) || null, cleanText(b.sourceUrl, 300) || null, req.admin.username);
+  audit(req.admin.username, 'steg_district_added', id, null, clientIp(req));
+  res.json({ ok: true, id });
 });
 
 // --- Annuaire de contacts tunisiens ------------------------------------------
