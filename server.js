@@ -32,12 +32,22 @@ app.use((req, res, next) => { captureBaseUrl(req); next(); });
 app.get('/healthz', (req, res) => {
   // Preuve vérifiable de l'état des sauvegardes (horodatage de la dernière
   // copie « minute ») et du volume de données — sans exposer aucun contenu.
-  let backupAt = null, incidents = null;
+  let backupAt = null, incidents = null, firms = null;
   try {
     backupAt = db.prepare(`SELECT value FROM settings WHERE key = 'last_minute_backup_at'`).get()?.value || null;
     incidents = db.prepare(`SELECT COUNT(*) AS n FROM incidents WHERE status != 'deleted'`).get().n;
+    // État NASA FIRMS : clé présente ? synchro tentée/réussie ? (jamais la clé
+    // elle-même ni le détail des erreurs — de simples indicateurs).
+    const g = (k) => db.prepare(`SELECT value FROM settings WHERE key = ?`).get(k)?.value || null;
+    firms = {
+      keyConfigured: Boolean(config.firms.mapKey),
+      lastSync: g('firms_last_sync_at'),
+      lastSuccess: g('firms_last_success_at'),
+      hasError: Boolean(g('firms_last_error')),
+      detections: db.prepare(`SELECT COUNT(*) AS n FROM satellite_detections`).get().n,
+    };
   } catch { /* la sonde reste valide même sans ces informations */ }
-  res.json({ ok: true, backupAt, incidents });
+  res.json({ ok: true, backupAt, incidents, firms });
 });
 
 // ── Sandbox (/sandbox) — environnement de test totalement cloisonné ─────────
