@@ -112,9 +112,15 @@ async function main() {
   const fireInc = await publish();
 
   section('Import FIRMS (rattrapage initial de 7 jours)');
-  // La première synchro a pu être déclenchée automatiquement au démarrage :
-  // importées + doublons = 4 lignes valides dans tous les cas.
-  const s1 = await adminPost('/api/admin/firms/sync');
+  // La première synchro a pu être déclenchée automatiquement au démarrage
+  // (et peut durer quelques secondes avec les reprises 5xx) : on attend
+  // qu'une synchro forcée soit acceptée.
+  let s1;
+  for (let i = 0; i < 25; i++) {
+    s1 = await adminPost('/api/admin/firms/sync');
+    if (!s1.data.result?.skipped) break;
+    await new Promise((r) => setTimeout(r, 1000));
+  }
   ok(s1.status === 200 && s1.data.result.imported + s1.data.result.duplicates === 4,
     `4 détections valides traitées (VIIRS n/h/l + MODIS) — importées : ${s1.data.result.imported}, doublons : ${s1.data.result.duplicates}`);
   ok(s1.data.result.outOfTunisia === 2, 'points en Algérie et en mer exclus (polygone Tunisie)');

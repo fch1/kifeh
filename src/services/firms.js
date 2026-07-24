@@ -109,21 +109,26 @@ async function fetchSource(source, dayRange = 1) {
   const ranges = [...new Set([dayRange, 5, 3, 1].filter((d) => d <= dayRange && d >= 1))];
   let lastError = null;
   for (const range of ranges) {
-    const url = `${config.firms.baseUrl}/api/area/csv/${config.firms.mapKey}/${source}/${TUNISIA_BBOX}/${range}`;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), Number(process.env.FIRMS_TIMEOUT_MS) || 45_000);
-    try {
-      const res = await fetch(url, { signal: controller.signal });
-      incrementTx();
-      const text = await res.text();
-      if (!res.ok || /invalid\s*map_key/i.test(text)) {
-        lastError = new Error(`FIRMS ${source} : HTTP ${res.status}${/invalid\s*map_key/i.test(text) ? ' (clé invalide)' : ''}`);
-        continue; // fenêtre plus courte
-      }
-      return parseFirmsCsv(text, source);
-    } catch (e) {
-      lastError = e;
-    } finally { clearTimeout(timer); }
+    // Une reprise immédiate sur erreur passagère (5xx) avant de réduire la fenêtre.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const url = `${config.firms.baseUrl}/api/area/csv/${config.firms.mapKey}/${source}/${TUNISIA_BBOX}/${range}`;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), Number(process.env.FIRMS_TIMEOUT_MS) || 45_000);
+      try {
+        const res = await fetch(url, { signal: controller.signal });
+        incrementTx();
+        const text = await res.text();
+        if (!res.ok || /invalid\s*map_key/i.test(text)) {
+          lastError = new Error(`FIRMS ${source} : HTTP ${res.status}${/invalid\s*map_key/i.test(text) ? ' (clé invalide)' : ''}`);
+          if (res.status >= 500 && attempt === 0) { await new Promise((r) => setTimeout(r, 2000)); continue; }
+          break; // 4xx : fenêtre plus courte, sans réessayer la même
+        }
+        return parseFirmsCsv(text, source);
+      } catch (e) {
+        lastError = e;
+        break; // timeout/réseau : on tente la fenêtre plus courte
+      } finally { clearTimeout(timer); }
+    }
   }
   throw lastError || new Error(`FIRMS ${source} : aucune réponse`);
 }

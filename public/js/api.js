@@ -67,6 +67,25 @@ function isDone(kind, publicId) {
   catch { return false; }
 }
 
+// Télémétrie d'erreurs : les erreurs JavaScript inattendues sont signalées au
+// serveur (message tronqué, aucune donnée personnelle) — l'utilisateur, lui,
+// ne voit jamais de message technique.
+(function initErrorReporting() {
+  let sent = 0;
+  const report = (message, source) => {
+    if (sent >= 3) return; // jamais de tempête de requêtes
+    sent++;
+    try {
+      fetch(`${API_BASE}/api/public/client-error`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: String(message).slice(0, 300), source: String(source || location.pathname).slice(0, 120) }),
+      }).catch(() => {});
+    } catch {}
+  };
+  window.addEventListener('error', (e) => report(e.message, e.filename));
+  window.addEventListener('unhandledrejection', (e) => report(e.reason?.message || e.reason, 'promise'));
+})();
+
 // Échappement systématique de tout contenu dynamique inséré dans le DOM.
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

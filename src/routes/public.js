@@ -519,6 +519,19 @@ publicRouter.get('/config', (req, res) => {
   });
 });
 
+// --- Télémétrie d'erreurs frontend ------------------------------------------
+// Message tronqué, jamais de donnée personnelle ; visible dans les journaux
+// serveur et le journal d'audit (observabilité sans service externe).
+publicRouter.post('/client-error', ipRateLimit('clienterr_ip', 5, 60), (req, res) => {
+  const message = cleanText(String(req.body?.message || ''), 300);
+  const source = cleanText(String(req.body?.source || ''), 120);
+  if (message) {
+    console.error('[client]', source, '—', message);
+    audit('client', 'frontend_error', null, { message: message.slice(0, 200), source });
+  }
+  res.json({ ok: true });
+});
+
 // --- Statistiques publiques minimales (compteur d'accueil) ------------------
 publicRouter.get('/stats', (req, res) => {
   const active = db.prepare(`SELECT COUNT(*) AS n FROM incidents WHERE status = 'active'`).get().n;

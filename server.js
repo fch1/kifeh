@@ -26,6 +26,21 @@ app.set('trust proxy', 1);
 app.use(securityHeaders);
 app.use((req, res, next) => { captureBaseUrl(req); next(); });
 
+// Domaine canonique (optionnel) : CANONICAL_HOST=www.kifeh.org redirige tous
+// les autres domaines (ex. kifeh.app) vers celui-ci en 301. Règle le partage
+// des préférences (langue, consentement) entre les deux adresses. La sonde
+// /healthz n'est jamais redirigée (contrôles de santé Render).
+app.use((req, res, next) => {
+  const canonical = (process.env.CANONICAL_HOST || '').trim().toLowerCase();
+  if (!canonical || req.path === '/healthz' || config.isSandbox) return next();
+  const host = String(req.get('host') || '').toLowerCase();
+  if (host && host !== canonical && !host.startsWith('localhost') && !host.startsWith('127.')
+      && !host.endsWith('.onrender.com')) {
+    return res.redirect(301, `https://${canonical}${req.originalUrl}`);
+  }
+  next();
+});
+
 // Sonde de santé (Render : Settings → Health Check Path = /healthz →
 // déploiements sans coupure : l'ancienne instance sert jusqu'à ce que la
 // nouvelle soit prête, plus de 502 pendant les mises à jour).
@@ -39,11 +54,15 @@ app.get('/healthz', (req, res) => {
     // État NASA FIRMS : clé présente ? synchro tentée/réussie ? (jamais la clé
     // elle-même ni le détail des erreurs — de simples indicateurs).
     const g = (k) => db.prepare(`SELECT value FROM settings WHERE key = ?`).get(k)?.value || null;
+    const lastSuccess = g('firms_last_success_at');
     firms = {
       keyConfigured: Boolean(config.firms.mapKey),
       lastSync: g('firms_last_sync_at'),
-      lastSuccess: g('firms_last_success_at'),
-      hasError: Boolean(g('firms_last_error')),
+      lastSuccess,
+      // hasError = vraie panne (aucune synchro réussie depuis 45 min), pas un
+      // simple raté passager sur une source pendant un cycle.
+      hasError: Boolean(g('firms_last_error'))
+        && (!lastSuccess || Date.now() - Date.parse(lastSuccess) > 45 * 60_000),
       detections: db.prepare(`SELECT COUNT(*) AS n FROM satellite_detections`).get().n,
     };
   } catch { /* la sonde reste valide même sans ces informations */ }

@@ -222,9 +222,23 @@ loadIncidents().then(() => {
 });
 
 // --- Temps réel (SSE) -------------------------------------------------------
+// Économie de batterie : AUCUN rafraîchissement tant que l'onglet est caché —
+// une seule mise à jour au retour au premier plan.
+let refreshWhenVisible = false;
+function scheduleRefresh(delay = 500) {
+  if (document.visibilityState === 'hidden') { refreshWhenVisible = true; return; }
+  clearTimeout(loadTimer);
+  loadTimer = setTimeout(loadIncidents, delay);
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && refreshWhenVisible) {
+    refreshWhenVisible = false;
+    scheduleRefresh(200);
+  }
+});
 try {
   const es = new EventSource(`${API_BASE}/api/events`);
-  es.addEventListener('incident', () => { clearTimeout(loadTimer); loadTimer = setTimeout(loadIncidents, 500); });
+  es.addEventListener('incident', () => scheduleRefresh(500));
 } catch { /* repli : rechargement au déplacement de carte */ }
 
 // --- Géolocalisation (consentement explicite : uniquement sur action) -------
