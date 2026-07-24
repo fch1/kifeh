@@ -29,6 +29,7 @@
     <button class="chip" data-type="water" aria-pressed="false">💧 <span data-i18n="type_water"></span></button>
     <button class="chip" data-type="fire" aria-pressed="false">🔥 <span data-i18n="type_fire"></span></button>
     <button class="chip" data-type="internet" aria-pressed="false">📶 <span data-i18n="type_internet"></span></button>
+    <button class="chip" id="chipSat" aria-pressed="false">🛰️ <span data-i18n="chip_sat"></span></button>
     <button class="chip" id="chipOngoing" aria-pressed="true" data-i18n="chip_ongoing"></button>
     <button class="chip" id="chipFilters" aria-pressed="false"><span data-i18n="chip_filters"></span><span class="chip-badge" id="filterBadge" hidden></span></button>
   </div>
@@ -80,6 +81,7 @@
     <option value="" data-i18n="filter_sat_conf_all"></option>
     <option value="high" data-i18n="filter_sat_conf_high"></option>
   </select>
+  <label class="checkbox-row" style="margin-top:.75rem"><input type="checkbox" id="liteToggle"> <span data-i18n="lite_toggle"></span></label>
   <p class="muted small" id="filterCount" aria-live="polite"></p>
   <p class="muted small" id="satSyncInfo" hidden></p>
   <div style="margin-top:1rem" class="row">

@@ -1,13 +1,58 @@
 // Accueil : carte temps réel, recherche, filtres, liste, détail, confirmation.
 'use strict';
 
-const map = createMap('map');
+// ── Kifeh Léger : mode économe (connexions instables, batterie faible) ───────
+// Activé manuellement (filtres) ou automatiquement quand le navigateur signale
+// une préférence d'économie de données ou une connexion très lente — jamais
+// depuis une estimation de batterie.
+function liteEnabled() {
+  try {
+    const v = localStorage.getItem('kifeh_lite');
+    if (v === '1') return true;
+    if (v === '0') return false;
+  } catch {}
+  const c = navigator.connection;
+  return Boolean(c && (c.saveData || ['slow-2g', '2g'].includes(c.effectiveType)));
+}
+const LITE = liteEnabled();
+
+const map = createMap('map', { deferTiles: LITE });
 let userPos = null;
 let verificationRequired = true;
 API.get('/api/public/config').then((c) => {
   verificationRequired = c.verificationRequired !== false;
   if (c.sandbox) showSandboxBanner();
+  // Fond de carte configuré côté serveur (fournisseur principal + secours).
+  setTileProviders(c.tileProviders, c.tileFailThreshold);
 }).catch(() => {});
+
+// Bandeau discret quand le fond de carte est indisponible : Kifeh reste
+// entièrement utilisable (liste, recherche, filtres, déclaration).
+document.addEventListener('kifeh:tiles-failed', () => {
+  if (document.getElementById('tilesBanner')) return;
+  const b = document.createElement('div');
+  b.id = 'tilesBanner';
+  b.className = 'map-banner';
+  b.setAttribute('role', 'status');
+  b.innerHTML = `<span>${t('tiles_failed')}</span> <button class="btn small-btn" id="tilesSeeList">${t('see_list')}</button>`;
+  document.body.appendChild(b);
+  document.getElementById('tilesSeeList').addEventListener('click', () => { renderList(); openSheet('listSheet'); });
+  window.track?.('tiles_all_failed', {});
+});
+document.addEventListener('kifeh:tiles-ok', () => document.getElementById('tilesBanner')?.remove());
+
+// Mode léger : bandeau + carte à la demande + liste ouverte en premier.
+if (LITE) {
+  const b = document.createElement('div');
+  b.className = 'map-banner lite';
+  b.innerHTML = `<span>${t('lite_banner')}</span> <button class="btn small-btn" id="btnShowMap">${t('lite_show_map')}</button>`;
+  document.body.appendChild(b);
+  document.getElementById('btnShowMap').addEventListener('click', (e) => {
+    map._loadTiles?.();
+    e.currentTarget.remove();
+  });
+  window.track?.('lite_mode_active', {});
+}
 
 function showSandboxBanner() {
   const b = document.createElement('div');
@@ -25,12 +70,22 @@ document.getElementById('fStatus').value = filters.status;
 
 const cluster = new GridCluster(map, (it) => it.satellite ? openSatDetail(it.id) : openDetail(it.public_id));
 
+// Détections satellite affichées : par défaut, uniquement celles dont la
+// DERNIÈRE observation date de moins de 24 h — le nombre affiché reste digne
+// de confiance (« en cours »). L'historique complet (72 h) est accessible via
+// le filtre source « Détections satellite » ou le filtre de confiance.
+function visibleSats() {
+  if (filters.source === 'citizen' || filters.source === 'corroborated') return [];
+  if (filters.types.size && !filters.types.has('fire')) return [];
+  const freshH = (filters.source === 'satellite' || filters.satConf) ? 72 : 24;
+  const cutoff = Date.now() - freshH * 3600_000;
+  return satEvents.filter((e) => Date.parse(e.last_detected_at) >= cutoff);
+}
+
 // Jeu d'éléments affichés selon le filtre de source (carte + liste + compteurs
 // utilisent le MÊME jeu — cohérence garantie).
 function visibleItems() {
-  const showFire = !filters.types.size || filters.types.has('fire');
-  const sats = (filters.source === 'citizen' || filters.source === 'corroborated' || !showFire)
-    ? [] : satEvents.map((e) => ({ ...e, satellite: true }));
+  const sats = visibleSats().map((e) => ({ ...e, satellite: true }));
   let incs = incidents;
   if (filters.source === 'satellite') incs = [];
   else if (filters.source === 'corroborated') incs = incidents.filter((i) => i.satellite_last_seen);
@@ -53,18 +108,22 @@ async function loadIncidents() {
     const data = await API.get(`/api/public/incidents?${params}`);
     incidents = data.incidents;
     // Détections satellitaires (NASA FIRMS) — récupérées depuis l'API Kifeh
-    // uniquement (jamais d'appel direct FIRMS depuis le navigateur).
+    // uniquement (jamais d'appel direct FIRMS depuis le navigateur). Seuls les
+    // événements de moins de 72 h (cycle de vie serveur) sont renvoyés.
     try {
       const sat = await API.get(`/api/public/satellite/events${filters.satConf ? `?confidence=${filters.satConf}` : ''}`);
       satEvents = sat.events || [];
       satLastSync = sat.lastSyncAt;
     } catch { /* la carte citoyenne fonctionne même sans données satellite */ }
-    const shown = visibleItems();
-    cluster.setItems(shown);
-    const n = incidents.filter((i) => i.status === 'active').length;
-    const counter = document.getElementById('counter');
-    if (shown.length === 0 && activeFilterCount() > 0) counter.textContent = t('filter_results_none');
-    else counter.textContent = n === 0 ? t('counter_none') : n === 1 ? t('counter_one') : t('counter_n', { n });
+    cluster.setItems(visibleItems());
+    renderSummary(false);
+    // Instantané local : la dernière situation chargée reste consultable
+    // hors connexion (avec son horodatage, jamais présentée comme actuelle).
+    try {
+      localStorage.setItem('kifeh_snapshot', JSON.stringify({
+        at: Date.now(), incidents, satEvents, satLastSync,
+      }));
+    } catch { /* stockage plein ou indisponible : sans conséquence */ }
     updateFilterCount();
     const syncEl = document.getElementById('satSyncInfo');
     if (syncEl) {
@@ -72,9 +131,52 @@ async function loadIncidents() {
       if (satLastSync) syncEl.textContent = t('sat_last_sync', { t: fmtDate(satLastSync) });
     }
   } catch (e) {
-    document.getElementById('counter').textContent = e.message;
+    // API indisponible / hors connexion : on présente le dernier instantané
+    // local, clairement horodaté — jamais comme information actuelle.
+    let restored = false;
+    try {
+      const snap = JSON.parse(localStorage.getItem('kifeh_snapshot') || 'null');
+      if (snap?.incidents) {
+        incidents = snap.incidents;
+        satEvents = snap.satEvents || [];
+        cluster.setItems(visibleItems());
+        renderSummary(true, snap.at);
+        restored = true;
+        window.track?.('offline_snapshot_used', {});
+      }
+    } catch {}
+    if (!restored) document.getElementById('counter').textContent = e.message;
   }
 }
+
+// ── Résumé d'information (zone visible) ──────────────────────────────────────
+// « Autour de X — N incidents en cours » + répartition par type, incluant les
+// détections satellite actives (moins de 72 h). Généré à partir des MÊMES
+// données filtrées que la carte ; reste visible même sans fond de carte.
+function renderSummary(degraded, snapshotAt) {
+  const counter = document.getElementById('counter');
+  const shown = visibleItems();
+  const active = filters.source === 'satellite' ? [] : incidents.filter((i) => i.status === 'active');
+  const total = active.length + visibleSats().length;
+  if (shown.length === 0 && activeFilterCount() > 0 && !degraded) {
+    counter.textContent = t('filter_results_none');
+    return;
+  }
+  const q = document.getElementById('search').value.trim();
+  const where = q ? t('summary_around', { q: q.split(',')[0] }) : t('summary_here');
+  const byType = {};
+  for (const i of active) byType[i.type] = (byType[i.type] || 0) + 1;
+  const parts = Object.entries(byType).map(([ty, n]) => `${TYPE_ICONS[ty]} ${n}`);
+  const satsShown = visibleSats();
+  if (satsShown.length) parts.push(`🛰️ ${satsShown.length}`);
+  counter.innerHTML = `
+    <span class="summary-where">${esc(where)}</span>
+    <strong>${total === 0 ? t('counter_none') : total === 1 ? t('counter_one') : t('counter_n', { n: total })}</strong>
+    ${parts.length ? `<span class="summary-types">${parts.join(' · ')}</span>` : ''}
+    ${degraded ? `<span class="summary-degraded">${t('api_degraded')}<br>${t('offline_snapshot', { t: timeAgo(new Date(snapshotAt).toISOString()) })}</span>` : ''}`;
+}
+// Le résumé ouvre la liste correspondante (même jeu de données).
+document.getElementById('counter').addEventListener('click', () => { renderList(); openSheet('listSheet'); });
 
 // Nombre de filtres actifs (badge du bouton « Plus de filtres »).
 function activeFilterCount() {
@@ -94,8 +196,16 @@ function updateFilterCount() {
   el.textContent = n === 0 ? t('filter_results_none')
     : n === 1 ? t('filter_results_one') : t('filter_results_n', { n });
 }
-map.on('moveend', () => { clearTimeout(loadTimer); loadTimer = setTimeout(loadIncidents, 350); });
-loadIncidents();
+// Anti-rebond des déplacements de carte : requêtes annulées tant que la carte
+// bouge ; fenêtre plus longue en mode léger.
+map.on('moveend', () => { clearTimeout(loadTimer); loadTimer = setTimeout(loadIncidents, LITE ? 800 : 400); });
+loadIncidents().then(() => {
+  // Mode léger : l'information d'abord — la liste s'ouvre avant la carte.
+  if (LITE && !location.search.includes('incident=') && !location.search.includes('confirm=')) {
+    renderList();
+    openSheet('listSheet');
+  }
+});
 
 // --- Temps réel (SSE) -------------------------------------------------------
 try {
@@ -172,8 +282,16 @@ function syncTypeControls() {
   document.querySelectorAll('.chip[data-type]').forEach((c) =>
     c.setAttribute('aria-pressed', filters.types.has(c.dataset.type)));
   document.querySelectorAll('.fType').forEach((c) => { c.checked = filters.types.has(c.value); });
+  document.getElementById('chipSat').setAttribute('aria-pressed', filters.source === 'satellite');
+  document.getElementById('fSource').value = filters.source;
   updateFilterBadge();
 }
+// Filtre rapide : uniquement les feux détectés par satellite (72 h).
+document.getElementById('chipSat').addEventListener('click', () => {
+  filters.source = filters.source === 'satellite' ? '' : 'satellite';
+  syncTypeControls();
+  loadIncidents();
+});
 for (const chip of document.querySelectorAll('.chip[data-type]')) {
   chip.addEventListener('click', () => {
     const ty = chip.dataset.type;
@@ -197,6 +315,13 @@ document.getElementById('chipOngoing').addEventListener('click', (e) => {
   loadIncidents();
 });
 document.getElementById('chipFilters').addEventListener('click', () => openSheet('filterSheet'));
+// Bascule manuelle du mode léger (mémorisée ; rechargement pour appliquer).
+const liteToggle = document.getElementById('liteToggle');
+liteToggle.checked = LITE;
+liteToggle.addEventListener('change', () => {
+  try { localStorage.setItem('kifeh_lite', liteToggle.checked ? '1' : '0'); } catch {}
+  location.reload();
+});
 document.getElementById('filterApply').addEventListener('click', async () => {
   filters.status = document.getElementById('fStatus').value;
   filters.periodH = document.getElementById('fPeriod').value;
@@ -235,7 +360,10 @@ document.getElementById('sortSelect').addEventListener('change', renderList);
 function renderList() {
   const sort = document.getElementById('sortSelect').value;
   const sevRank = { immediate_danger: 0, high: 1, moderate: 2, low: 3 };
-  const rows = [...incidents];
+  // Même jeu filtré que la carte et le résumé (cohérence garantie).
+  const rows = filters.source === 'satellite' ? []
+    : filters.source === 'corroborated' ? incidents.filter((i) => i.satellite_last_seen)
+    : [...incidents];
   if (sort === 'time') rows.sort((a, b) => Date.parse(b.started_at) - Date.parse(a.started_at));
   if (sort === 'severity') rows.sort((a, b) => sevRank[a.severity] - sevRank[b.severity]);
   if (sort === 'near' && userPos) {
@@ -243,7 +371,8 @@ function renderList() {
     rows.sort((a, b) => d(a) - d(b));
   }
   const el = document.getElementById('listContainer');
-  el.innerHTML = rows.length ? '' : `<p class="muted">${t('list_empty')}</p>`;
+  const showSat = filters.source !== 'citizen' && filters.source !== 'corroborated';
+  el.innerHTML = (rows.length || (showSat && visibleSats().length)) ? '' : `<p class="muted">${t('list_empty')}</p>`;
   for (const i of rows) {
     const btn = document.createElement('button');
     btn.className = 'list-item';
@@ -251,12 +380,28 @@ function renderList() {
       <div class="type-dot ${esc(i.type)}">${TYPE_ICONS[i.type] || '•'}</div>
       <div style="flex:1">
         <strong>${esc(TYPE_LABELS[i.type])}</strong>
-        <span class="badge status ${esc(i.status)}">${esc(STATUS_LABELS[i.status] || i.status)}</span><br>
+        <span class="badge status ${esc(i.status)}">${esc(STATUS_LABELS[i.status] || i.status)}</span>
+        ${i.satellite_last_seen ? '<span class="badge sat">🛰️</span>' : ''}<br>
         <span class="muted">${esc(i.area || t('area_approx'))} · ${t('started_ago')} ${esc(fmtDate(i.started_at))}
         · ${t('severity_short')} ${esc(SEVERITY_LABELS[i.severity])}</span>
       </div>`;
     btn.addEventListener('click', () => openDetail(i.public_id));
     el.appendChild(btn);
+  }
+  // Détections satellite : accessibles aussi depuis la liste (sans carte).
+  if (showSat) {
+    for (const ev of visibleSats()) {
+      const btn = document.createElement('button');
+      btn.className = 'list-item';
+      btn.innerHTML = `
+        <div class="type-dot fire">🛰️</div>
+        <div style="flex:1">
+          <strong>${t('sat_detection')}</strong> <span class="badge sat">NASA FIRMS</span><br>
+          <span class="muted">${t('sat_potential_fire')} · ${t('sat_last_seen')} ${esc(fmtDate(ev.last_detected_at))}</span>
+        </div>`;
+      btn.addEventListener('click', () => openSatDetail(ev.id));
+      el.appendChild(btn);
+    }
   }
 }
 
@@ -278,6 +423,27 @@ function fireStatusHtml(i) {
     </div>`;
 }
 
+// Capsule de confiance : au plus 3 signaux essentiels en langage simple,
+// le détail des sources derrière « Pourquoi cette information ? ».
+// Jamais de score chiffré inexpliqué, jamais de « confirmation officielle ».
+function trustCapsuleHtml(i) {
+  const signals = [];
+  signals.push(t('trust_reported_ago', { t: timeAgo(i.published_at || i.created_at) }));
+  if (i.still_active_at && Date.now() - Date.parse(i.still_active_at) < 6 * 3600_000) {
+    signals.push(t('trust_still', { t: timeAgo(i.still_active_at) }));
+  }
+  if (i.confirmations_count > 0) {
+    signals.push(i.confirmations_count > 1 ? t('trust_confirmed_n', { n: i.confirmations_count }) : t('trust_confirmed_one'));
+  }
+  if (i.satellite_last_seen) signals.push(t('trust_sat'));
+  signals.push(t('trust_approx'));
+  return `
+    <div class="trust-capsule">
+      ${signals.slice(0, 3).map((s) => `<span class="trust-chip">${s}</span>`).join('')}
+      <details><summary>${t('trust_why')}</summary><p class="small muted">${t('trust_explain')}</p></details>
+    </div>`;
+}
+
 async function openDetail(publicId) {
   const el = document.getElementById('detailContent');
   el.innerHTML = '<div class="skeleton" style="height:120px"></div>';
@@ -295,6 +461,7 @@ async function openDetail(publicId) {
     <h2><span class="badge ${esc(i.type)}">${TYPE_ICONS[i.type]} ${esc(TYPE_LABELS[i.type])}</span>
         <span class="badge status ${esc(i.status)}">${esc(STATUS_LABELS[i.status] || i.status)}</span></h2>
     <p class="muted">${esc(i.area || t('area_approx'))} · ${t('ref')} ${esc(i.public_id)}</p>
+    ${trustCapsuleHtml(i)}
     ${i.satellite_last_seen ? `<p class="notice sat">🛰️ <strong>${t('sat_corroborated')} — NASA FIRMS</strong><br>
       <span class="small">${t('sat_last_seen')} ${esc(fmtDate(i.satellite_last_seen))} · ${t('sat_source')}</span></p>` : ''}
     ${fireStatusHtml(i)}
@@ -311,8 +478,12 @@ async function openDetail(publicId) {
         ? `<p class="notice ok">${t('you_confirmed')}</p>`
         : `<button class="btn" id="btnConfirm">${confirmLabel}</button>`) : ''}
     </div>
+    ${i.status === 'active' && !isDone('still', i.public_id) ? `<button class="btn secondary" id="btnStill" style="margin-top:.5rem">${t('still_active_btn')}</button>` : ''}
+    <div id="stillZone"></div>
     ${i.status === 'active' && !endedReported ? `<button class="btn secondary" id="btnEnded" style="margin-top:.5rem">${t('ended_report_btn')}</button>` : ''}
     <div id="endedZone"></div>
+    ${i.status === 'resolved' ? `<button class="btn secondary" id="btnReopen" style="margin-top:.5rem">${t('reopen_btn')}</button>
+    <div id="reopenZone"></div>` : ''}
     <button class="btn ghost small-btn" id="btnLocCorrect" style="margin-top:.5rem">${t('loc_correct_title')}</button>
     <div id="locCorrectZone"></div>
     <button class="btn ghost small-btn" id="btnReport" style="margin-top:.5rem">${t('report_content')}</button>
@@ -325,6 +496,37 @@ async function openDetail(publicId) {
   document.getElementById('btnEnded')?.addEventListener('click', () => renderEndedForm(i));
   document.getElementById('btnLocCorrect').addEventListener('click', () => renderCorrectionForm(i));
   document.getElementById('btnReport').addEventListener('click', () => renderReportForm(i));
+
+  // « C'est toujours en cours » : actualise la fraîcheur, sans doublon ni compteur.
+  document.getElementById('btnStill')?.addEventListener('click', (e) => withButton(e.currentTarget, async () => {
+    try {
+      await API.post(`/api/public/incidents/${encodeURIComponent(i.public_id)}/still-active`, { deviceId: getDeviceId() });
+      window.track?.('incident_still_active', { incident_type: i.type });
+      markDone('still', i.public_id);
+      document.getElementById('btnStill')?.remove();
+      document.getElementById('stillZone').innerHTML = `<p class="notice ok">${t('still_thanks')}</p>`;
+      loadIncidents();
+    } catch (ex) {
+      if (ex.data?.alreadyReported) {
+        markDone('still', i.public_id);
+        document.getElementById('btnStill')?.remove();
+        document.getElementById('stillZone').innerHTML = `<p class="notice ok">${t('still_thanks')}</p>`;
+      } else document.getElementById('stillZone').innerHTML = `<p class="field-error">${esc(ex.message)}</p>`;
+    }
+  }));
+
+  // Réouverture communautaire (clôture erronée, dans les 24 h).
+  document.getElementById('btnReopen')?.addEventListener('click', (e) => withButton(e.currentTarget, async () => {
+    try {
+      const r = await API.post(`/api/public/incidents/${encodeURIComponent(i.public_id)}/reopen`, { deviceId: getDeviceId() });
+      window.track?.('incident_reopened', { incident_type: i.type });
+      document.getElementById('reopenZone').innerHTML = `<p class="notice ok">${esc(r.message)}</p>`;
+      loadIncidents();
+      setTimeout(() => openDetail(i.public_id), 800);
+    } catch (ex) {
+      document.getElementById('reopenZone').innerHTML = `<p class="field-error">${esc(ex.message)}</p>`;
+    }
+  }));
 }
 
 // --- Fiche d'un événement satellite (NASA FIRMS) -----------------------------

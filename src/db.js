@@ -208,6 +208,10 @@ db.transaction(() => {
   if (resCols.length && !resCols.includes('is_now')) {
     db.exec(`ALTER TABLE resolution_reports ADD COLUMN is_now INTEGER NOT NULL DEFAULT 0`);
   }
+  // « C'est toujours en cours » : fraîcheur communautaire d'un incident actif.
+  if (!incCols2.includes('still_active_at')) {
+    db.exec(`ALTER TABLE incidents ADD COLUMN still_active_at TEXT`);
+  }
 
   // 3b. Type et statut des confirmations (« affected », « fire_seen »…).
   const confCols = db.prepare(`PRAGMA table_info(confirmations)`).all().map((c) => c.name);

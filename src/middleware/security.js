@@ -3,7 +3,8 @@ export function securityHeaders(req, res, next) {
   res.set({
     'Content-Security-Policy':
       "default-src 'self'; " +
-      "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://*.google-analytics.com https://*.googletagmanager.com; " +
+      "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://tile.openstreetmap.org " +
+      "https://*.cartocdn.com https://*.openstreetmap.fr https://*.google-analytics.com https://*.googletagmanager.com; " +
       "style-src 'self' 'unsafe-inline'; " +
       "script-src 'self' https://www.googletagmanager.com; " +
       "connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; " +

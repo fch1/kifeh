@@ -273,6 +273,31 @@ html[dir="rtl"] .topbar .back .arrow { display: inline-block; transform: scaleX(
 .badge.sat { background: #FFF4E6; color: #8A4514; border: 1px dashed #C4622D; }
 .notice.sat { background: #FFF4E6; border-inline-start: 4px solid #C4622D; }
 
+/* Bandeaux carte (fond indisponible, mode léger) — discrets, jamais bloquants */
+.map-banner {
+  position: fixed; top: calc(148px + env(safe-area-inset-top)); left: .75rem; right: .75rem;
+  z-index: 900; background: var(--surface); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: .6rem .75rem; font-size: .8125rem;
+  display: flex; align-items: center; gap: .5rem; justify-content: space-between;
+}
+.map-banner .btn { flex: 0 0 auto; min-height: 36px; }
+.map-banner.lite { background: #FFF4E6; }
+
+/* Résumé d'information (compteur enrichi) */
+.counter { cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: .1rem; max-width: 92%; }
+.summary-where { font-weight: 400; font-size: .75rem; color: var(--muted); }
+.summary-types { font-weight: 600; font-size: .8125rem; }
+.summary-degraded { font-weight: 400; font-size: .75rem; color: #8A4514; text-align: center; }
+
+/* Capsule de confiance (≤ 3 signaux en langage simple) */
+.trust-capsule { margin: .5rem 0; }
+.trust-chip {
+  display: inline-block; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 999px; padding: .2rem .6rem; font-size: .75rem; margin: 0 .25rem .25rem 0;
+}
+.trust-capsule details { font-size: .8125rem; margin-top: .25rem; }
+.trust-capsule summary { cursor: pointer; color: var(--primary); font-weight: 600; }
+
 /* Badge du bouton « Plus de filtres » (nombre de filtres actifs) */
 .chip-badge {
   display: inline-block; min-width: 1.2rem; padding: 0 .3rem; margin-inline-start: .35rem;

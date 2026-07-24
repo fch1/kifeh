@@ -59,6 +59,7 @@ function startServer(extraEnv = {}) {
       SANDBOX_ENABLED: '0', VERIFICATION_REQUIRED: '0',
       MAX_DECLARATIONS_PER_IP_PER_H: '100', MIN_FORM_FILL_S: '2',
       TRUST_PUBLISH_THRESHOLD: '10',
+      RESOLUTION_MODE: 'threshold', // cette suite valide le mode « seuil de 3 »
       ...extraEnv,
     },
     stdio: ['ignore', 'pipe', 'inherit'],

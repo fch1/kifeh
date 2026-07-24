@@ -150,6 +150,16 @@ export const defaultSettings = {
   // l'application fonctionne normalement quelle que soit leur valeur.
   nasa_firms_enabled: '1',
   nasa_firms_public_layer_enabled: '1',
+  // Fond de carte : fournisseur principal + secours (bascule automatique côté
+  // client sur 403/429/5xx/timeout — jamais de tuile en dur dans le code carte).
+  tile_primary_url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  tile_primary_attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  tile_secondary_url: 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+  tile_secondary_attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  tile_fail_threshold: '6',           // échecs consécutifs avant bascule
+  // Fin d'incident communautaire : 'immediate' (appliquée dès confirmation,
+  // réouverture possible) ou 'threshold' (seuil de signalements indépendants).
+  resolution_mode: 'immediate',
   steg_connector_enabled: '0',        // ingestion officielle STEG : désactivée tant
   steg_official_layer_enabled: '0',   // qu'aucune source autorisée n'est configurée
   community_resolution_enabled: '1',

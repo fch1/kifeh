@@ -203,10 +203,27 @@ async function main() {
   ok(future.status === 400, 'fin dans le futur refusée');
   const nowR = await api('POST', `/api/public/incidents/${endInc.publicId}/resolution`,
     { deviceId: device(10), isNow: true });
-  ok(nowR.status === 200 && nowR.data.reports === 1, '« Terminé maintenant » accepté (heure serveur)');
-  await api('POST', `/api/public/incidents/${endInc.publicId}/resolution`, { deviceId: device(11), isNow: true });
-  const third = await api('POST', `/api/public/incidents/${endInc.publicId}/resolution`, { deviceId: device(12), isNow: true });
-  ok(third.data.resolved === true, 'seuil communautaire → résolution');
+  ok(nowR.status === 200 && nowR.data.resolved === true,
+    '« Terminé maintenant » : résolution appliquée immédiatement (mode immediate)');
+  const resolvedView = await api('GET', `/api/public/incidents/${endInc.publicId}`);
+  ok(resolvedView.data.status === 'resolved' && resolvedView.data.ended_at, 'statut Résolu + heure de fin immédiats');
+
+  section('Réouverture communautaire + « C’est toujours en cours »');
+  const ro = await api('POST', `/api/public/incidents/${endInc.publicId}/reopen`, { deviceId: device(13) });
+  ok(ro.status === 200, 'réouverture d’une clôture erronée acceptée');
+  const roDup = await api('POST', `/api/public/incidents/${endInc.publicId}/reopen`, { deviceId: device(13) });
+  ok(roDup.status === 404 || roDup.status === 400, 'réouverture en double refusée');
+  const reopened = await api('GET', `/api/public/incidents/${endInc.publicId}`);
+  ok(reopened.data.status === 'active' && !reopened.data.ended_at, 'incident de nouveau actif, fin effacée');
+  const sa = await api('POST', `/api/public/incidents/${endInc.publicId}/still-active`, { deviceId: device(14) });
+  ok(sa.status === 200 && sa.data.stillActiveAt, '« C’est toujours en cours » : fraîcheur actualisée');
+  const saDup = await api('POST', `/api/public/incidents/${endInc.publicId}/still-active`, { deviceId: device(14) });
+  ok(saDup.status === 400 && saDup.data.alreadyReported, 'actualisation en double (même personne) refusée');
+  const saView = await api('GET', `/api/public/incidents/${endInc.publicId}`);
+  ok(Boolean(saView.data.still_active_at), 'still_active_at exposé publiquement');
+  const cfgTiles = await api('GET', '/api/public/config');
+  ok(cfgTiles.data.tileProviders?.length === 2 && cfgTiles.data.tileProviders[0].url.includes('{z}'),
+    'fournisseurs de tuiles configurés côté serveur (principal + secours)');
   // clôture directe par le déclarant (lien de gestion) + métadonnées
   const own = await publish({ type: 'water', lat: 36.4, lng: 10.6 });
   const token = new URL(own.manageUrl).searchParams.get('token');

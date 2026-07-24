@@ -53,6 +53,9 @@ const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromi
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'fr-FR' });
 // Choix de consentement déjà fait (la bannière GA est testée par ailleurs).
 await ctx.addInitScript(() => { try { localStorage.setItem('ga_consent', 'denied'); } catch {} });
+// Réseau externe indisponible dans l'environnement de test : les tuiles sont
+// coupées immédiatement (exerce au passage la bascule de fournisseurs).
+await ctx.route(/tile\.openstreetmap|cartocdn|googletagmanager|google-analytics/, (r) => r.abort());
 const page = await ctx.newPage();
 
 // ── 1. Persistance de la langue ─────────────────────────────────────────────

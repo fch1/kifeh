@@ -1,16 +1,62 @@
 // Utilitaires carte Leaflet : fond OSM, marqueurs par type, clustering léger.
 'use strict';
 
+// Fournisseurs de fond de carte : AUCUNE URL en dur dans le composant carte.
+// Liste par défaut (remplacée par la configuration serveur dès qu'elle arrive) ;
+// bascule automatique en cas d'échecs répétés (403, 429, 5xx, timeout, blocage
+// navigateur) en conservant zoom, centre, marqueurs et incident sélectionné.
+let TILE_PROVIDERS = [
+  { url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' },
+  { url: 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png', attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>' },
+];
+let TILE_FAIL_THRESHOLD = 6;
+function setTileProviders(providers, threshold) {
+  if (Array.isArray(providers) && providers.length) TILE_PROVIDERS = providers;
+  if (threshold > 0) TILE_FAIL_THRESHOLD = threshold;
+}
+
+// Attache le fond de carte avec bascule automatique. deferred = mode léger :
+// pas de tuiles tant que l'utilisateur ne les demande pas.
+function attachTiles(map, { deferred = false } = {}) {
+  const state = { index: 0, errors: 0, layer: null, exhausted: false };
+  map._tileState = state;
+  function useProvider(i) {
+    if (state.layer) { map.removeLayer(state.layer); state.layer = null; }
+    if (i >= TILE_PROVIDERS.length) {
+      // Tous les fournisseurs indisponibles : fond neutre, l'application reste
+      // entièrement utilisable (liste, recherche, filtres, déclaration).
+      state.exhausted = true;
+      document.dispatchEvent(new CustomEvent('kifeh:tiles-failed'));
+      return;
+    }
+    state.index = i; state.errors = 0;
+    const p = TILE_PROVIDERS[i];
+    state.layer = L.tileLayer(p.url, { maxZoom: 19, attribution: p.attribution, crossOrigin: 'anonymous' });
+    state.layer.on('tileerror', () => {
+      state.errors++;
+      if (state.errors >= TILE_FAIL_THRESHOLD) {
+        // Pas de boucle infinie : on abandonne ce fournisseur définitivement.
+        useProvider(state.index + 1);
+      }
+    });
+    state.layer.on('tileload', () => {
+      state.errors = 0;
+      document.dispatchEvent(new CustomEvent('kifeh:tiles-ok'));
+    });
+    state.layer.addTo(map); // zoom/centre/marqueurs inchangés : seule la couche de fond change
+  }
+  map._loadTiles = () => { if (!state.layer && !state.exhausted) useProvider(0); };
+  if (!deferred) useProvider(0);
+  return map;
+}
+
 function createMap(el, opts = {}) {
   const map = L.map(el, {
     zoomControl: false,
     attributionControl: true,
     ...opts,
   }).setView(opts.center || [34.2, 9.6], opts.zoom || 6); // Tunisie par défaut
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-  }).addTo(map);
+  attachTiles(map, { deferred: opts.deferTiles === true });
   L.control.zoom({ position: 'bottomright' }).addTo(map);
   return map;
 }

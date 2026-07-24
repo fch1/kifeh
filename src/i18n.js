@@ -71,6 +71,8 @@ const CATALOG = {
     resolution_already: 'Vous avez déjà signalé la fin de cet incident.',
     correction_thanks: 'Merci, la correction proposée sera vérifiée avant d’être appliquée.',
     correction_applied: 'Position mise à jour.',
+    reopened_ok: 'Incident réouvert. Merci pour la correction !',
+    reopen_too_old: 'Cet incident est clôturé depuis plus de 24 heures et ne peut plus être réouvert ici.',
     // Gestion
     link_invalid: 'Lien invalide.',
     manage_link_invalid: 'Ce lien de gestion est invalide, expiré ou révoqué.',
@@ -144,6 +146,8 @@ const CATALOG = {
     resolution_already: 'سبق أن أبلغت بانتهاء هذا الحادث.',
     correction_thanks: 'شكرًا، سيتم التحقق من التصحيح المقترح قبل اعتماده.',
     correction_applied: 'تم تحديث الموقع.',
+    reopened_ok: 'تمت إعادة فتح الحادث. شكرًا على التصحيح!',
+    reopen_too_old: 'هذا الحادث مغلق منذ أكثر من 24 ساعة ولا يمكن إعادة فتحه من هنا.',
     link_invalid: 'رابط غير صالح.',
     manage_link_invalid: 'رابط المتابعة هذا غير صالح أو منتهي الصلاحية أو ملغى.',
     not_ongoing: 'هذا التبليغ ليس حادثًا جاريًا.',

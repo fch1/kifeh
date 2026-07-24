@@ -23,7 +23,7 @@ const PUBLIC_COLS = `public_id, type, status, severity,
   temporal_status, started_at, ended_at, time_approximate,
   public_lat AS lat, public_lng AS lng, public_area AS area,
   confirmations_count, COALESCE(published_at, created_at) AS published_at,
-  created_at, updated_at,
+  still_active_at, created_at, updated_at,
   (SELECT MAX(se.last_detected_at) FROM satellite_events se
    WHERE se.linked_incident_id = incidents.id AND se.status != 'false_positive') AS satellite_last_seen`;
 
@@ -245,6 +245,55 @@ publicRouter.post('/confirm/direct', ipRateLimit('confirm_ip', 10, 60), (req, re
   });
 });
 
+// --- « C'est toujours en cours » --------------------------------------------
+// Actualise la fraîcheur communautaire de l'incident EXISTANT (aucun doublon,
+// aucun nouveau compteur) — une actualisation par personne par demi-heure.
+publicRouter.post('/incidents/:publicId/still-active', ipRateLimit('still_ip', 20, 60), (req, res) => {
+  const incident = db.prepare(`SELECT id, public_id, temporal_status FROM incidents
+                               WHERE public_id = ? AND status = 'active'`)
+    .get(String(req.params.publicId));
+  if (!incident) return res.status(404).json({ error: msg(req, 'incident_closed_or_missing') });
+  const who = contributorHash(req, incident.id, 'still');
+  if (countEvents('still_active', who, 30) > 0) {
+    return res.status(400).json({ error: msg(req, 'already_confirmed'), alreadyReported: true });
+  }
+  recordEvent('still_active', who);
+  const now = nowIso();
+  db.prepare(`UPDATE incidents SET still_active_at = ?,
+              updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`).run(now, incident.id);
+  broadcast('incident', { publicId: incident.public_id });
+  res.json({ ok: true, stillActiveAt: now });
+});
+
+// --- Réouverture communautaire d'un incident clôturé par erreur --------------
+publicRouter.post('/incidents/:publicId/reopen', ipRateLimit('reopen_ip', 5, 60), (req, res) => {
+  const incident = db.prepare(`SELECT id, public_id, resolved_at, resolution_source FROM incidents
+                               WHERE public_id = ? AND status = 'resolved'`)
+    .get(String(req.params.publicId));
+  if (!incident) return res.status(404).json({ error: msg(req, 'incident_not_found') });
+  // Réouverture possible dans les 24 h suivant une clôture (créateur ou communauté).
+  if (incident.resolved_at && Date.now() - Date.parse(incident.resolved_at) > 24 * 3600_000) {
+    return res.status(400).json({ error: msg(req, 'reopen_too_old') });
+  }
+  const who = contributorHash(req, incident.id, 'reopen');
+  if (countEvents('reopen', who, 24 * 60) > 0) {
+    return res.status(400).json({ error: msg(req, 'already_confirmed'), alreadyReported: true });
+  }
+  recordEvent('reopen', who);
+  const ttlH = getSettingNum('active_incident_ttl_h') || 24;
+  db.prepare(`UPDATE incidents SET status = 'active', temporal_status = 'ongoing', ended_at = NULL,
+              resolved_at = NULL, resolution_source = NULL,
+              still_active_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+              expires_at = strftime('%Y-%m-%dT%H:%M:%fZ','now', '+' || ? || ' hours'),
+              updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`)
+    .run(String(ttlH), incident.id);
+  db.prepare(`UPDATE resolution_reports SET status = 'dismissed' WHERE incident_id = ? AND status IN ('pending','applied')`)
+    .run(incident.id);
+  audit('public', 'incident_reopened_by_community', incident.id, null, clientIp(req));
+  broadcast('incident', { publicId: incident.public_id, status: 'active' });
+  res.json({ ok: true, message: msg(req, 'reopened_ok') });
+});
+
 // --- « Signaler que cet incident est terminé » ------------------------------
 // Un signalement par personne ; clôture automatique au seuil configuré
 // (résolution communautaire), avec heure de fin médiane proposée.
@@ -283,7 +332,11 @@ publicRouter.post('/incidents/:publicId/resolution', ipRateLimit('resolution_ip'
 
   const pending = db.prepare(`SELECT proposed_ended_at FROM resolution_reports
                               WHERE incident_id = ? AND status = 'pending' ORDER BY created_at`).all(incident.id);
-  const threshold = getSettingNum('resolution_threshold');
+  // Mode « immediate » (défaut) : la clôture s'applique dès la première
+  // confirmation — l'incident reste réouvrable pendant 24 h si c'était une
+  // erreur. Mode « threshold » : seuil de signalements indépendants.
+  const immediate = (getSetting('resolution_mode') || 'immediate') !== 'threshold';
+  const threshold = immediate ? 1 : getSettingNum('resolution_threshold');
   let resolved = false;
   if (pending.length >= threshold) {
     // Heure de fin : la plus récente proposée, sinon maintenant.
@@ -456,6 +509,13 @@ publicRouter.get('/config', (req, res) => {
     satelliteLayer: getSetting('nasa_firms_public_layer_enabled') !== '0',
     stegOfficialLayer: getSetting('steg_official_layer_enabled') === '1',
     communityResolution: getSetting('community_resolution_enabled') !== '0',
+    resolutionMode: getSetting('resolution_mode') || 'immediate',
+    // Fond de carte : fournisseurs configurés côté serveur (jamais en dur).
+    tileProviders: [
+      { url: getSetting('tile_primary_url'), attribution: getSetting('tile_primary_attribution') },
+      { url: getSetting('tile_secondary_url'), attribution: getSetting('tile_secondary_attribution') },
+    ].filter((p) => p.url),
+    tileFailThreshold: getSettingNum('tile_fail_threshold') || 6,
   });
 });
 
