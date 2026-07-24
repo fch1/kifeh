@@ -295,7 +295,7 @@ async function openDetail(publicId) {
     <h2><span class="badge ${esc(i.type)}">${TYPE_ICONS[i.type]} ${esc(TYPE_LABELS[i.type])}</span>
         <span class="badge status ${esc(i.status)}">${esc(STATUS_LABELS[i.status] || i.status)}</span></h2>
     <p class="muted">${esc(i.area || t('area_approx'))} · ${t('ref')} ${esc(i.public_id)}</p>
-    ${i.satellite_last_seen ? `<p class="notice sat">🛰️ <strong>${t('sat_corroborated')}</strong><br>
+    ${i.satellite_last_seen ? `<p class="notice sat">🛰️ <strong>${t('sat_corroborated')} — NASA FIRMS</strong><br>
       <span class="small">${t('sat_last_seen')} ${esc(fmtDate(i.satellite_last_seen))} · ${t('sat_source')}</span></p>` : ''}
     ${fireStatusHtml(i)}
     <p><strong>${t('started')}</strong> ${esc(fmtDate(i.started_at))}${i.time_approximate ? ` ${t('approx_suffix')}` : ''}<br>
@@ -341,10 +341,10 @@ async function openSatDetail(id) {
   const confirmed = isDone('sat_confirmed', ev.id);
   const confLabel = t(`sat_conf_${ev.max_confidence}`) || ev.max_confidence;
   el.innerHTML = `
-    <h2><span class="badge sat">🛰️ ${t('sat_detection')}</span>
+    <h2><span class="badge sat">🛰️ ${t('sat_detection')} — NASA FIRMS</span>
         ${ev.status === 'no_new_detection' ? `<span class="badge status expired">${t('sat_no_new')}</span>` : ''}</h2>
     <p><strong>${t('sat_potential_fire')}</strong></p>
-    <p class="muted small">${t('area_approx')} · ${t('sat_source')}</p>
+    <p class="notice sat small"><strong>${t('sat_source')}</strong> · ${t('area_approx')}</p>
     <p><strong>${t('sat_first_seen')}</strong> ${esc(fmtDate(ev.first_detected_at))}<br>
     <strong>${t('sat_last_seen')}</strong> ${esc(fmtDate(ev.last_detected_at))}<br>
     <strong>${t('sat_confidence')}</strong> ${esc(confLabel)}<br>
