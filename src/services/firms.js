@@ -102,19 +102,30 @@ export function parseFirmsCsv(text, source) {
 }
 
 // Appel API par zone — la clé n'apparaît jamais dans les journaux d'erreur.
+// Les sources NRT ne conservent que quelques jours d'historique : si la
+// fenêtre demandée est refusée (HTTP 400), on retente avec une fenêtre plus
+// courte (7 → 5 → 3 → 1) jusqu'à obtenir une réponse.
 async function fetchSource(source, dayRange = 1) {
-  const url = `${config.firms.baseUrl}/api/area/csv/${config.firms.mapKey}/${source}/${TUNISIA_BBOX}/${dayRange}`;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), Number(process.env.FIRMS_TIMEOUT_MS) || 30_000);
-  try {
-    const res = await fetch(url, { signal: controller.signal });
-    incrementTx();
-    const text = await res.text();
-    if (!res.ok || /invalid\s*map_key/i.test(text)) {
-      throw new Error(`FIRMS ${source} : HTTP ${res.status}${/invalid\s*map_key/i.test(text) ? ' (clé invalide)' : ''}`);
-    }
-    return parseFirmsCsv(text, source);
-  } finally { clearTimeout(timer); }
+  const ranges = [...new Set([dayRange, 5, 3, 1].filter((d) => d <= dayRange && d >= 1))];
+  let lastError = null;
+  for (const range of ranges) {
+    const url = `${config.firms.baseUrl}/api/area/csv/${config.firms.mapKey}/${source}/${TUNISIA_BBOX}/${range}`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), Number(process.env.FIRMS_TIMEOUT_MS) || 45_000);
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      incrementTx();
+      const text = await res.text();
+      if (!res.ok || /invalid\s*map_key/i.test(text)) {
+        lastError = new Error(`FIRMS ${source} : HTTP ${res.status}${/invalid\s*map_key/i.test(text) ? ' (clé invalide)' : ''}`);
+        continue; // fenêtre plus courte
+      }
+      return parseFirmsCsv(text, source);
+    } catch (e) {
+      lastError = e;
+    } finally { clearTimeout(timer); }
+  }
+  throw lastError || new Error(`FIRMS ${source} : aucune réponse`);
 }
 
 function incrementTx() {
