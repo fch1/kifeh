@@ -8,6 +8,34 @@ import fs from 'node:fs';
 // déploiements ne touchent alors JAMAIS à la base ni aux fichiers.
 const persistentDir = fs.existsSync('/var/data') ? '/var/data' : null;
 
+// Render « Secret Files » : les variables saisies dans un fichier secret
+// (Contents KEY=VALUE) sont montées sous /etc/secrets mais ne deviennent PAS
+// des variables d'environnement. On les charge ici pour qu'elles fonctionnent
+// exactement comme si elles avaient été posées dans Environment Variables.
+// Les vraies variables d'environnement gardent toujours la priorité.
+try {
+  const secretsDir = '/etc/secrets';
+  if (fs.existsSync(secretsDir)) {
+    for (const f of fs.readdirSync(secretsDir)) {
+      let content = '';
+      try { content = fs.readFileSync(`${secretsDir}/${f}`, 'utf8'); } catch { continue; }
+      if (content.length > 100_000 || !content.includes('=')) continue;
+      for (const line of content.split('\n')) {
+        const m = line.match(/^\s*([A-Z][A-Z0-9_]*)\s*=\s*(.*?)\s*$/);
+        if (!m) continue;
+        const [, k, raw] = m;
+        // BASE_URL est volontairement ignorée : la détection à l'exécution
+        // donne le bon domaine public (www.kifeh.org) là où le fichier
+        // contiendrait l'URL interne onrender.com.
+        if (k === 'BASE_URL') continue;
+        if (process.env[k] === undefined || process.env[k] === '') {
+          process.env[k] = raw.replace(/^["']|["']$/g, '');
+        }
+      }
+    }
+  }
+} catch { /* pas de fichier secret : rien à faire */ }
+
 const env = process.env;
 
 // URL publique détectée à partir des requêtes entrantes quand BASE_URL n'est
