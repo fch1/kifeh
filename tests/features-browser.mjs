@@ -204,8 +204,31 @@ if (await page.isVisible('#btnConfirm')) {
   ok(false, 'bouton de confirmation absent');
   ok(false, 'état confirmé non vérifiable');
 }
-ok(await page.isVisible('#btnEnded'), 'action « Signaler que cet incident est terminé » visible');
-ok(await page.isVisible('#btnLocCorrect'), 'action « Corriger la localisation » visible');
+ok(await page.isVisible('#btnEnded'), 'action « C’est terminé » visible');
+ok(await page.isVisible('#btnLocCorrect'), 'action de correction de localisation visible');
+
+// ── Régressions d'audit (320 px + clarté du parcours) ──────────────────────
+console.log('\n■ Régressions d’audit');
+const tiny = await ctx.newPage();
+await tiny.setViewportSize({ width: 320, height: 568 });
+await tiny.goto(`${BASE}/`, { waitUntil: 'load' });
+await tiny.waitForTimeout(900);
+await tiny.click('#chipFilters');
+await tiny.waitForTimeout(700);
+// Appliquer/Réinitialiser : visibles SANS défiler (actions collantes).
+const applyVisible = await tiny.evaluate(() => {
+  const r = document.getElementById('filterApply').getBoundingClientRect();
+  return r.top >= 0 && r.bottom <= window.innerHeight + 1 && r.height >= 40;
+});
+ok(applyVisible, '320px : « Appliquer » visible sans défiler (actions collantes)');
+// Déclaration : « Étape 1 sur 4 » quand la vérification est désactivée.
+await tiny.goto(`${BASE}/declare.html`, { waitUntil: 'load' });
+await tiny.waitForTimeout(900);
+const hint = await tiny.evaluate(() => document.getElementById('stepHint').textContent);
+ok(/sur 4/.test(hint), `déclaration : compteur d'étapes réel (« ${hint} »)`);
+const visibleSegs = await tiny.evaluate(() => [...document.querySelectorAll('#progressBar span')].filter((s) => !s.hidden).length);
+ok(visibleSegs === 4, `barre de progression à 4 segments (${visibleSegs})`);
+await tiny.close();
 
 await browser.close();
 server.kill();

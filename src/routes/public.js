@@ -23,7 +23,7 @@ const PUBLIC_COLS = `public_id, type, status, severity,
   temporal_status, started_at, ended_at, time_approximate,
   public_lat AS lat, public_lng AS lng, public_area AS area,
   confirmations_count, COALESCE(published_at, created_at) AS published_at,
-  still_active_at, created_at, updated_at,
+  still_active_at, resolved_at, created_at, updated_at,
   (SELECT MAX(se.last_detected_at) FROM satellite_events se
    WHERE se.linked_incident_id = incidents.id AND se.status != 'false_positive') AS satellite_last_seen`;
 

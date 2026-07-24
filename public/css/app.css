@@ -206,6 +206,13 @@ html[dir="rtl"] .topbar .back .arrow { display: inline-block; transform: scaleX(
   transform: translateY(105%); transition: transform .25s ease;
 }
 .sheet.open { transform: translateY(0); }
+/* Actions principales d'une feuille : collées en bas, toujours visibles sans
+   défiler — même sur un écran de 320 px. */
+.sheet .sheet-actions {
+  position: sticky; bottom: calc(-1.5rem - env(safe-area-inset-bottom));
+  background: var(--surface); padding: .75rem 0 .25rem; margin-top: 1rem;
+  box-shadow: 0 -6px 8px -6px rgba(15,58,87,.18);
+}
 .sheet .handle { width: 44px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto .75rem; }
 
 /* Badges type / statut — couleur + icône + libellé, jamais la couleur seule */
@@ -414,6 +421,13 @@ th, td { text-align: start; padding: .5rem .4rem; border-bottom: 1px solid var(-
   margin-right: .4rem;
 }
 html, body { overscroll-behavior: none; }
+
+/* Accessibilité : focus clavier toujours visible (navigation sans souris). */
+:focus-visible {
+  outline: 3px solid var(--secondary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
 
 @media (min-width: 700px) {
   .sheet { max-width: 480px; left: auto; right: 1rem; border-radius: 18px; bottom: 1rem; }

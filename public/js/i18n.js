@@ -166,7 +166,7 @@ const I18N = {
     reason_wrong_location: 'La localisation est incorrecte', reason_not_real: 'Cet incident n’existe pas',
     reason_resolved: 'L’incident est déjà résolu', reason_inappropriate: 'Contenu inapproprié', reason_other: 'Autre',
     // Déclaration — navigation
-    step_of: 'Étape {n} sur 6', step_done_hint: 'Terminé', step_verif_hint: 'Vérification',
+    step_of: 'Étape {n} sur {total}', step_done_hint: 'Terminé', step_verif_hint: 'Vérification',
     t_type: 'Type d’incident', t_location: 'Localisation', t_period: 'Période', t_desc: 'Description',
     t_dup: 'Incident similaire', t_contact: 'Vos coordonnées', t_verif: 'Vérification', t_done: 'Confirmation',
     back_aria: 'Revenir à l’étape précédente',
@@ -430,7 +430,7 @@ const I18N = {
     report_reason: 'السبب', report_detail: 'توضيحات (اختياري)', report_send: 'إرسال الإشعار',
     reason_wrong_location: 'الموقع غير صحيح', reason_not_real: 'هذا الحادث غير موجود',
     reason_resolved: 'تمت معالجة الحادث', reason_inappropriate: 'محتوى غير لائق', reason_other: 'أخرى',
-    step_of: 'الخطوة {n} من 6', step_done_hint: 'تمّ', step_verif_hint: 'تحقق',
+    step_of: 'الخطوة {n} من {total}', step_done_hint: 'تمّ', step_verif_hint: 'تحقق',
     t_type: 'نوع الحادث', t_location: 'الموقع', t_period: 'الفترة', t_desc: 'الوصف',
     t_dup: 'حادث مشابه', t_contact: 'بيانات الاتصال', t_verif: 'التحقق', t_done: 'التأكيد',
     back_aria: 'العودة إلى الخطوة السابقة',

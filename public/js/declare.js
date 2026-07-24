@@ -38,12 +38,22 @@ const TITLES = {
 };
 const ORDER_FOR_BACK = { step2: 'step1', step3: 'step2', step4: 'step3', stepDup: 'step4', step5: 'step4', step6: 'step5' };
 
+// Nombre d'étapes RÉEL affiché à l'utilisateur : 4 quand la vérification de
+// contact est désactivée (le parcours saute contact + code), 6 sinon.
+let stepsTotal = 6;
+function applyStepsTotal() {
+  document.querySelectorAll('#progressBar span').forEach((s, idx) => { s.hidden = idx >= stepsTotal; });
+  if (TITLES[state.step]?.[1]) {
+    document.getElementById('stepHint').textContent = t('step_of', { n: TITLES[state.step][1], total: stepsTotal });
+  }
+}
+
 function show(stepId) {
   for (const id of STEPS) document.getElementById(id).hidden = id !== stepId;
   const [titleKey, n] = TITLES[stepId];
   document.getElementById('stepTitle').textContent = t(titleKey);
   document.getElementById('stepHint').textContent =
-    n ? t('step_of', { n }) : t(stepId === 'stepDone' ? 'step_done_hint' : 'step_verif_hint');
+    n ? t('step_of', { n, total: stepsTotal }) : t(stepId === 'stepDone' ? 'step_done_hint' : 'step_verif_hint');
   const idx = ['step1', 'step2', 'step3', 'step4', 'step5', 'step6'].indexOf(stepId);
   document.querySelectorAll('#progressBar span').forEach((s, i) => s.classList.toggle('done', idx >= 0 && i <= idx));
   state.step = stepId; save();
@@ -70,8 +80,11 @@ API.get('/api/public/config')
     }
     verificationRequired = c.verificationRequired !== false;
     if (!verificationRequired) {
-      // La vérification est désactivée : le bouton de l'étape 4 publie directement.
+      // La vérification est désactivée : le bouton de l'étape 4 publie directement
+      // et le parcours affiché compte 4 étapes (pas 6).
       document.getElementById('btnDetailsNext').textContent = t('publish_now');
+      stepsTotal = 4;
+      applyStepsTotal();
     }
   })
   .catch(() => {});

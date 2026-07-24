@@ -496,7 +496,8 @@ async function openDetail(publicId) {
     <div id="stillZone"></div>
     ${i.status === 'active' && !endedReported ? `<button class="btn secondary" id="btnEnded" style="margin-top:.5rem">${t('ended_report_btn')}</button>` : ''}
     <div id="endedZone"></div>
-    ${i.status === 'resolved' ? `<button class="btn secondary" id="btnReopen" style="margin-top:.5rem">${t('reopen_btn')}</button>
+    ${i.status === 'resolved' && (!i.resolved_at || Date.now() - Date.parse(i.resolved_at) < 24 * 3600_000)
+    ? `<button class="btn secondary" id="btnReopen" style="margin-top:.5rem">${t('reopen_btn')}</button>
     <div id="reopenZone"></div>` : ''}
     <button class="btn ghost small-btn" id="btnLocCorrect" style="margin-top:.5rem">${t('loc_correct_title')}</button>
     <div id="locCorrectZone"></div>
