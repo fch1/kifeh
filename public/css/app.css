@@ -287,6 +287,7 @@ html[dir="rtl"] .topbar .back .arrow { display: inline-block; transform: scaleX(
 .counter { cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: .1rem; max-width: 92%; }
 .summary-where { font-weight: 400; font-size: .75rem; color: var(--muted); }
 .summary-types { font-weight: 600; font-size: .8125rem; }
+.summary-sat { font-weight: 600; font-size: .75rem; color: #8A4514; }
 .summary-degraded { font-weight: 400; font-size: .75rem; color: #8A4514; text-align: center; }
 
 /* Capsule de confiance (≤ 3 signaux en langage simple) */

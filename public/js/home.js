@@ -70,25 +70,31 @@ document.getElementById('fStatus').value = filters.status;
 
 const cluster = new GridCluster(map, (it) => it.satellite ? openSatDetail(it.id) : openDetail(it.public_id));
 
-// Détections satellite affichées : par défaut, uniquement celles dont la
-// DERNIÈRE observation date de moins de 24 h — le nombre affiché reste digne
-// de confiance (« en cours »). L'historique complet (72 h) est accessible via
-// le filtre source « Détections satellite » ou le filtre de confiance.
+// « Feux satellite » est un TYPE cochable comme les autres (puce rapide et
+// feuille de filtres synchronisées). Types cochés sans type citoyen → seuls
+// les événements satellite s'affichent, et réciproquement.
+function citizenTypes() { return [...filters.types].filter((x) => x !== 'satellite'); }
+function citizenVisible() {
+  if (filters.source === 'satellite') return false;
+  return filters.types.size === 0 || citizenTypes().length > 0;
+}
+// Fenêtre satellite : 24 h par défaut (nombre « en cours » digne de confiance) ;
+// 72 h quand l'utilisateur demande explicitement les feux satellite.
+function satWindowH() {
+  return (filters.types.has('satellite') || filters.satConf) ? 72 : 24;
+}
 function visibleSats() {
   if (filters.source === 'citizen' || filters.source === 'corroborated') return [];
-  if (filters.types.size && !filters.types.has('fire')) return [];
-  const freshH = (filters.source === 'satellite' || filters.satConf) ? 72 : 24;
-  const cutoff = Date.now() - freshH * 3600_000;
+  if (filters.types.size && !filters.types.has('satellite') && !filters.types.has('fire')) return [];
+  const cutoff = Date.now() - satWindowH() * 3600_000;
   return satEvents.filter((e) => Date.parse(e.last_detected_at) >= cutoff);
 }
 
-// Jeu d'éléments affichés selon le filtre de source (carte + liste + compteurs
-// utilisent le MÊME jeu — cohérence garantie).
+// Jeu d'éléments affichés (carte + liste + compteurs = MÊME jeu, cohérence garantie).
 function visibleItems() {
   const sats = visibleSats().map((e) => ({ ...e, satellite: true }));
-  let incs = incidents;
-  if (filters.source === 'satellite') incs = [];
-  else if (filters.source === 'corroborated') incs = incidents.filter((i) => i.satellite_last_seen);
+  let incs = citizenVisible() ? incidents : [];
+  if (filters.source === 'corroborated') incs = incs.filter((i) => i.satellite_last_seen);
   return [...incs, ...sats];
 }
 
@@ -100,7 +106,8 @@ async function loadIncidents() {
     minLat: b.getSouth().toFixed(4), maxLat: b.getNorth().toFixed(4),
     minLng: b.getWest().toFixed(4), maxLng: b.getEast().toFixed(4),
   });
-  if (filters.types.size) params.set('types', [...filters.types].join(','));
+  const srvTypes = citizenTypes(); // « satellite » n'est pas un type serveur
+  if (srvTypes.length) params.set('types', srvTypes.join(','));
   if (filters.status) params.set('status', filters.status);
   // Filtre « période » : basé sur la date de PUBLICATION du signalement.
   if (filters.periodH) params.set('publishedSince', new Date(Date.now() - filters.periodH * 3600_000).toISOString());
@@ -156,23 +163,30 @@ async function loadIncidents() {
 function renderSummary(degraded, snapshotAt) {
   const counter = document.getElementById('counter');
   const shown = visibleItems();
-  const active = filters.source === 'satellite' ? [] : incidents.filter((i) => i.status === 'active');
-  const total = active.length + visibleSats().length;
+  const active = citizenVisible() ? incidents.filter((i) => i.status === 'active') : [];
+  const satsShown = visibleSats();
   if (shown.length === 0 && activeFilterCount() > 0 && !degraded) {
     counter.textContent = t('filter_results_none');
     return;
   }
   const q = document.getElementById('search').value.trim();
   const where = q ? t('summary_around', { q: q.split(',')[0] }) : t('summary_here');
+
+  // Lignes distinctes : les signalements citoyens et les détections satellite
+  // ne sont jamais additionnés dans un même chiffre ambigu.
   const byType = {};
   for (const i of active) byType[i.type] = (byType[i.type] || 0) + 1;
-  const parts = Object.entries(byType).map(([ty, n]) => `${TYPE_ICONS[ty]} ${n}`);
-  const satsShown = visibleSats();
-  if (satsShown.length) parts.push(`🛰️ ${satsShown.length}`);
+  const typeParts = Object.entries(byType).map(([ty, n]) => `${TYPE_ICONS[ty]} ${n}`);
+  let mainLine;
+  if (active.length === 0 && satsShown.length === 0) mainLine = t('counter_none');
+  else if (active.length > 0) mainLine = active.length === 1 ? t('counter_one') : t('counter_n', { n: active.length });
+  else mainLine = `🛰️ ${t('summary_sat_n', { n: satsShown.length })}`;
+
   counter.innerHTML = `
     <span class="summary-where">${esc(where)}</span>
-    <strong>${total === 0 ? t('counter_none') : total === 1 ? t('counter_one') : t('counter_n', { n: total })}</strong>
-    ${parts.length ? `<span class="summary-types">${parts.join(' · ')}</span>` : ''}
+    <strong>${mainLine}</strong>
+    ${active.length > 0 && typeParts.length ? `<span class="summary-types">${typeParts.join(' · ')}</span>` : ''}
+    ${active.length > 0 && satsShown.length ? `<span class="summary-sat">🛰️ ${t('summary_sat_n', { n: satsShown.length })} · ${satWindowH()} h</span>` : ''}
     ${degraded ? `<span class="summary-degraded">${t('api_degraded')}<br>${t('offline_snapshot', { t: timeAgo(new Date(snapshotAt).toISOString()) })}</span>` : ''}`;
 }
 // Le résumé ouvre la liste correspondante (même jeu de données).
@@ -282,13 +296,14 @@ function syncTypeControls() {
   document.querySelectorAll('.chip[data-type]').forEach((c) =>
     c.setAttribute('aria-pressed', filters.types.has(c.dataset.type)));
   document.querySelectorAll('.fType').forEach((c) => { c.checked = filters.types.has(c.value); });
-  document.getElementById('chipSat').setAttribute('aria-pressed', filters.source === 'satellite');
+  document.getElementById('chipSat').setAttribute('aria-pressed', filters.types.has('satellite'));
   document.getElementById('fSource').value = filters.source;
   updateFilterBadge();
 }
-// Filtre rapide : uniquement les feux détectés par satellite (72 h).
+// Filtre rapide : les feux détectés par satellite, comme un type d'incident.
 document.getElementById('chipSat').addEventListener('click', () => {
-  filters.source = filters.source === 'satellite' ? '' : 'satellite';
+  if (filters.types.has('satellite')) filters.types.delete('satellite');
+  else filters.types.add('satellite');
   syncTypeControls();
   loadIncidents();
 });
@@ -361,9 +376,8 @@ function renderList() {
   const sort = document.getElementById('sortSelect').value;
   const sevRank = { immediate_danger: 0, high: 1, moderate: 2, low: 3 };
   // Même jeu filtré que la carte et le résumé (cohérence garantie).
-  const rows = filters.source === 'satellite' ? []
-    : filters.source === 'corroborated' ? incidents.filter((i) => i.satellite_last_seen)
-    : [...incidents];
+  let rows = citizenVisible() ? [...incidents] : [];
+  if (filters.source === 'corroborated') rows = rows.filter((i) => i.satellite_last_seen);
   if (sort === 'time') rows.sort((a, b) => Date.parse(b.started_at) - Date.parse(a.started_at));
   if (sort === 'severity') rows.sort((a, b) => sevRank[a.severity] - sevRank[b.severity]);
   if (sort === 'near' && userPos) {
