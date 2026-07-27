@@ -128,6 +128,43 @@ fireSituationRouter.get('/summary', ipRateLimit('firesit_ip', 60, 5), async (req
   });
 });
 
+// ── Vigilance Météo-France : liste des alertes en cours (fiche dédiée) ───────
+// Alimenté par la veille automatique (services/vigilance.js). En période calme
+// la liste est vide — l'interface l'affiche comme « rien à signaler », jamais
+// comme une absence d'information. Charge utile compacte, aucune clé exposée.
+fireSituationRouter.get('/vigilance', ipRateLimit('firesit_ip', 60, 5), (req, res) => {
+  const country = requestCountry(req);
+  if (!enabledFor(country)) return res.json({ enabled: false });
+  const monitored = Boolean(process.env.METEOFRANCE_API_KEY)
+    && getSetting('vigilance_enabled') !== '0';
+  if (!monitored) return res.json({ enabled: true, monitored: false, alerts: [] });
+  const rows = db.prepare(
+    `SELECT id, source_title, summary_fr, summary_ar, severity, affected_dept_codes,
+            centroid_lat, centroid_lng, valid_until, published_at, source_url
+     FROM official_updates
+     WHERE authority_id = 'mf_vigilance' AND status = 'current' AND is_published = 1
+       AND (valid_until IS NULL OR valid_until > strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+     ORDER BY CASE severity WHEN 'urgent' THEN 0 ELSE 1 END, published_at DESC LIMIT 120`
+  ).all();
+  res.json({
+    enabled: true,
+    monitored: true,
+    checkedAt: getSetting('vigilance_last_success_at') || null,
+    alerts: rows.map((r) => ({
+      id: r.id,
+      title: r.source_title,                       // « Vigilance orange — Gironde »
+      deptCode: r.affected_dept_codes,
+      color: r.severity === 'urgent' ? 'rouge' : 'orange',
+      summaryFr: r.summary_fr,
+      summaryAr: r.summary_ar,
+      lat: r.centroid_lat, lng: r.centroid_lng,
+      validUntil: r.valid_until,
+      publishedAt: r.published_at,
+      sourceUrl: r.source_url,
+    })),
+  });
+});
+
 // ── Vent contextuel d'un foyer + contexte « sous le vent » ───────────────────
 // fireLat/fireLng : position (publique) du foyer ; userLat/userLng facultatifs.
 fireSituationRouter.get('/wind', ipRateLimit('firesit_ip', 60, 5), async (req, res) => {

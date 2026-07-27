@@ -268,6 +268,7 @@ async function loadIncidents() {
     } else fireSit = null;
     cluster.setItems(visibleItems());
     renderSummary(false);
+    refreshVigilanceMarkers(); // marqueurs ⚠️ vigilance (asynchrone, jamais bloquant)
     // Instantané local : la dernière situation chargée reste consultable
     // hors connexion (avec son horodatage, jamais présentée comme actuelle).
     try {
@@ -337,11 +338,87 @@ function renderSummary(degraded, snapshotAt) {
     ${active.length > 0 && satsShown.length ? `<span class="summary-sat">🛰️ ${t('summary_sat_n', { n: satsShown.length })} · ${satWindowH()} h</span>` : ''}
     ${fireSit?.wind && !fireSit.wind.stale ? `<span class="summary-types">💨 ${esc(t('fs_wind_line', { v: fireSit.wind.speedKmh, dir: windDirName(fireSit.wind.directionToDeg) }))}${fireSit.wind.gustsKmh ? ` · ${esc(t('fs_wind_gusts', { g: fireSit.wind.gustsKmh }))}` : ''}</span>` : ''}
     ${fireSit?.latestOfficialAt ? `<span class="summary-types${fireSit.safetyActive ? ' summary-official-active' : ''}">🏛️ ${esc(t('fs_latest_official', { t: timeAgo(fireSit.latestOfficialAt) }))}</span>` : ''}
-    ${fireSit?.vigilance ? `<span class="summary-types${fireSit.vigilance.activeDepartments > 0 ? ' summary-official-active' : ''}">${fireSit.vigilance.activeDepartments > 0 ? `🟠 ${esc(t('fs_vigilance_active', { n: fireSit.vigilance.activeDepartments }))}` : `🟢 ${esc(t('fs_vigilance_none'))}`}</span>` : ''}
+    ${fireSit?.vigilance ? `<span id="vigStatusLine" class="summary-types vig-line${fireSit.vigilance.activeDepartments > 0 ? ' summary-official-active vig-active' : ''}" role="button" tabindex="0" aria-haspopup="dialog">${fireSit.vigilance.activeDepartments > 0 ? `🟠 ${esc(t('fs_vigilance_active', { n: fireSit.vigilance.activeDepartments }))}` : `🟢 ${esc(t('fs_vigilance_none'))}`} ›</span>` : ''}
     ${degraded ? `<span class="summary-degraded">${t('api_degraded')}<br>${t('offline_snapshot', { t: timeAgo(new Date(snapshotAt).toISOString()) })}</span>` : ''}`;
 }
-// Le résumé ouvre la liste correspondante (même jeu de données).
-document.getElementById('counter').addEventListener('click', () => { renderList(); openSheet('listSheet'); });
+// Le résumé ouvre la liste correspondante (même jeu de données) ; la ligne
+// d'état Vigilance ouvre sa fiche dédiée (clavier : Entrée ou Espace).
+document.getElementById('counter').addEventListener('click', (e) => {
+  if (e.target.closest('#vigStatusLine')) { openVigilanceSheet(); return; }
+  renderList(); openSheet('listSheet');
+});
+document.getElementById('counter').addEventListener('keydown', (e) => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('#vigStatusLine')) {
+    e.preventDefault(); openVigilanceSheet();
+  }
+});
+
+// ── Vigilance Météo-France : fiche dédiée + marqueurs départementaux ─────────
+// Flow : ligne d'état (toujours visible côté France) → 1 tap → fiche complète.
+// Période calme : explication de la veille + horodatage du dernier contrôle.
+// Alerte : carte par département (couleur, phénomène, validité, bulletin
+// officiel) + marqueurs ⚠️ sur la carte. CTA : activer les alertes de sa zone.
+const vigLayer = L.layerGroup().addTo(map);
+
+async function openVigilanceSheet() {
+  const el = document.getElementById('vigContent');
+  el.innerHTML = '<div class="skeleton" style="height:120px"></div>';
+  openSheet('vigSheet');
+  let v;
+  try { v = await API.get('/api/fire-situation/vigilance'); } catch { v = null; }
+  if (!v?.enabled || !v.monitored) {
+    el.innerHTML = `<h2>${esc(t('vig_title'))}</h2><p class="muted small">${esc(t('vig_unavailable'))}</p>`;
+    return;
+  }
+  window.track?.('vigilance_sheet_opened', { alerts: v.alerts.length });
+  const head = v.alerts.length
+    ? `<h2>🟠 ${esc(t('vig_title'))}</h2>
+       <p><strong>${esc(t('fs_vigilance_active', { n: v.alerts.length }))}</strong></p>`
+    : `<h2>🟢 ${esc(t('vig_title'))}</h2>
+       <p><strong>${esc(t('fs_vigilance_none'))}</strong></p>
+       <p class="muted">${esc(t('vig_explainer'))}</p>`;
+  const cards = v.alerts.map((a) => {
+    const summary = LANG === 'ar' && a.summaryAr
+      ? `${esc(a.summaryAr)}<br><span class="muted small">${esc(t('fs_ar_summary_note'))}</span>`
+      : esc(a.summaryFr);
+    return `
+      <div class="notice ${a.color === 'rouge' ? 'danger' : 'warn'}">
+        <strong>${a.color === 'rouge' ? '🔴' : '🟠'} ${esc(a.title)}</strong>
+        <p>${summary}</p>
+        ${a.validUntil ? `<span class="small">${esc(t('vig_valid_until', { t: fmtDate(a.validUntil) }))}</span><br>` : ''}
+        <a href="${esc(a.sourceUrl || 'https://vigilance.meteofrance.fr')}" target="_blank" rel="noopener">${esc(t('fs_official_read'))}</a>
+      </div>`;
+  }).join('');
+  el.innerHTML = `${head}${cards}
+    ${v.alerts.length ? `<p class="muted small">${esc(t('fs_fr_alert_note'))}</p>` : ''}
+    <p><a href="https://vigilance.meteofrance.fr" target="_blank" rel="noopener">${esc(t('vig_official_map'))} ↗</a></p>
+    ${v.checkedAt ? `<p class="muted small">${esc(t('vig_checked_at', { t: fmtDate(v.checkedAt) }))}</p>` : ''}
+    ${pushSupported() ? `<button class="btn secondary" id="vigAlertsBtn" type="button">🔔 ${esc(t('vig_enable_alerts'))}</button>` : ''}`;
+  document.getElementById('vigAlertsBtn')?.addEventListener('click', (e) => {
+    closeSheets();
+    withButton(document.getElementById('btnAlerts'), toggleAlerts);
+  });
+}
+
+// Marqueurs ⚠️ des départements en alerte — un point honnête au centre du
+// département, jamais un faux périmètre. Rafraîchis à chaque chargement.
+async function refreshVigilanceMarkers() {
+  try {
+    vigLayer.clearLayers();
+    if (!fireSit?.vigilance || fireSit.vigilance.activeDepartments === 0) return;
+    const v = await API.get('/api/fire-situation/vigilance');
+    for (const a of v.alerts || []) {
+      if (a.lat == null || a.lng == null) continue;
+      L.marker([a.lat, a.lng], {
+        icon: L.divIcon({
+          className: '',
+          html: `<div class="vig-marker ${a.color === 'rouge' ? 'vig-rouge' : 'vig-orange'}" title="${esc(a.title)}">⚠️</div>`,
+          iconSize: [34, 34], iconAnchor: [17, 17],
+        }),
+      }).on('click', openVigilanceSheet).addTo(vigLayer);
+    }
+  } catch { /* jamais bloquant pour la carte */ }
+}
 
 // Nombre de filtres actifs (badge du bouton « Plus de filtres »).
 function activeFilterCount() {

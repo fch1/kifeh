@@ -11,8 +11,8 @@ const API = {
     // Pays consulté : ajouté à toutes les requêtes API publiques (le serveur
     // cloisonne incidents, détections satellite, annuaire et statistiques par
     // pays ; les clients historiques sans paramètre restent sur la Tunisie).
-    if (method === 'GET' && url.includes('/api/public/') && !url.includes('country=')
-        && typeof currentCountry === 'function') {
+    if (method === 'GET' && (url.includes('/api/public/') || url.includes('/api/fire-situation/'))
+        && !url.includes('country=') && typeof currentCountry === 'function') {
       url += `${url.includes('?') ? '&' : '?'}country=${currentCountry()}`;
     }
     const controller = new AbortController();

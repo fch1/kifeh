@@ -267,6 +267,17 @@ async function main() {
   ok(sumVigi.data.vigilance?.activeDepartments === 1,
     'résumé : la veille Vigilance signale 1 département en alerte (échelle nationale)');
   ok(Boolean(sumVigi.data.vigilance?.checkedAt), 'résumé : horodatage du dernier contrôle Vigilance');
+  // Fiche dédiée : liste complète des alertes en cours.
+  const vigList = await api('GET', '/api/fire-situation/vigilance?country=FR');
+  ok(vigList.data.monitored === true && vigList.data.alerts.length === 1,
+    'fiche vigilance : 1 alerte listée pendant l’épisode orange');
+  const va = vigList.data.alerts[0];
+  ok(va.color === 'orange' && va.title.includes('Gironde') && va.deptCode === '33',
+    'fiche vigilance : couleur, département et titre corrects');
+  ok(Boolean(va.summaryAr) && Boolean(va.sourceUrl) && va.lat != null,
+    'fiche vigilance : résumé arabe, source officielle et position présentes');
+  const vigListTn = await api('GET', '/api/fire-situation/vigilance');
+  ok(vigListTn.data.enabled === false, 'fiche vigilance : inactive côté Tunisie');
   const vs1b = await adminPost('/api/admin/vigilance/sync');
   ok(vs1b.data.published === 0, 'bulletin inchangé → aucune republication (anti-doublon)');
   vigiState.warm = []; // retour au calme
@@ -278,6 +289,9 @@ async function main() {
   const sumCalm = await api('GET', '/api/fire-situation/summary?minLat=44.5&maxLat=45.2&minLng=-1.2&maxLng=-0.2&country=FR');
   ok(sumCalm.data.vigilance?.activeDepartments === 0,
     'retour au calme : la veille affiche « rien à signaler » (0 département)');
+  const vigCalm = await api('GET', '/api/fire-situation/vigilance?country=FR');
+  ok(vigCalm.data.monitored === true && vigCalm.data.alerts.length === 0,
+    'fiche vigilance : liste vide après la levée (veille toujours active)');
 
   // ── Zone d'activité satellite ──
   section('Zone d’activité satellite (approximative, jamais « périmètre »)');

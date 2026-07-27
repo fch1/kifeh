@@ -458,3 +458,15 @@ html, body { overscroll-behavior: none; }
 /* « Situation incendie » : la présence d'une consigne de sécurité officielle
    est signalée par le poids typographique, jamais par la couleur seule. */
 .summary-official-active { font-weight: 700; }
+
+/* Vigilance Météo-France : ligne d'état tappable + marqueurs départementaux */
+.vig-line { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+.vig-line:hover, .vig-line:focus-visible { color: var(--brand-red); }
+.vig-active { color: #B54708; }
+.vig-marker {
+  display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 50%;
+  background: #FFF3E0; border: 2px solid #F59E0B; font-size: 17px;
+  box-shadow: 0 2px 6px rgb(0 0 0 / .25); cursor: pointer;
+}
+.vig-marker.vig-rouge { background: #FEE2E2; border-color: #DC2626; }
