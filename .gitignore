@@ -1,5 +1,7 @@
 node_modules/
 data/
+# … mais les référentiels embarqués du code restent versionnés :
+!src/data/
 uploads/
 *.log
 .env

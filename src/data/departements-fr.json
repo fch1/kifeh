@@ -1,0 +1,482 @@
+{
+ "01": {
+  "nom": "Ain",
+  "lat": 46.065,
+  "lng": 5.449
+ },
+ "02": {
+  "nom": "Aisne",
+  "lat": 49.454,
+  "lng": 3.607
+ },
+ "03": {
+  "nom": "Allier",
+  "lat": 46.367,
+  "lng": 3.141
+ },
+ "04": {
+  "nom": "Alpes-de-Haute-Provence",
+  "lat": 44.164,
+  "lng": 6.233
+ },
+ "05": {
+  "nom": "Hautes-Alpes",
+  "lat": 44.657,
+  "lng": 6.248
+ },
+ "06": {
+  "nom": "Alpes-Maritimes",
+  "lat": 43.921,
+  "lng": 7.177
+ },
+ "2A": {
+  "nom": "Corse-du-Sud",
+  "lat": 41.858,
+  "lng": 8.972
+ },
+ "2B": {
+  "nom": "Haute-Corse",
+  "lat": 42.43,
+  "lng": 9.067
+ },
+ "07": {
+  "nom": "Ardèche",
+  "lat": 44.815,
+  "lng": 4.374
+ },
+ "08": {
+  "nom": "Ardennes",
+  "lat": 49.698,
+  "lng": 4.709
+ },
+ "09": {
+  "nom": "Ariège",
+  "lat": 42.944,
+  "lng": 1.501
+ },
+ "10": {
+  "nom": "Aube",
+  "lat": 48.32,
+  "lng": 4.124
+ },
+ "11": {
+  "nom": "Aude",
+  "lat": 43.055,
+  "lng": 2.464
+ },
+ "12": {
+  "nom": "Aveyron",
+  "lat": 44.316,
+  "lng": 2.646
+ },
+ "13": {
+  "nom": "Bouches-du-Rhône",
+  "lat": 43.541,
+  "lng": 5.022
+ },
+ "14": {
+  "nom": "Calvados",
+  "lat": 49.091,
+  "lng": -0.357
+ },
+ "15": {
+  "nom": "Cantal",
+  "lat": 45.049,
+  "lng": 2.717
+ },
+ "16": {
+  "nom": "Charente",
+  "lat": 45.666,
+  "lng": 0.242
+ },
+ "17": {
+  "nom": "Charente-Maritime",
+  "lat": 45.73,
+  "lng": -0.778
+ },
+ "18": {
+  "nom": "Cher",
+  "lat": 47.025,
+  "lng": 2.427
+ },
+ "19": {
+  "nom": "Corrèze",
+  "lat": 45.344,
+  "lng": 1.878
+ },
+ "21": {
+  "nom": "Côte-d'Or",
+  "lat": 47.466,
+  "lng": 4.792
+ },
+ "22": {
+  "nom": "Côtes-d'Armor",
+  "lat": 48.467,
+  "lng": -2.787
+ },
+ "23": {
+  "nom": "Creuse",
+  "lat": 46.059,
+  "lng": 1.992
+ },
+ "24": {
+  "nom": "Dordogne",
+  "lat": 45.143,
+  "lng": 0.703
+ },
+ "25": {
+  "nom": "Doubs",
+  "lat": 47.067,
+  "lng": 6.38
+ },
+ "26": {
+  "nom": "Drôme",
+  "lat": 44.73,
+  "lng": 5.239
+ },
+ "27": {
+  "nom": "Eure",
+  "lat": 49.076,
+  "lng": 1.05
+ },
+ "28": {
+  "nom": "Eure-et-Loir",
+  "lat": 48.447,
+  "lng": 1.375
+ },
+ "29": {
+  "nom": "Finistère",
+  "lat": 48.227,
+  "lng": -4.264
+ },
+ "30": {
+  "nom": "Gard",
+  "lat": 43.96,
+  "lng": 4.054
+ },
+ "31": {
+  "nom": "Haute-Garonne",
+  "lat": 43.305,
+  "lng": 1.245
+ },
+ "32": {
+  "nom": "Gers",
+  "lat": 43.695,
+  "lng": 0.46
+ },
+ "33": {
+  "nom": "Gironde",
+  "lat": 44.884,
+  "lng": -0.473
+ },
+ "34": {
+  "nom": "Hérault",
+  "lat": 43.593,
+  "lng": 3.368
+ },
+ "35": {
+  "nom": "Ille-et-Vilaine",
+  "lat": 48.172,
+  "lng": -1.653
+ },
+ "36": {
+  "nom": "Indre",
+  "lat": 46.812,
+  "lng": 1.536
+ },
+ "37": {
+  "nom": "Indre-et-Loire",
+  "lat": 47.223,
+  "lng": 0.709
+ },
+ "38": {
+  "nom": "Isère",
+  "lat": 45.29,
+  "lng": 5.551
+ },
+ "39": {
+  "nom": "Jura",
+  "lat": 46.783,
+  "lng": 5.73
+ },
+ "40": {
+  "nom": "Landes",
+  "lat": 44.01,
+  "lng": -0.694
+ },
+ "41": {
+  "nom": "Loir-et-Cher",
+  "lat": 47.66,
+  "lng": 1.414
+ },
+ "42": {
+  "nom": "Loire",
+  "lat": 45.754,
+  "lng": 4.225
+ },
+ "43": {
+  "nom": "Haute-Loire",
+  "lat": 45.086,
+  "lng": 3.787
+ },
+ "44": {
+  "nom": "Loire-Atlantique",
+  "lat": 47.348,
+  "lng": -1.785
+ },
+ "45": {
+  "nom": "Loiret",
+  "lat": 47.914,
+  "lng": 2.321
+ },
+ "46": {
+  "nom": "Lot",
+  "lat": 44.625,
+  "lng": 1.596
+ },
+ "47": {
+  "nom": "Lot-et-Garonne",
+  "lat": 44.369,
+  "lng": 0.469
+ },
+ "48": {
+  "nom": "Lozère",
+  "lat": 44.542,
+  "lng": 3.49
+ },
+ "49": {
+  "nom": "Maine-et-Loire",
+  "lat": 47.389,
+  "lng": -0.56
+ },
+ "50": {
+  "nom": "Manche",
+  "lat": 49.092,
+  "lng": -1.341
+ },
+ "51": {
+  "nom": "Marne",
+  "lat": 48.961,
+  "lng": 4.218
+ },
+ "52": {
+  "nom": "Haute-Marne",
+  "lat": 48.133,
+  "lng": 5.259
+ },
+ "53": {
+  "nom": "Mayenne",
+  "lat": 48.151,
+  "lng": -0.644
+ },
+ "54": {
+  "nom": "Meurthe-et-Moselle",
+  "lat": 48.956,
+  "lng": 6.275
+ },
+ "55": {
+  "nom": "Meuse",
+  "lat": 49.013,
+  "lng": 5.371
+ },
+ "56": {
+  "nom": "Morbihan",
+  "lat": 47.745,
+  "lng": -2.885
+ },
+ "57": {
+  "nom": "Moselle",
+  "lat": 49.021,
+  "lng": 6.766
+ },
+ "58": {
+  "nom": "Nièvre",
+  "lat": 47.119,
+  "lng": 3.539
+ },
+ "59": {
+  "nom": "Nord",
+  "lat": 50.529,
+  "lng": 3.149
+ },
+ "60": {
+  "nom": "Oise",
+  "lat": 49.412,
+  "lng": 2.428
+ },
+ "61": {
+  "nom": "Orne",
+  "lat": 48.576,
+  "lng": 0.058
+ },
+ "62": {
+  "nom": "Pas-de-Calais",
+  "lat": 50.513,
+  "lng": 2.372
+ },
+ "63": {
+  "nom": "Puy-de-Dôme",
+  "lat": 45.772,
+  "lng": 3.187
+ },
+ "64": {
+  "nom": "Pyrénées-Atlantiques",
+  "lat": 43.187,
+  "lng": -0.881
+ },
+ "65": {
+  "nom": "Hautes-Pyrénées",
+  "lat": 43.143,
+  "lng": 0.159
+ },
+ "66": {
+  "nom": "Pyrénées-Orientales",
+  "lat": 42.626,
+  "lng": 2.45
+ },
+ "67": {
+  "nom": "Bas-Rhin",
+  "lat": 48.599,
+  "lng": 7.587
+ },
+ "68": {
+  "nom": "Haut-Rhin",
+  "lat": 47.866,
+  "lng": 7.232
+ },
+ "69": {
+  "nom": "Rhône",
+  "lat": 45.88,
+  "lng": 4.702
+ },
+ "70": {
+  "nom": "Haute-Saône",
+  "lat": 47.638,
+  "lng": 6.096
+ },
+ "71": {
+  "nom": "Saône-et-Loire",
+  "lat": 46.656,
+  "lng": 4.544
+ },
+ "72": {
+  "nom": "Sarthe",
+  "lat": 48.027,
+  "lng": 0.234
+ },
+ "73": {
+  "nom": "Savoie",
+  "lat": 45.495,
+  "lng": 6.404
+ },
+ "74": {
+  "nom": "Haute-Savoie",
+  "lat": 46.045,
+  "lng": 6.425
+ },
+ "75": {
+  "nom": "Paris",
+  "lat": 48.859,
+  "lng": 2.347
+ },
+ "76": {
+  "nom": "Seine-Maritime",
+  "lat": 49.661,
+  "lng": 0.928
+ },
+ "77": {
+  "nom": "Seine-et-Marne",
+  "lat": 48.619,
+  "lng": 2.976
+ },
+ "78": {
+  "nom": "Yvelines",
+  "lat": 48.762,
+  "lng": 1.838
+ },
+ "79": {
+  "nom": "Deux-Sèvres",
+  "lat": 46.539,
+  "lng": -0.341
+ },
+ "80": {
+  "nom": "Somme",
+  "lat": 49.969,
+  "lng": 2.292
+ },
+ "81": {
+  "nom": "Tarn",
+  "lat": 43.792,
+  "lng": 2.236
+ },
+ "82": {
+  "nom": "Tarn-et-Garonne",
+  "lat": 44.081,
+  "lng": 1.369
+ },
+ "83": {
+  "nom": "Var",
+  "lat": 43.395,
+  "lng": 6.295
+ },
+ "84": {
+  "nom": "Vaucluse",
+  "lat": 44.045,
+  "lng": 5.203
+ },
+ "85": {
+  "nom": "Vendée",
+  "lat": 46.676,
+  "lng": -1.469
+ },
+ "86": {
+  "nom": "Vienne",
+  "lat": 46.612,
+  "lng": 0.554
+ },
+ "87": {
+  "nom": "Haute-Vienne",
+  "lat": 45.919,
+  "lng": 1.27
+ },
+ "88": {
+  "nom": "Vosges",
+  "lat": 48.163,
+  "lng": 6.296
+ },
+ "89": {
+  "nom": "Yonne",
+  "lat": 47.855,
+  "lng": 3.594
+ },
+ "90": {
+  "nom": "Territoire de Belfort",
+  "lat": 47.629,
+  "lng": 6.95
+ },
+ "91": {
+  "nom": "Essonne",
+  "lat": 48.53,
+  "lng": 2.25
+ },
+ "92": {
+  "nom": "Hauts-de-Seine",
+  "lat": 48.84,
+  "lng": 2.241
+ },
+ "93": {
+  "nom": "Seine-Saint-Denis",
+  "lat": 48.91,
+  "lng": 2.446
+ },
+ "94": {
+  "nom": "Val-de-Marne",
+  "lat": 48.775,
+  "lng": 2.462
+ },
+ "95": {
+  "nom": "Val-d'Oise",
+  "lat": 49.075,
+  "lng": 2.102
+ }
+}
