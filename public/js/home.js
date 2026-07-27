@@ -58,6 +58,11 @@ function renderCountryButton() {
   const btn = document.getElementById('countrySwitch');
   const p = countryProfile();
   btn.textContent = `${p.flag} ${p.name[LANG] || p.name.fr}`;
+  // Marque selon le pays consulté : bilingue en Tunisie (« Kifeh كيفاه »),
+  // française en France (« Kifeh »). Indépendant de la langue de l'interface.
+  const ar = document.getElementById('brandArabic');
+  if (ar) ar.hidden = currentCountry() === 'FR';
+  document.title = currentCountry() === 'FR' ? 'Kifeh' : 'Kifeh كيفاه';
 }
 renderCountryButton();
 document.getElementById('countrySwitch').addEventListener('click', () => openSheet('countrySheet'));
