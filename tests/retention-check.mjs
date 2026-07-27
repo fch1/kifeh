@@ -39,7 +39,10 @@ const server = spawn('node', ['server.js'], {
 });
 server.stdout.on('data', () => {});
 process.on('exit', () => { try { server.kill(); } catch {} });
-await new Promise((r) => setTimeout(r, 1500));
+for (let __i = 0; __i < 60; __i++) {
+  try { await fetch(`${BASE}/healthz`); break; }
+  catch { await new Promise((r) => setTimeout(r, 500)); }
+}
 
 async function main() {
   // ── Zéro configuration : clé VAPID auto-générée et exposée ──

@@ -77,6 +77,29 @@ de localisation, supervision des synchronisations NASA, annuaire de contacts
 d'urgence, journal d'audit, export CSV — et chaque réglage (seuils, fenêtres,
 drapeaux de fonctionnalités, pays activés) modifiable à chaud.
 
+**Comprendre la situation, pas seulement les points.** Côté France, la carte
+affiche des « Conditions autour de moi » : chaleur locale (température,
+ressenti, maximum du jour), vent contextuel autour des feux (modèle
+Météo-France, jamais une prévision de propagation), et l'état de la
+**Vigilance Météo-France** — les départements orange/rouge deviennent des
+informations officielles horodatées et sourcées, avec marqueurs ⚠️ sur la
+carte. Chaque source tombe en panne indépendamment, et « rien à signaler »
+reste affiché : le silence visible vaut mieux que le silence muet.
+
+**Rassurer ses proches sans s'exposer.** Pendant un incident grave, « Mon
+statut de sécurité » (حالتي الآن) permet de dire « Je suis en sécurité » ou
+« J'ai quitté la zone » — statut **personnel, privé et temporaire** (6 h/12 h),
+partageable par lien sécurisé révocable, sans compte, sans GPS, sans jamais
+compter dans les compteurs de l'incident. « J'ai besoin d'aide » affiche
+immédiatement les numéros d'urgence du bon pays, avec un avertissement
+honnête : Kifeh ne contacte jamais les secours à votre place.
+
+**Revenir quand ça compte.** Alertes Web Push de zone (auto-hébergées, sans
+service tiers), incidents et zones suivis localement, et « Depuis votre
+dernière visite » qui ne s'affiche qu'après une vraie absence et seulement si
+quelque chose d'important a changé — jamais de mécanique d'engagement
+artificielle.
+
 ## Comment le projet s'est construit
 
 Kifeh n'a pas été écrite d'un bloc. L'historique du dépôt raconte les étapes

@@ -512,7 +512,10 @@ try {
 
 // --- Géolocalisation (consentement explicite : uniquement sur action) -------
 document.getElementById('btnLocate').addEventListener('click', () => {
-  if (!navigator.geolocation) return alert(t('geo_unavailable'));
+  // Bannière non bloquante (jamais d'alert() qui gèle la page) ; précision
+  // standard suffisante pour centrer la carte — la haute précision GPS
+  // consomme inutilement la batterie.
+  if (!navigator.geolocation) return transientBanner(t('geo_unavailable'));
   navigator.geolocation.getCurrentPosition(
     (pos) => {
       userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
@@ -520,8 +523,8 @@ document.getElementById('btnLocate').addEventListener('click', () => {
       L.circleMarker([userPos.lat, userPos.lng], { radius: 8, color: '#17557E', fillOpacity: .9 })
         .addTo(map).bindPopup(esc(t('you_are_here')));
     },
-    () => alert(t('geo_not_found')),
-    { enableHighAccuracy: true, timeout: 8000 }
+    () => transientBanner(t('geo_not_found')),
+    { enableHighAccuracy: false, timeout: 8000 }
   );
 });
 
@@ -677,8 +680,28 @@ document.getElementById('filterReset').addEventListener('click', () => {
 });
 
 // --- Feuilles (bottom sheets) ----------------------------------------------
-function openSheet(id) { closeSheets(); document.getElementById(id).classList.add('open'); }
-function closeSheets() { document.querySelectorAll('.sheet').forEach((s) => s.classList.remove('open')); }
+// Gestion du focus (accessibilité) : à l'ouverture, le focus entre dans la
+// feuille ; à la fermeture, il revient à l'élément qui l'a ouverte.
+let sheetOpener = null;
+function openSheet(id) {
+  closeSheets(false);
+  const ae = document.activeElement;
+  // Ne mémoriser que les déclencheurs HORS feuille (jamais un élément d'une
+  // feuille refermée, qui n'est plus visible).
+  if (ae && ae !== document.body && !ae.closest('.sheet')) sheetOpener = ae;
+  const s = document.getElementById(id);
+  s.classList.add('open');
+  s.setAttribute('tabindex', '-1');
+  s.focus({ preventScroll: true });
+}
+function closeSheets(restoreFocus = true) {
+  const wasOpen = document.querySelector('.sheet.open');
+  document.querySelectorAll('.sheet').forEach((s) => s.classList.remove('open'));
+  if (restoreFocus && wasOpen && sheetOpener?.isConnected) {
+    try { sheetOpener.focus({ preventScroll: true }); } catch { /* élément disparu */ }
+    sheetOpener = null;
+  }
+}
 // Fermeture visible et cohérente sur TOUTES les feuilles (accessibilité :
 // la poignée seule n'est pas une affordance suffisante).
 document.querySelectorAll('.sheet').forEach((s) => {
@@ -1489,12 +1512,10 @@ function renderSafetyDone(ctx, entry, justSaved) {
 // État 2b — statut expiré : proposer une mise à jour, jamais « en danger ».
 function renderSafetyExpired(ctx, entry) {
   const body = document.getElementById('safetyBody');
-  body.innerHTML = `
-    <p class="notice warn small">${esc(t('safety_expired_q'))}</p>
-    <div id="safetyChoicesSlot"></div>`;
-  const slot = document.getElementById('safetyChoicesSlot');
-  slot.id = 'safetyBody'; body.removeAttribute('id'); // réutilise le rendu des choix
-  renderSafetyChoices(ctx);
+  if (!body) return;
+  renderSafetyChoices(ctx); // les trois choix, puis la question au-dessus
+  body.insertAdjacentHTML('afterbegin',
+    `<p class="notice warn small">${esc(t('safety_expired_q'))}</p>`);
 }
 
 // Partage « Prévenir un proche » : message + lien sécurisé, temporaire et

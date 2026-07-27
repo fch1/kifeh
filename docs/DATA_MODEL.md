@@ -122,6 +122,32 @@ Compteurs glissants pour le rate limiting : `(bucket, key_hash, created_at)` où
 
 Paires clé/valeur administrables : `other_category_enabled`, `anonymize_radius_m`, `otp_ttl_min`, `email_link_ttl_min`, `otp_max_attempts`, `otp_resend_delay_s`, `active_incident_ttl_h`, `reminder_before_expiry_h`, `max_declarations_per_ip_per_h`, `max_declarations_per_contact_per_day`, `min_form_fill_s`, `retention_days`, `trust_publish_threshold`…
 
+## Tables ajoutées depuis (multi-pays, satellite, officiel, alertes, sécurité)
+
+Toutes additives — aucune table historique n'a été modifiée de façon destructive.
+
+- **satellite_detections / satellite_events** : détections thermiques NASA FIRMS
+  (empreinte `source|lat|lng|date|time|satellite` anti-doublon) regroupées en
+  événements avec `country_code`, confiance, `activity_radius_m` (« zone
+  d'activité observée », jamais un périmètre) ; corroboration automatique des
+  incendies citoyens à < 2 km / 12 h.
+- **official_authorities / official_updates** : liste blanche d'autorités
+  (commune → préfecture → SDIS → ministère → FR-Alert) et messages officiels
+  importés — texte original préservé, chaîne `supersedes`, statuts
+  `current/superseded/archived`. La Vigilance Météo-France y publie
+  automatiquement les départements orange/rouge (autorité `mf_vigilance`).
+- **push_subscriptions** : alertes Web Push de zone auto-hébergées (VAPID) —
+  centre arrondi ~1 km, rayon, types, langue, plafond quotidien satellite.
+- **safety_checkins** : « Mon statut de sécurité » — statut personnel
+  temporaire (`safe`/`left_area`), jetons de gestion et de partage **hachés**,
+  expiration 6 h/12 h, aucune coordonnée exacte, purge RGPD automatique
+  (contenu à +24 h, lignes à +30 j). Jamais lié aux compteurs d'incident.
+- **contacts** : annuaire d'urgence vérifié **par pays** (198/190/197 TN,
+  18/112/15/17/114 FR) — verrouillé par tests.
+- Colonnes additives notables : `country_code` (incidents, satellite,
+  abonnements), `secondary_hash` (anti-abus multi-dénominateurs : un appareil
+  OU une IP déjà utilisés ne peuvent jamais resservir sur le même incident).
+
 ## Diagramme
 
 ```

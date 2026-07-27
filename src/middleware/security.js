@@ -1,5 +1,10 @@
 // En-têtes de sécurité + validation d'entrées utilitaire.
 export function securityHeaders(req, res, next) {
+  // HSTS : uniquement quand la requête arrive déjà en HTTPS (production
+  // derrière le proxy) — jamais en développement local (http://localhost).
+  if (req.secure || req.get('x-forwarded-proto') === 'https') {
+    res.set('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
+  }
   res.set({
     'Content-Security-Policy':
       "default-src 'self'; " +

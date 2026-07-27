@@ -76,7 +76,12 @@ async function main() {
     stdio: ['ignore', 'pipe', 'inherit'],
   });
   server.stdout.on('data', () => {});
-  await new Promise((r) => setTimeout(r, 1200));
+  // Attente ACTIVE du serveur (jamais un délai fixe : les démarrages à froid
+  // dépassent parfois 1 s et rendaient la suite instable).
+  for (let i = 0; i < 60; i++) {
+    try { await fetch(`${BASE}/healthz`); break; }
+    catch { await new Promise((r) => setTimeout(r, 500)); }
+  }
 
   let adminCookie = '', csrf = '';
   try {

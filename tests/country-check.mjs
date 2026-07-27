@@ -69,7 +69,10 @@ const server = spawn('node', ['server.js'], {
 });
 server.stdout.on('data', () => {});
 process.on('exit', () => { try { server.kill(); firmsSrv.close(); } catch {} });
-await new Promise((r) => setTimeout(r, 1500));
+for (let __i = 0; __i < 60; __i++) {
+  try { await fetch(`${BASE}/healthz`); break; }
+  catch { await new Promise((r) => setTimeout(r, 500)); }
+}
 
 const draftBody = (over = {}) => ({
   type: 'electricity', lat: 36.8065, lng: 10.1815,

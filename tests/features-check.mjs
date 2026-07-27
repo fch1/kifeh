@@ -75,7 +75,10 @@ function startServer(extraEnv = {}) {
 async function main() {
   for (const f of [DB, `${DB}-wal`, `${DB}-shm`]) fs.rmSync(f, { force: true });
   let server = startServer();
-  await new Promise((r) => setTimeout(r, 1300));
+  for (let __i = 0; __i < 60; __i++) {
+    try { await fetch(`${BASE}/healthz`); break; }
+    catch { await new Promise((r) => setTimeout(r, 500)); }
+  }
 
   // ── Numéros tunisiens ─────────────────────────────────────────────────────
   section('Validation des numéros tunisiens');
@@ -221,7 +224,10 @@ async function main() {
   server.kill();
   await new Promise((r) => setTimeout(r, 600));
   server = startServer();
-  await new Promise((r) => setTimeout(r, 1300));
+  for (let __i = 0; __i < 60; __i++) {
+    try { await fetch(`${BASE}/healthz`); break; }
+    catch { await new Promise((r) => setTimeout(r, 500)); }
+  }
   const countAfter = (await api('GET', '/api/public/incidents')).data.count;
   ok(countAfter === countBefore && countAfter > 0,
     `tous les incidents présents après redémarrage (${countAfter}/${countBefore})`);
