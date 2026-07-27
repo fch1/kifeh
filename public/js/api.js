@@ -8,6 +8,13 @@ const API_BASE = location.pathname.startsWith('/sandbox') ? '/sandbox' : '';
 const API = {
   async call(method, url, body = null, opts = {}) {
     if (url.startsWith('/api')) url = API_BASE + url;
+    // Pays consulté : ajouté à toutes les requêtes API publiques (le serveur
+    // cloisonne incidents, détections satellite, annuaire et statistiques par
+    // pays ; les clients historiques sans paramètre restent sur la Tunisie).
+    if (method === 'GET' && url.includes('/api/public/') && !url.includes('country=')
+        && typeof currentCountry === 'function') {
+      url += `${url.includes('?') ? '&' : '?'}country=${currentCountry()}`;
+    }
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), opts.timeout || 15000);
     try {

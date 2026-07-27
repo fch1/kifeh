@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#17557E">
 <title>Kifeh كيفاه</title>
-<link rel="icon" type="image/svg+xml" href="img/logo.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="img/icon-192.png">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
 <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
 <link rel="stylesheet" href="css/app.css">
 <script src="js/analytics.js"></script>
@@ -15,8 +17,9 @@
 
 <div class="home-top">
   <div class="home-brandbar">
-    <span class="brand-name"><img src="img/logo.svg" alt=""> <bdi>Kifeh</bdi> <bdi>كيفاه</bdi></span>
+    <span class="brand-name"><img src="img/logo.png" alt=""> <bdi>Kifeh</bdi> <bdi>كيفاه</bdi></span>
     <span class="spacer"></span>
+    <button class="country-switch" id="countrySwitch" type="button" data-i18n-aria="country_switch_aria"></button>
     <button class="lang-switch" type="button">العربية</button>
   </div>
   <div class="searchbox">
@@ -108,6 +111,20 @@
 <div class="sheet" id="detailSheet" role="dialog" aria-modal="true" data-i18n-aria="detail_aria">
   <div class="handle"></div>
   <div id="detailContent"></div>
+</div>
+
+<!-- Feuille : choix du pays (première visite et bouton pays).
+     Le pays est INDÉPENDANT de la langue : la France se consulte en arabe,
+     la Tunisie en français. Jamais de géolocalisation sans action explicite. -->
+<div class="sheet" id="countrySheet" role="dialog" aria-modal="true" data-i18n-aria="country_sheet_aria">
+  <div class="handle"></div>
+  <h2 data-i18n="country_q"></h2>
+  <div class="country-options" role="group">
+    <button class="btn secondary country-option" id="countryTN" type="button">🇹🇳 <span data-i18n="country_tn"></span></button>
+    <button class="btn secondary country-option" id="countryFR" type="button">🇫🇷 <span data-i18n="country_fr"></span></button>
+  </div>
+  <button class="btn ghost small-btn" id="countryGeo" type="button" data-i18n="country_use_position"></button>
+  <p class="muted small" id="countryGeoInfo" role="status" aria-live="polite"></p>
 </div>
 
 <script src="vendor/leaflet/leaflet.js"></script>

@@ -35,9 +35,9 @@ async function outboxLast(kind) {
 function extractOtp(text) { return (text.match(/\b(\d{6})\b/) || [])[1]; }
 
 const draftBody = (over = {}) => ({
-  type: 'electricity', lat: 48.8566, lng: 2.3522,
-  locationSource: 'gps', gpsAccuracy: 12, deviceLat: 48.8565, deviceLng: 2.3520,
-  address: '10 rue de Rivoli, Paris', publicArea: 'Paris Centre, Paris, 75004',
+  type: 'electricity', lat: 36.8065, lng: 10.1815,
+  locationSource: 'gps', gpsAccuracy: 12, deviceLat: 36.8064, deviceLng: 10.1813,
+  address: '10 avenue Habib Bourguiba, Tunis', publicArea: 'Tunis Centre, Tunis, 1001',
   temporalStatus: 'ongoing', startedAt: new Date(Date.now() - 30 * 60000).toISOString(),
   timeApproximate: false, description: `Coupure de courant dans le quartier (cas ${Math.random().toString(36).slice(2, 8)})`,
   severity: 'moderate', fillSeconds: 25,
@@ -109,10 +109,10 @@ async function main() {
 
     // ── Anonymisation et absence de fuite de données ──
     section('Confidentialité : carte publique');
-    const map = await api('GET', '/api/public/incidents?minLat=48&maxLat=49&minLng=2&maxLng=3');
+    const map = await api('GET', '/api/public/incidents?minLat=36&maxLat=37&minLng=10&maxLng=11');
     const pub = map.data.incidents.find((i) => i.public_id === r1.publicId);
     ok(Boolean(pub), 'incident visible sur la carte');
-    const dist = Math.hypot((pub.lat - 48.8566) * 111320, (pub.lng - 2.3522) * 111320 * Math.cos(48.85 * Math.PI / 180));
+    const dist = Math.hypot((pub.lat - 36.8065) * 111320, (pub.lng - 10.1815) * 111320 * Math.cos(36.8 * Math.PI / 180));
     ok(dist > 80 && dist < 320, `position anonymisée (décalage ${Math.round(dist)} m)`);
     const keys = Object.keys(pub).join(',');
     ok(!keys.includes('address') && !keys.includes('reporter') && !keys.includes('trust'),
@@ -202,7 +202,7 @@ async function main() {
     // ── Doublons + « je suis aussi concerné » ──
     section('Doublons et confirmations');
     const dup = await api('POST', '/api/declare/check-duplicates', {
-      type: 'electricity', lat: 48.8570, lng: 2.3530, startedAt: new Date().toISOString(),
+      type: 'electricity', lat: 36.8070, lng: 10.1825, startedAt: new Date().toISOString(),
     });
     ok(dup.data.similar.length >= 1 && dup.data.similar[0].publicId === r1.publicId,
       'incident similaire détecté à proximité');
@@ -257,7 +257,7 @@ async function main() {
 
     // ── Incendie : gravité danger immédiat ──
     section('Incendie');
-    const fire = await declareFull({ type: 'fire', severity: 'immediate_danger', lat: 43.3, lng: 5.4, deviceLat: 43.3001, deviceLng: 5.4001 });
+    const fire = await declareFull({ type: 'fire', severity: 'immediate_danger', lat: 36.50, lng: 8.70, deviceLat: 36.5001, deviceLng: 8.7001 });
     ok(fire.ok === true, 'déclaration incendie enregistrée');
 
     // ── Admin : modération ──
@@ -279,7 +279,7 @@ async function main() {
 
     // ── Suppression par le déclarant ──
     section('Droit à l’effacement');
-    const r7 = await declareFull({ lat: 48.11, lng: -1.68, deviceLat: 48.1101, deviceLng: -1.6801 });
+    const r7 = await declareFull({ lat: 34.74, lng: 10.76, deviceLat: 34.7401, deviceLng: 10.7601 });
     const tok7 = new URL(r7.manageUrl).searchParams.get('token');
     const del = await api('POST', '/api/manage/delete', { token: tok7 });
     ok(del.status === 200, 'suppression par le déclarant');

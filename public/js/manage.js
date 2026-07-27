@@ -19,9 +19,9 @@ async function render() {
       <h2>${t('ref')} ${esc(i.publicId)}
         <span class="badge ${esc(i.type)}">${TYPE_ICONS[i.type]} ${esc(TYPE_LABELS[i.type])}</span>
         <span class="badge status ${esc(i.status)}">${esc(STATUS_LABELS[i.status] || i.status)}</span></h2>
-      <p class="muted small">${t('started')} ${esc(fmtDate(i.startedAt))}${i.timeApproximate ? ` ${t('approx_suffix')}` : ''}
-      ${i.endedAt ? `· ${t('ended')} ${esc(fmtDate(i.endedAt))}` : ''}
-      ${i.expiresAt && ongoing ? `<br>${t('expires_in')} ${esc(fmtDate(i.expiresAt))}` : ''}
+      <p class="muted small">${t('started')} ${esc(fmtDate(i.startedAt, i.countryCode))}${i.timeApproximate ? ` ${t('approx_suffix')}` : ''}
+      ${i.endedAt ? `· ${t('ended')} ${esc(fmtDate(i.endedAt, i.countryCode))}` : ''}
+      ${i.expiresAt && ongoing ? `<br>${t('expires_in')} ${esc(fmtDate(i.expiresAt, i.countryCode))}` : ''}
       ${i.confirmations ? `<br>${t('confirmed_people', { n: i.confirmations })}` : ''}</p>
       <p>${esc(i.description)}</p>
       <p class="muted small">📍 ${esc(i.address || t('position_saved'))} <em>${t('visible_only_you')}</em></p>
@@ -123,7 +123,8 @@ async function render() {
         document.getElementById('ownPreview').textContent = `${t('loc_correct_preview')} ${address || `${lat.toFixed(5)}, ${lng.toFixed(5)}`}`;
         if (!address) {
           try {
-            const { result } = await API.get(`/api/public/geocode/reverse?lat=${lat}&lng=${lng}`);
+            // Géocodage dans le pays de l'INCIDENT (pas du pays consulté).
+            const { result } = await API.get(`/api/public/geocode/reverse?lat=${lat}&lng=${lng}&country=${encodeURIComponent(i.countryCode || 'TN')}`);
             if (result?.label) {
               st.address = result.label; st.area = result.area || null;
               document.getElementById('ownPreview').textContent = `${t('loc_correct_preview')} ${result.label}`;
@@ -149,7 +150,8 @@ async function render() {
         if (q.length < 3) { resBox.hidden = true; return; }
         timer = setTimeout(async () => {
           try {
-            const { results } = await API.get(`/api/public/geocode/search?q=${encodeURIComponent(q)}`);
+            // Recherche d'adresse dans le pays de l'INCIDENT (pas du pays consulté).
+            const { results } = await API.get(`/api/public/geocode/search?q=${encodeURIComponent(q)}&country=${encodeURIComponent(i.countryCode || 'TN')}`);
             resBox.innerHTML = '';
             for (const r of results) {
               const b = document.createElement('button');

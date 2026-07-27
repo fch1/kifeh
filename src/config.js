@@ -150,6 +150,13 @@ export const defaultSettings = {
   // l'application fonctionne normalement quelle que soit leur valeur.
   nasa_firms_enabled: '1',
   nasa_firms_public_layer_enabled: '1',
+  // Multi-pays : Tunisie (historique) + France, même base de code, données
+  // strictement cloisonnées. Chaque pays se coupe indépendamment.
+  multi_country_enabled: '1',
+  country_tn_enabled: '1',
+  country_fr_enabled: '1',
+  fr_declarations_enabled: '1',       // déclarations côté France
+  fr_nasa_firms_enabled: '0',         // NASA France : à activer explicitement
   // Fond de carte : fournisseur principal + secours (bascule automatique côté
   // client sur 403/429/5xx/timeout — jamais de tuile en dur dans le code carte).
   tile_primary_url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',

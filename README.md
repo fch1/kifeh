@@ -2,59 +2,95 @@
 
 **« اللي صاير حواليك، لحظة بلحظة » — Ce qui se passe autour de vous, en temps réel.**
 
-Kifeh est une plateforme citoyenne tunisienne, libre et open source, de
-signalement et de visualisation en temps réel des incidents locaux :
-coupures d'électricité ⚡, coupures d'eau 💧, incendies 🔥 et coupures
-internet 📶 — sur une seule carte, complétée par les détections
-satellitaires d'incendies de la **NASA (FIRMS)**.
+En Tunisie, quand l'électricité saute dans un quartier, tout le monde se pose
+la même question : *c'est chez moi ou c'est général ? Depuis quand ? Quelqu'un
+a signalé ?* La réponse existait déjà — dispersée dans des groupes Facebook,
+des messages vocaux et des appels au voisin. Kifeh est née pour la mettre sur
+une carte : une plateforme citoyenne, libre et open source, où chacun peut
+signaler et consulter en temps réel les coupures d'électricité ⚡, coupures
+d'eau 💧, incendies 🔥 et pannes internet 📶 autour de lui.
 
-Bilingue **français / arabe (RTL complet)**, pensée pour les conditions
-réelles d'usage en Tunisie : téléphone d'entrée de gamme, 3G instable,
-WebView, batterie faible, carte indisponible.
-
-> ⚠️ Kifeh est une initiative citoyenne indépendante. Elle ne remplace ni les
-> services d'urgence (**198** Protection civile · **190** SAMU · **197**
-> Police secours · **193** Garde nationale), ni la STEG, ni la SONEDE.
+Le projet a démarré comme un outil tunisien, et c'est toujours son cœur. Il
+couvre aujourd'hui **deux pays — la Tunisie et la France métropolitaine** —
+sur une seule base de code : mêmes écrans, même modèle d'incident, mais des
+données strictement cloisonnées, des numéros d'urgence propres à chaque pays,
+et des formats locaux (fuseau horaire, téléphone, géocodage). Le pays est
+indépendant de la langue : on peut consulter la France en arabe et la Tunisie
+en français.
 
 Démo : **https://kifeh.app**
 
-## Fonctionnalités
+> ⚠️ Kifeh est une initiative citoyenne indépendante. Elle ne remplace ni les
+> services d'urgence — **198/190/197/193** en Tunisie, **18/15/17/112/114** en
+> France — ni les gestionnaires de réseaux (STEG, SONEDE, ou le gestionnaire
+> indiqué sur votre facture en France). Les données communautaires et
+> satellitaires ne sont **jamais** présentées comme des confirmations
+> officielles.
 
-- **Carte temps réel** (Leaflet + OpenStreetMap) avec bascule automatique de
-  fournisseur de tuiles ; l'application reste entièrement utilisable sans fond
-  de carte (liste, recherche, filtres, déclaration).
-- **Déclaration en 4 étapes** sans compte : type, position (GPS / adresse /
-  repère déplaçable), période, description. Position publique **anonymisée**
-  (~250 m) — l'adresse exacte n'est jamais publiée.
-- **Vie communautaire** : « Je suis aussi concerné », « C'est toujours en
-  cours », « C'est terminé » (résolution immédiate, réouverture possible
-  pendant 24 h), correction de localisation, confirmation communautaire des
-  incendies (seuil de 3 personnes, contrôle de proximité GPS).
-- **NASA FIRMS** : import serveur toutes les 15 minutes (VIIRS SNPP/NOAA-20/
-  NOAA-21 + MODIS), filtrage par polygone des frontières tunisiennes,
-  déduplication par empreinte unique, regroupement en événements incendie,
-  corroboration automatique des signalements citoyens — jamais présentée
-  comme une confirmation officielle.
-- **Écran d'urgence après déclaration** : numéros tunisiens vérifiés selon le
-  type d'incident (198/190/197/193, urgences STEG, SONEDE), annuaire
-  centralisé modifiable en administration.
-- **Kifeh Léger (كيفاه خفيف)** : mode économe — liste d'abord, carte à la
-  demande — activé manuellement ou quand le navigateur signale une connexion
-  lente ou l'économie de données.
-- **Hors-ligne** : le dernier état chargé reste consultable, toujours
-  horodaté.
-- **Bilingue FR/AR** : même qualité dans les deux langues (IBM Plex Sans +
-  IBM Plex Sans Arabic vendorisées), RTL complet, langue de l'appareil par
-  défaut, choix mémorisé, heure de Tunis, numéros +216 acceptés à 8 chiffres.
-- **Vérification OTP** (SMS/e-mail) activable/désactivable à chaud ;
-  anti-abus : honeypot, délai de remplissage, limites IP/contact, score de
-  confiance, file de modération.
-- **Administration** : modération, fusion de doublons, corrections de
-  localisation, supervision NASA, annuaire de contacts, journal d'audit,
-  export CSV, réglages à chaud.
-- **Vie privée** : contacts chiffrés (AES-256-GCM), métadonnées EXIF retirées
-  des photos, purge RGPD automatique, télémétrie d'erreurs sans donnée
-  personnelle.
+## Ce que l'application fait vraiment
+
+**Déclarer sans compte, en 4 étapes.** Type d'incident, position (GPS,
+recherche d'adresse ou repère déplaçable), période, description. La position
+publiée est **anonymisée** (~250 m) : l'adresse exacte n'est jamais montrée,
+seul le déclarant et la modération y ont accès. La vérification par code
+SMS/e-mail existe dans le code et s'active en un réglage ; elle est
+volontairement **désactivée pour le moment** (pas encore de fournisseur SMS
+branché), remplacée par un arsenal anti-abus : honeypot, délai minimal de
+remplissage, limites par IP et par contact, score de confiance avec file de
+modération, détection de doublons.
+
+**Faire vivre l'information ensemble.** Un incident n'appartient pas à son
+déclarant : n'importe qui peut dire « Je suis aussi concerné » (une seule fois
+par personne — déduplication par appareil), « C'est toujours en cours »,
+« C'est terminé » (appliqué immédiatement, réouvrable pendant 24 h si c'était
+une erreur), ou proposer une correction de position qui part en modération.
+Les incendies demandent une confirmation communautaire : trois personnes, avec
+contrôle de proximité GPS.
+
+**Regarder le ciel.** Toutes les 15 minutes, le serveur interroge la
+**NASA (FIRMS)** — satellites VIIRS SNPP/NOAA-20/NOAA-21 et MODIS — zone par
+zone, pays par pays. Les détections thermiques sont filtrées par les
+frontières du pays, dédupliquées par empreinte, regroupées en « événements
+incendie » et, quand elles tombent à moins de 2 km et 12 h d'un signalement
+citoyen, elles le **corroborent** automatiquement. Un échec de synchronisation
+côté France ne bloque jamais l'import tunisien, et réciproquement. La clé API
+ne quitte jamais le serveur.
+
+**Orienter vers les bons secours — et seulement les bons.** Après une
+déclaration, un écran d'urgence affiche des numéros **vérifiés, du bon pays**,
+selon le type d'incident : en Tunisie, Protection civile, urgences STEG,
+numéro vert SONEDE ; en France, 18/112/15/17 et le 114 par SMS pour les
+personnes sourdes ou malentendantes. Pour une panne ordinaire en France,
+aucun numéro n'est « inventé » : le dépannage dépend du gestionnaire réel et
+du département, l'écran renvoie donc vers la facture. Jamais un numéro
+tunisien affiché en France, ni l'inverse.
+
+**Fonctionner dans les conditions réelles.** L'application est pensée pour un
+téléphone d'entrée de gamme sur une 3G instable : bilingue français/arabe avec
+RTL complet, polices vendorisées (aucun CDN à l'exécution), bascule
+automatique de fournisseur de tuiles si le fond de carte tombe, mode **Kifeh
+Léger (كيفاه خفيف)** qui affiche la liste d'abord et la carte à la demande, et
+un instantané hors-ligne toujours horodaté — jamais présenté comme actuel.
+
+**S'administrer sans redéployer.** Modération, fusion de doublons, corrections
+de localisation, supervision des synchronisations NASA, annuaire de contacts
+d'urgence, journal d'audit, export CSV — et chaque réglage (seuils, fenêtres,
+drapeaux de fonctionnalités, pays activés) modifiable à chaud.
+
+## Comment le projet s'est construit
+
+Kifeh n'a pas été écrite d'un bloc. L'historique du dépôt raconte les étapes
+réelles : un premier parcours de déclaration tunisien ; la perte — puis la
+protection définitive — des données de production (disque persistant
+auto-détecté, migrations exclusivement additives et idempotentes, sauvegardes
+automatiques chaque minute, heure et jour, garde-fou anti-réinitialisation) ;
+l'arrivée des fonctionnalités communautaires ; l'intégration NASA FIRMS ; une
+couche de résilience réseau après des pannes de tuiles constatées en
+conditions réelles ; un audit qualité complet avec correctifs et tests de
+régression ; le passage en open source ; puis l'ouverture à un deuxième pays.
+Chaque déploiement suit le même rituel : instantané de la production, suites
+de tests complètes, simulation de migration sur une copie de l'ancienne base,
+et vérification qu'aucun incident existant n'a disparu.
 
 ## Démarrage rapide
 
@@ -69,7 +105,7 @@ console (`/admin.html`), et la couche satellite reste simplement vide sans
 clé NASA.
 
 ```bash
-npm test             # ~170 tests API, dont un serveur NASA simulé
+npm test             # suites API (multi-pays et NASA simulée incluses)
 npm run test:browser # tests navigateur mobile FR/AR (Playwright)
 ```
 
@@ -78,8 +114,8 @@ npm run test:browser # tests navigateur mobile FR/AR (Playwright)
 Copiez [`.env.example`](.env.example). En production, renseignez au minimum
 les trois `SECRET_*` (`openssl rand -hex 32`), `ADMIN_PASSWORD`, et
 `NASA_FIRMS_MAP_KEY` ([clé gratuite](https://firms.modaps.eosdis.nasa.gov/api/map_key))
-pour activer la couche satellite. Tout réglage applicatif — seuils
-communautaires, fenêtres NASA, fournisseurs de tuiles, drapeaux de
+pour activer la couche satellite. Tout réglage applicatif — pays activés,
+seuils communautaires, fenêtres NASA, fournisseurs de tuiles, drapeaux de
 fonctionnalités — est surchargeable par variable d'environnement (nom en
 MAJUSCULES) ou à chaud via l'administration : voir `defaultSettings` dans
 [`src/config.js`](src/config.js). Guide de déploiement complet (Docker, VPS,
@@ -88,19 +124,27 @@ PaaS, sauvegardes) : [`docs/DEPLOIEMENT.md`](docs/DEPLOIEMENT.md).
 ## Architecture
 
 Node.js ≥ 20 · Express 5 · SQLite (better-sqlite3, WAL) · vanilla JS +
-Leaflet, tout vendorisé (aucun CDN requis à l'exécution). Temps réel par SSE.
-Migrations additives et idempotentes ; sauvegardes automatiques de la base
-chaque minute, heure et jour ; environnement de test cloisonné sur `/sandbox`.
+Leaflet, tout vendorisé. Temps réel par SSE. Pas de framework frontend, pas
+d'étape de build : le code qui est dans le dépôt est celui qui s'exécute.
+
+Le multi-pays repose sur des **profils déclaratifs** (`src/countries/`) :
+frontières simplifiées (tracé côtier volontairement décalé vers le large pour
+ne jamais exclure une ville réelle), fuseau horaire IANA, format téléphonique,
+fournisseurs de géocodage (Géoplateforme IGN pour la France, Nominatim/Photon
+en repli), zone NASA. Aucun `if (pays === 'FR')` dispersé : la configuration
+change, pas le code. Les clients historiques sans paramètre pays restent
+automatiquement sur la Tunisie.
 
 ```
 server.js            point d'entrée, proxy sandbox, domaine canonique, healthz
 src/config.js        configuration + réglages par défaut (tous surchargeables)
 src/db.js            schéma + migrations additives idempotentes
+src/countries/       profils pays déclaratifs (TN, FR) + validation géographique
 src/routes/          public, declare, manage, admin, events (SSE)
 src/services/        firms (NASA), otp, notifier, geocode, anonymize, dedup,
                      trust, media, scheduler (synchros + sauvegardes), crypto
 public/              interface (carte, déclaration, gestion, admin, légal)
-tests/               suites API + navigateur (~300 vérifications)
+tests/               suites API + navigateur (~290 vérifications)
 docs/                architecture, modèle de données, parcours, déploiement, marque
 ```
 
@@ -112,15 +156,17 @@ Détails : [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) ·
 ## Contribuer
 
 Les contributions sont bienvenues : corrections, traductions, accessibilité,
-nouvelles sources de données officielles. Ouvrez une issue ou une pull
-request. Quelques règles simples : tout texte visible doit exister en
-français ET en arabe ; chaque correction s'accompagne d'un test de régression
-(`npm test` doit rester vert) ; aucun secret côté client ; et les données
+nouvelles sources de données officielles, nouveaux profils pays. Ouvrez une
+issue ou une pull request. Quelques règles simples : tout texte visible doit
+exister en français ET en arabe ; chaque correction s'accompagne d'un test de
+régression (`npm test` doit rester vert) ; aucun secret côté client ; jamais
+un numéro d'urgence non vérifié ou d'un autre pays ; et les données
 satellitaires ou communautaires ne sont **jamais** présentées comme des
 confirmations officielles des autorités.
 
 ## Licence
 
 [MIT](LICENSE) © 2026 Farah Chabchoub. Fond de carte © contributeurs
-OpenStreetMap. Données incendies : NASA FIRMS — We acknowledge the use of
-data from NASA's Fire Information for Resource Management System (FIRMS).
+OpenStreetMap. Adresses France : Géoplateforme (IGN). Données incendies :
+NASA FIRMS — We acknowledge the use of data from NASA's Fire Information for
+Resource Management System (FIRMS).

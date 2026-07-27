@@ -1,7 +1,7 @@
 // Gestion d'une déclaration par son auteur, via lien signé (jeton 256 bits
 // haché en base, révocable, expirant). Aucune session ni compte.
 import { Router } from 'express';
-import { db, getSettingNum, touchIncident } from '../db.js';
+import { db, getSetting, getSettingNum, touchIncident } from '../db.js';
 import { sha256, uuid } from '../services/crypto.js';
 import { isIsoDate, isFiniteNum, cleanText, containsSuspiciousContent } from '../middleware/security.js';
 import { anonymizeCoords } from '../services/anonymize.js';
@@ -10,6 +10,7 @@ import { schedulePurge } from '../services/scheduler.js';
 import { broadcast } from './events.js';
 import { audit } from '../services/audit.js';
 import { msg } from '../i18n.js';
+import { resolveCountry } from '../countries/index.js';
 
 export const manageRouter = Router();
 manageRouter.use(ipRateLimit('manage_ip', 60, 60));
@@ -38,6 +39,7 @@ manageRouter.get('/incident', (req, res) => {
     temporalStatus: i.temporal_status, startedAt: i.started_at, endedAt: i.ended_at,
     timeApproximate: Boolean(i.time_approximate),
     address: i.address, area: i.public_area, lat: i.lat, lng: i.lng,
+    countryCode: i.country_code || 'TN', // pays de l'incident (géocodage, fuseau)
     expiresAt: i.expires_at, confirmations: i.confirmations_count,
     createdAt: i.created_at, updatedAt: i.updated_at,
   });
@@ -109,6 +111,15 @@ manageRouter.post('/update-location', (req, res) => {
     return res.status(400).json({ error: msg(req, 'invalid_location') });
   }
   const lat = Number(b.lat), lng = Number(b.lng);
+  // La correction reste dans le MÊME pays que l'incident : un point situé dans
+  // le polygone d'un autre pays pris en charge est refusé (jamais de bascule
+  // silencieuse de pays via une « correction » de position).
+  if (getSetting('multi_country_enabled') === '1') {
+    const resolved = resolveCountry(lat, lng);
+    if (resolved && resolved !== (i.country_code || 'TN')) {
+      return res.status(400).json({ error: msg(req, 'country_mismatch'), code: 'country_mismatch' });
+    }
+  }
   const pub = anonymizeCoords(lat, lng, i.id, getSettingNum('anonymize_radius_m'));
   const address = cleanText(b.address, 300) || null;
   const publicArea = cleanText(b.publicArea, 200) || null;

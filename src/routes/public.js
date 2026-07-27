@@ -6,7 +6,7 @@ import { Router } from 'express';
 import { db, getSetting, getSettingNum } from '../db.js';
 import { publicConfidenceList } from '../services/firms.js';
 import { uuid, hmac, encrypt } from '../services/crypto.js';
-import { isEmail, isPhone, normalizePhone, isFiniteNum, isIsoDate, cleanText } from '../middleware/security.js';
+import { isEmail, isFiniteNum, isIsoDate, cleanText } from '../middleware/security.js';
 import { clientIp, countEvents, recordEvent, ipRateLimit } from '../middleware/rateLimit.js';
 import { searchAddress, reverseGeocode } from '../services/geocode.js';
 import { createVerification, verifyCode } from '../services/otp.js';
@@ -14,6 +14,7 @@ import { broadcast } from './events.js';
 import { audit } from '../services/audit.js';
 import { getLang, msg } from '../i18n.js';
 import { config } from '../config.js';
+import { requestCountry, enabledCountries, getProfile, resolveCountry, isPhoneFor, normalizePhoneFor } from '../countries/index.js';
 
 export const publicRouter = Router();
 
@@ -22,10 +23,18 @@ const PUBLIC_COLS = `public_id, type, status, severity,
   CASE WHEN hidden_description = 1 THEN '' ELSE description END AS description,
   temporal_status, started_at, ended_at, time_approximate,
   public_lat AS lat, public_lng AS lng, public_area AS area,
+  COALESCE(country_code, 'TN') AS countryCode,
   confirmations_count, COALESCE(published_at, created_at) AS published_at,
   still_active_at, resolved_at, created_at, updated_at,
   (SELECT MAX(se.last_detected_at) FROM satellite_events se
    WHERE se.linked_incident_id = incidents.id AND se.status != 'false_positive') AS satellite_last_seen`;
+
+// Cloisonnement par pays : actif seulement quand le multi-pays est activé —
+// sinon comportement historique inchangé (tout est tunisien).
+const multiCountry = () => getSetting('multi_country_enabled') === '1';
+// Clé de réglage du dernier import FIRMS réussi, par pays (TN garde la clé
+// historique pour ne perdre aucun état déjà en production).
+const firmsSuccessKey = (c) => (c === 'TN' ? 'firms_last_success_at' : `firms_last_success_at_${c.toLowerCase()}`);
 
 const nowIso = () => new Date().toISOString();
 
@@ -51,6 +60,12 @@ publicRouter.get('/incidents', (req, res) => {
   const q = req.query;
   const conds = [];
   const params = {};
+
+  // Pays demandé (clients historiques sans paramètre → Tunisie).
+  if (multiCountry()) {
+    conds.push(`COALESCE(country_code, 'TN') = @country`);
+    params.country = requestCountry(req);
+  }
 
   // Statuts visibles publiquement : actifs + résolus récents.
   const resolvedH = getSettingNum('resolved_visible_h');
@@ -135,15 +150,19 @@ publicRouter.get('/attachments/:id', (req, res) => {
 // --- « Je suis aussi concerné » (avec vérification de contact) --------------
 publicRouter.post('/confirm/start', ipRateLimit('confirm_ip', 10, 60), async (req, res) => {
   const b = req.body || {};
-  const incident = db.prepare(`SELECT id, public_id FROM incidents WHERE public_id = ? AND status = 'active'`)
+  const incident = db.prepare(`SELECT id, public_id, country_code FROM incidents WHERE public_id = ? AND status = 'active'`)
     .get(String(b.publicId || ''));
   if (!incident) return res.status(404).json({ error: msg(req, 'incident_closed_or_missing') });
   if (b.consent !== true) return res.status(400).json({ error: msg(req, 'consent_required') });
 
   let channel, contact;
   if (b.method === 'sms') {
-    if (!isPhone(b.phone || '')) return res.status(400).json({ error: msg(req, 'invalid_phone') });
-    channel = 'sms'; contact = normalizePhone(b.phone);
+    // Format téléphonique du PAYS DE L'INCIDENT (jamais de la langue).
+    const ctyCode = incident.country_code || 'TN';
+    if (!isPhoneFor(b.phone || '', ctyCode)) {
+      return res.status(400).json({ error: msg(req, ctyCode === 'FR' ? 'invalid_phone_fr' : 'invalid_phone') });
+    }
+    channel = 'sms'; contact = normalizePhoneFor(b.phone, ctyCode);
   } else {
     if (!isEmail(b.email || '')) return res.status(400).json({ error: msg(req, 'invalid_email') });
     channel = 'email_code'; contact = String(b.email).toLowerCase().trim();
@@ -391,6 +410,8 @@ publicRouter.get('/satellite/events', (req, res) => {
   const confList = publicConfidenceList();
   const wanted = String(req.query.confidence || '');
   const conf = wanted === 'high' ? ['high'] : confList;
+  const country = requestCountry(req);
+  const countryCond = multiCountry() ? `AND COALESCE(country_code, 'TN') = ?` : '';
   const rows = db.prepare(
     `SELECT id, centroid_lat AS lat, centroid_lng AS lng, uncertainty_radius_m,
             first_detected_at, last_detected_at, max_confidence, max_frp,
@@ -399,12 +420,13 @@ publicRouter.get('/satellite/events', (req, res) => {
      WHERE status IN ('active','no_new_detection')
        AND linked_incident_id IS NULL
        AND max_confidence IN (${conf.map(() => '?').join(',')})
+       ${countryCond}
      ORDER BY last_detected_at DESC LIMIT 300`
-  ).all(...conf);
+  ).all(...conf, ...(countryCond ? [country] : []));
   res.json({
     count: rows.length,
     events: rows,
-    lastSyncAt: getSetting('firms_last_success_at') || null,
+    lastSyncAt: getSetting(firmsSuccessKey(country)) || null,
   });
 });
 
@@ -416,7 +438,7 @@ publicRouter.get('/satellite/events/:id', (req, res) => {
      FROM satellite_events WHERE id = ? AND status != 'false_positive'`
   ).get(String(req.params.id));
   if (!ev) return res.status(404).json({ error: msg(req, 'incident_not_found') });
-  res.json({ ...ev, lastSyncAt: getSetting('firms_last_success_at') || null });
+  res.json({ ...ev, lastSyncAt: getSetting(firmsSuccessKey(requestCountry(req))) || null });
 });
 
 // « Je vois cet incendie / je suis concerné » sur un événement satellite :
@@ -444,17 +466,19 @@ publicRouter.post('/satellite/events/:id/feedback', ipRateLimit('sat_feedback_ip
   res.json({ ok: true, confirmations, threshold: getSettingNum('fire_confirm_threshold') });
 });
 
-// --- Annuaire de contacts tunisiens vérifiés --------------------------------
-// Source unique des numéros affichés (jamais de numéro en dur côté frontend,
-// jamais de numéro étranger). Filtré par type d'incident, trié par priorité.
+// --- Annuaire de contacts d'urgence vérifiés (par pays) ----------------------
+// Source unique des numéros affichés (jamais de numéro en dur côté frontend).
+// STRICTEMENT cloisonné : jamais un numéro tunisien en France, ni l'inverse.
 publicRouter.get('/contacts', (req, res) => {
   const type = ['electricity', 'water', 'fire', 'internet', 'other'].includes(req.query.type)
     ? String(req.query.type) : null;
+  const country = requestCountry(req);
   const rows = db.prepare(`SELECT id, name_fr, name_ar, phone_display, phone_tel, incident_types,
                                   coverage, region, note_fr, note_ar, priority
-                           FROM contacts WHERE is_active = 1 ORDER BY priority, name_fr`).all();
+                           FROM contacts WHERE is_active = 1 AND COALESCE(country_code, 'TN') = ?
+                           ORDER BY priority, name_fr`).all(country);
   const list = rows.filter((c) => !type || c.incident_types.split(',').includes(type));
-  res.json({ contacts: list });
+  res.json({ contacts: list, country });
 });
 
 // --- Signalement d'un contenu incorrect ------------------------------------
@@ -473,7 +497,7 @@ publicRouter.post('/report', ipRateLimit('report_ip', 5, 60), (req, res) => {
 publicRouter.get('/geocode/search', ipRateLimit('search_ip', 30, 5), async (req, res) => {
   const q = cleanText(String(req.query.q || ''), 200);
   if (q.length < 3) return res.json({ results: [] });
-  res.json({ results: await searchAddress(q, 5, getLang(req)) });
+  res.json({ results: await searchAddress(q, 5, getLang(req), requestCountry(req)) });
 });
 
 publicRouter.get('/geocode/reverse', ipRateLimit('search_ip', 30, 5), async (req, res) => {
@@ -481,7 +505,19 @@ publicRouter.get('/geocode/reverse', ipRateLimit('search_ip', 30, 5), async (req
   if (!isFiniteNum(lat, -90, 90) || !isFiniteNum(lng, -180, 180)) {
     return res.status(400).json({ error: msg(req, 'invalid_params') });
   }
-  res.json({ result: await reverseGeocode(Number(lat), Number(lng), getLang(req)) });
+  res.json({ result: await reverseGeocode(Number(lat), Number(lng), getLang(req), requestCountry(req)) });
+});
+
+// --- Pays contenant un point (pour « Utiliser ma position ») -----------------
+// Renvoie le pays PRIS EN CHARGE contenant ces coordonnées, ou null — jamais
+// de rattachement au pays « le plus proche ». Aucune coordonnée n'est stockée.
+publicRouter.get('/resolve-country', ipRateLimit('resolve_ip', 30, 5), (req, res) => {
+  const { lat, lng } = req.query;
+  if (!isFiniteNum(lat, -90, 90) || !isFiniteNum(lng, -180, 180)) {
+    return res.status(400).json({ error: msg(req, 'invalid_params') });
+  }
+  const code = resolveCountry(Number(lat), Number(lng));
+  res.json({ country: code && (multiCountry() ? enabledCountries() : ['TN']).includes(code) ? code : null });
 });
 
 // --- Configuration publique (catégories actives…) ---------------------------
@@ -500,6 +536,23 @@ publicRouter.get('/config', (req, res) => {
       { url: getSetting('tile_secondary_url'), attribution: getSetting('tile_secondary_attribution') },
     ].filter((p) => p.url),
     tileFailThreshold: getSettingNum('tile_fail_threshold') || 6,
+    // Multi-pays : profils CLIENT-SÛRS uniquement (jamais de clé, jamais de
+    // configuration serveur). La liste ne contient que les pays activés.
+    multiCountry: multiCountry(),
+    countries: (multiCountry() ? enabledCountries() : ['TN']).map((code) => {
+      const p = getProfile(code);
+      return {
+        code,
+        name: p.name,
+        timezone: p.timezone,
+        map: p.map,
+        phonePlaceholder: p.phone.placeholder,
+        callingCode: p.phone.callingCode,
+        declarationsEnabled: code !== 'FR' || getSetting('fr_declarations_enabled') === '1',
+        satelliteEnabled: getSetting(p.firms.enabledFlag) === '1'
+          && getSetting('nasa_firms_public_layer_enabled') !== '0',
+      };
+    }),
   });
 });
 
@@ -518,7 +571,9 @@ publicRouter.post('/client-error', ipRateLimit('clienterr_ip', 5, 60), (req, res
 
 // --- Statistiques publiques minimales (compteur d'accueil) ------------------
 publicRouter.get('/stats', (req, res) => {
-  const active = db.prepare(`SELECT COUNT(*) AS n FROM incidents WHERE status = 'active'`).get().n;
-  const byType = db.prepare(`SELECT type, COUNT(*) AS n FROM incidents WHERE status = 'active' GROUP BY type`).all();
+  const cond = multiCountry() ? `AND COALESCE(country_code, 'TN') = ?` : '';
+  const args = cond ? [requestCountry(req)] : [];
+  const active = db.prepare(`SELECT COUNT(*) AS n FROM incidents WHERE status = 'active' ${cond}`).get(...args).n;
+  const byType = db.prepare(`SELECT type, COUNT(*) AS n FROM incidents WHERE status = 'active' ${cond} GROUP BY type`).all(...args);
   res.json({ active, byType: Object.fromEntries(byType.map((r) => [r.type, r.n])) });
 });

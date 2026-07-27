@@ -52,7 +52,14 @@ if (!boot || boot.count !== 0) {
 const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--no-sandbox'] });
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'fr-FR' });
 // Choix de consentement déjà fait (la bannière GA est testée par ailleurs).
-await ctx.addInitScript(() => { try { localStorage.setItem('ga_consent', 'denied'); } catch {} });
+await ctx.addInitScript(() => {
+  try {
+    localStorage.setItem('ga_consent', 'denied');
+    // Pays déjà choisi : la feuille de sélection ne s'ouvre pas pendant les tests
+    // (le scénario de première visite est testé séparément plus bas).
+    localStorage.setItem('kifeh_country', 'TN');
+  } catch {}
+});
 // Réseau externe indisponible dans l'environnement de test : les tuiles sont
 // coupées immédiatement (exerce au passage la bascule de fournisseurs).
 await ctx.route(/tile\.openstreetmap|cartocdn|googletagmanager|google-analytics/, (r) => r.abort());
@@ -229,6 +236,37 @@ ok(/sur 4/.test(hint), `déclaration : compteur d'étapes réel (« ${hint} »)`
 const visibleSegs = await tiny.evaluate(() => [...document.querySelectorAll('#progressBar span')].filter((s) => !s.hidden).length);
 ok(visibleSegs === 4, `barre de progression à 4 segments (${visibleSegs})`);
 await tiny.close();
+
+// ── Multi-pays : première visite, persistance, indépendance pays/langue ─────
+console.log('\n■ Multi-pays (sélection, persistance, France en arabe)');
+// Contexte NEUF sans pays mémorisé : la feuille de choix se propose.
+const ctx2 = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'fr-FR' });
+await ctx2.addInitScript(() => { try { localStorage.setItem('ga_consent', 'denied'); } catch {} });
+const pc = await ctx2.newPage();
+await pc.route(/tile\.openstreetmap|cartocdn|googletagmanager|google-analytics/, (r) => r.abort());
+await pc.goto(`${BASE}/`, { waitUntil: 'load' });
+await okEventually(pc, () => document.getElementById('countrySheet')?.classList.contains('open'),
+  'première visite : la feuille « Dans quel pays… » s’ouvre');
+ok(await pc.evaluate(() => !document.getElementById('countryFR').hidden), 'option France proposée');
+await pc.click('#countryFR'); // choisit la France → rechargement
+await pc.waitForTimeout(1500);
+await okEventually(pc, () => localStorage.getItem('kifeh_country') === 'FR', 'choix France mémorisé');
+await okEventually(pc, () => document.getElementById('countrySwitch').textContent.includes('France'),
+  'bouton d’en-tête : France');
+// Le choix persiste après rechargement.
+await pc.reload({ waitUntil: 'load' });
+await okEventually(pc, () => localStorage.getItem('kifeh_country') === 'FR',
+  'pays conservé après rechargement');
+// Indépendance pays/langue : la France se consulte en arabe, rendu RTL.
+await pc.evaluate(() => localStorage.setItem('lang', 'ar'));
+await pc.reload({ waitUntil: 'load' });
+await pc.waitForTimeout(900);
+ok(await pc.evaluate(() => document.documentElement.dir) === 'rtl', 'France en arabe : rendu RTL');
+await okEventually(pc, () => document.getElementById('countrySwitch').textContent.includes('فرنسا'),
+  'bouton pays affiché en arabe (فرنسا)');
+ok(await pc.evaluate(() => localStorage.getItem('kifeh_country')) === 'FR',
+  'changer de langue ne change pas le pays');
+await ctx2.close();
 
 await browser.close();
 server.kill();

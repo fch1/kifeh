@@ -1,5 +1,6 @@
 // NASA FIRMS — Fire Information for Resource Management System.
-// Import serveur des détections satellitaires d'anomalies thermiques (Tunisie),
+// Import serveur des détections satellitaires d'anomalies thermiques, PAR PAYS
+// (zone d'appel et polygone de filtrage fournis par les profils pays),
 // regroupement en « événements incendie satellite », corroboration des
 // signalements citoyens. La clé API ne quitte JAMAIS le serveur et n'apparaît
 // JAMAIS dans les journaux.
@@ -11,30 +12,11 @@ import { uuid, sha256 } from './crypto.js';
 import { broadcast } from '../routes/events.js';
 import { audit } from './audit.js';
 import { config } from '../config.js';
+import { getProfile, enabledCountries, inCountry } from '../countries/index.js';
 
-// Zone rectangulaire couvrant la Tunisie (ouest,sud,est,nord) pour l'API,
-// puis filtrage fin par polygone simplifié des frontières tunisiennes.
-const TUNISIA_BBOX = '7.5,30.2,11.6,37.6';
-const TUNISIA_POLYGON = [
-  [37.35, 9.75], [37.28, 10.20], [36.95, 10.35], [36.85, 10.65], [37.05, 11.05],
-  [36.75, 11.10], [36.45, 10.80], [36.05, 10.60], [35.70, 10.85], [35.25, 11.05],
-  [34.75, 11.15], [34.35, 10.35], [33.90, 10.15], [33.65, 10.95], [33.20, 11.40],
-  [32.95, 11.60], [32.40, 11.55], [31.95, 10.75], [31.45, 10.30], [30.85, 10.05],
-  [30.20, 9.90], [30.20, 9.30], [30.90, 9.05], [31.60, 9.10], [32.20, 8.60],
-  [32.75, 8.35], [33.30, 8.15], [33.90, 7.75], [34.45, 7.85], [34.95, 8.30],
-  [35.55, 8.35], [36.10, 8.25], [36.60, 8.30], [36.95, 8.65], [37.10, 9.10],
-  [37.35, 9.75],
-];
-
-function inTunisia(lat, lng) {
-  // Point dans polygone (ray casting) — suffisant pour écarter mer et voisins.
-  let inside = false;
-  for (let i = 0, j = TUNISIA_POLYGON.length - 1; i < TUNISIA_POLYGON.length; j = i++) {
-    const [yi, xi] = TUNISIA_POLYGON[i], [yj, xj] = TUNISIA_POLYGON[j];
-    if (((yi > lat) !== (yj > lat)) && (lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi)) inside = !inside;
-  }
-  return inside;
-}
+// Clé de réglage par pays. La Tunisie GARDE les clés historiques (déjà en
+// production) ; les autres pays sont suffixés (_fr…).
+const keyFor = (base, country) => (country === 'TN' ? base : `${base}_${country.toLowerCase()}`);
 
 function distanceKm(lat1, lng1, lat2, lng2) {
   const R = 6371, rad = (d) => (d * Math.PI) / 180;
@@ -67,7 +49,7 @@ export function parseFirmsCsv(text, source) {
   const iDate = col('acq_date'), iTime = col('acq_time');
   const iSat = col('satellite'), iInstr = col('instrument');
   const iConf = col('confidence'), iFrp = col('frp'), iDN = col('daynight');
-  const iScan = col('scan'), iTrack = col('track');
+  const iScan = col('scan'), iTrack = col('track'), iVer = col('version');
   const iBright = header.findIndex((h) => h === 'brightness' || h === 'bright_ti4');
   if (iLat < 0 || iLng < 0 || iDate < 0 || iTime < 0) return [];
 
@@ -95,6 +77,7 @@ export function parseFirmsCsv(text, source) {
       frp: iFrp >= 0 && Number.isFinite(Number(f[iFrp])) ? Number(f[iFrp]) : null,
       brightness: iBright >= 0 && Number.isFinite(Number(f[iBright])) ? Number(f[iBright]) : null,
       dayNight: iDN >= 0 ? String(f[iDN]).slice(0, 2) : null,
+      version: iVer >= 0 ? String(f[iVer]).slice(0, 20) || null : null,
       raw: line.slice(0, 500),
     });
   }
@@ -105,13 +88,13 @@ export function parseFirmsCsv(text, source) {
 // Les sources NRT ne conservent que quelques jours d'historique : si la
 // fenêtre demandée est refusée (HTTP 400), on retente avec une fenêtre plus
 // courte (7 → 5 → 3 → 1) jusqu'à obtenir une réponse.
-async function fetchSource(source, dayRange = 1) {
+async function fetchSource(source, dayRange = 1, bbox) {
   const ranges = [...new Set([dayRange, 5, 3, 1].filter((d) => d <= dayRange && d >= 1))];
   let lastError = null;
   for (const range of ranges) {
     // Une reprise immédiate sur erreur passagère (5xx) avant de réduire la fenêtre.
     for (let attempt = 0; attempt < 2; attempt++) {
-      const url = `${config.firms.baseUrl}/api/area/csv/${config.firms.mapKey}/${source}/${TUNISIA_BBOX}/${range}`;
+      const url = `${config.firms.baseUrl}/api/area/csv/${config.firms.mapKey}/${source}/${bbox}/${range}`;
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), Number(process.env.FIRMS_TIMEOUT_MS) || 45_000);
       try {
@@ -145,13 +128,14 @@ function nearThermalSource(lat, lng) {
 
 // Rattache une détection à un événement existant (proximité + fenêtre
 // temporelle) ou crée un nouvel événement. Met à jour centroïde et compteurs.
-function attachToEvent(d) {
+function attachToEvent(d, country) {
   const radiusKm = (getSettingNum('firms_cluster_radius_m') || 1000) / 1000;
   const windowMs = (getSettingNum('firms_cluster_window_h') || 6) * 3600_000;
   const candidates = db.prepare(
     `SELECT * FROM satellite_events WHERE status IN ('active','no_new_detection')
+     AND COALESCE(country_code, 'TN') = ?
      AND ABS(centroid_lat - ?) < 0.03 AND ABS(centroid_lng - ?) < 0.035`
-  ).all(d.lat, d.lng);
+  ).all(country, d.lat, d.lng);
   let ev = candidates.find((e) =>
     distanceKm(d.lat, d.lng, e.centroid_lat, e.centroid_lng) <= radiusKm
     && Math.abs(Date.parse(d.acquiredAt) - Date.parse(e.last_detected_at)) <= windowMs);
@@ -160,11 +144,11 @@ function attachToEvent(d) {
     const id = uuid();
     db.prepare(`INSERT INTO satellite_events
         (id, centroid_lat, centroid_lng, uncertainty_radius_m, first_detected_at, last_detected_at,
-         max_confidence, max_frp, detection_count, satellite_count, satellites, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, '', ?)`)
+         max_confidence, max_frp, detection_count, satellite_count, satellites, status, country_code)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, '', ?, ?)`)
       .run(id, d.lat, d.lng, Math.round((getSettingNum('firms_cluster_radius_m') || 1000) * 0.75),
         d.acquiredAt, d.acquiredAt, d.confidence, d.frp,
-        nearThermalSource(d.lat, d.lng) ? 'false_positive' : 'active');
+        nearThermalSource(d.lat, d.lng) ? 'false_positive' : 'active', country);
     ev = db.prepare(`SELECT * FROM satellite_events WHERE id = ?`).get(id);
   }
 
@@ -191,17 +175,21 @@ function attachToEvent(d) {
 
 // Corrobore les signalements citoyens : détection nominal/high à proximité
 // (distance + fenêtre temporelle configurables). N'ajoute JAMAIS d'incident.
-function corroborateIncidents() {
+function corroborateIncidents(country) {
   const maxKm = getSettingNum('firms_corroborate_km') || 2;
   const windowMs = (getSettingNum('firms_corroborate_window_h') || 12) * 3600_000;
+  // Cloisonnement : un événement satellite ne corrobore JAMAIS un signalement
+  // d'un autre pays (les deux requêtes portent le même filtre country_code).
   const events = db.prepare(
     `SELECT * FROM satellite_events WHERE status IN ('active','no_new_detection')
-     AND max_confidence IN ('nominal','high') AND linked_incident_id IS NULL`
-  ).all();
+     AND max_confidence IN ('nominal','high') AND linked_incident_id IS NULL
+     AND COALESCE(country_code, 'TN') = ?`
+  ).all(country);
   const incidents = db.prepare(
     `SELECT id, public_id, lat, lng, started_at, COALESCE(published_at, created_at) AS published_at, trust_score
-     FROM incidents WHERE type = 'fire' AND status = 'active'`
-  ).all();
+     FROM incidents WHERE type = 'fire' AND status = 'active'
+     AND COALESCE(country_code, 'TN') = ?`
+  ).all(country);
   let linked = 0;
   for (const ev of events) {
     const match = incidents.find((i) =>
@@ -239,65 +227,101 @@ function updateLifecycles() {
 // Verrou anti-exécutions simultanées (une seule synchro à la fois).
 let syncRunning = false;
 
+// Pays dont la synchronisation FIRMS est active : pays activés dont
+// l'interrupteur satellite propre (nasa_firms_enabled / fr_nasa_firms_enabled)
+// n'est pas coupé. Hors multi-pays : Tunisie uniquement (comportement historique).
+function firmsCountries() {
+  const codes = getSetting('multi_country_enabled') === '1' ? enabledCountries() : ['TN'];
+  return codes.filter((c) => getSetting(getProfile(c).firms.enabledFlag) !== '0');
+}
+
 export async function syncFirms({ force = false } = {}) {
   if (!config.firms.mapKey) return { skipped: 'no_key' };
-  if (getSetting('nasa_firms_enabled') === '0') return { skipped: 'disabled' };
   if (syncRunning) return { skipped: 'already_running' };
+  const countries = firmsCountries();
+  if (!countries.length) return { skipped: 'disabled' };
   const intervalMs = (getSettingNum('firms_sync_interval_min') || 15) * 60_000;
   const last = getSetting('firms_last_sync_at');
   if (!force && last && Date.now() - Date.parse(last) < intervalMs) return { skipped: 'too_soon' };
 
-  // Premier import réussi : rattrapage des 7 derniers jours (configurable) ;
-  // ensuite, fenêtre glissante courte.
-  const isBackfill = !getSetting('firms_backfill_done');
+  syncRunning = true;
+  setSetting('firms_last_sync_at', new Date().toISOString());
+  try {
+    // Chaque pays est synchronisé INDÉPENDAMMENT : une erreur côté France ne
+    // bloque jamais l'import tunisien (et réciproquement).
+    const byCountry = {};
+    let totalImported = 0, totalLinked = 0;
+    for (const country of countries) {
+      const r = await syncCountry(country);
+      byCountry[country] = r;
+      totalImported += r.imported;
+      totalLinked += r.linked;
+    }
+    updateLifecycles();
+    if (totalImported > 0 || totalLinked > 0) broadcast('incident', { satellite: true });
+    // Forme historique conservée (santé /healthz, admin) + détail par pays.
+    const tn = byCountry.TN || { imported: 0, duplicates: 0, outOfArea: 0, linked: 0, errors: [] };
+    return { imported: tn.imported, duplicates: tn.duplicates, outOfTunisia: tn.outOfArea,
+             linked: tn.linked, errors: tn.errors, byCountry };
+  } finally {
+    syncRunning = false;
+  }
+}
+
+// Synchronise UN pays : appels API sur sa zone, filtrage par son polygone,
+// insertion anti-doublon (empreinte), regroupement en événements, corroboration.
+async function syncCountry(country) {
+  const profile = getProfile(country);
+  // Premier import réussi du pays : rattrapage de 7 jours (configurable) ;
+  // ensuite, fenêtre glissante courte. Marqueur PAR PAYS.
+  const backfillKey = keyFor('firms_backfill_done', country);
+  const isBackfill = !getSetting(backfillKey);
   const dayRange = isBackfill
     ? Math.min(10, getSettingNum('firms_backfill_days') || 7)
     : (getSettingNum('firms_day_range') || 1);
 
-  syncRunning = true;
-  setSetting('firms_last_sync_at', new Date().toISOString());
   const insert = db.prepare(`INSERT OR IGNORE INTO satellite_detections
       (id, provider, source, satellite, instrument, external_fingerprint, lat, lng, scan, track,
-       acq_date, acq_time, acquired_at, confidence, frp, brightness, day_night, version, raw_payload)
-      VALUES (?, 'NASA_FIRMS', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-  let imported = 0, outOfTunisia = 0, duplicates = 0, errors = [];
+       acq_date, acq_time, acquired_at, confidence, frp, brightness, day_night, version, raw_payload, country_code)
+      VALUES (?, 'NASA_FIRMS', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  let imported = 0, outOfArea = 0, duplicates = 0;
+  const errors = [];
 
-  try {
-    const sources = String(getSetting('firms_sources') || '').split(',').map((s) => s.trim()).filter(Boolean);
-    for (const source of sources) {
-      let rows;
-      try { rows = await fetchSource(source, dayRange); }
-      catch (e) {
-        // Les données valides déjà importées sont conservées ; nouvel essai au prochain cycle.
-        errors.push(e.message.replace(config.firms.mapKey, '***'));
-        continue;
-      }
-      for (const d of rows) {
-        if (!inTunisia(d.lat, d.lng)) { outOfTunisia++; continue; }
-        const fp = sha256(`${d.source}|${d.lat.toFixed(5)}|${d.lng.toFixed(5)}|${d.acqDate}|${d.acqTime}|${d.satellite || ''}`);
-        const id = uuid();
-        const res = insert.run(id, d.source, d.satellite, d.instrument, fp, d.lat, d.lng,
-          d.scan, d.track, d.acqDate, d.acqTime, d.acquiredAt, d.confidence, d.frp,
-          d.brightness, d.dayNight, d.version, d.raw);
-        if (res.changes === 0) { duplicates++; continue; } // empreinte déjà importée
-        const eventId = attachToEvent(d);
-        db.prepare(`UPDATE satellite_detections SET satellite_event_id = ? WHERE id = ?`).run(eventId, id);
-        imported++;
-      }
+  const sources = String(getSetting('firms_sources') || '').split(',').map((s) => s.trim()).filter(Boolean);
+  for (const source of sources) {
+    let rows;
+    try { rows = await fetchSource(source, dayRange, profile.firms.bbox); }
+    catch (e) {
+      // Les données valides déjà importées sont conservées ; nouvel essai au prochain cycle.
+      errors.push(e.message.replace(config.firms.mapKey, '***'));
+      continue;
     }
-    const linked = corroborateIncidents();
-    updateLifecycles();
-    if (errors.length < (String(getSetting('firms_sources') || '').split(',').filter(Boolean).length || 1)) {
-      setSetting('firms_last_success_at', new Date().toISOString());
-      // Rattrapage initial de 7 jours effectué : fenêtre courte désormais.
-      if (isBackfill) setSetting('firms_backfill_done', new Date().toISOString());
+    for (const d of rows) {
+      if (!inCountry(d.lat, d.lng, country)) { outOfArea++; continue; }
+      // Empreinte anti-réimport : format INCHANGÉ depuis le premier déploiement
+      // (les coordonnées suffisent à distinguer les pays — en changer
+      // réimporterait tout l'historique déjà en production).
+      const fp = sha256(`${d.source}|${d.lat.toFixed(5)}|${d.lng.toFixed(5)}|${d.acqDate}|${d.acqTime}|${d.satellite || ''}`);
+      const id = uuid();
+      const res = insert.run(id, d.source, d.satellite, d.instrument, fp, d.lat, d.lng,
+        d.scan, d.track, d.acqDate, d.acqTime, d.acquiredAt, d.confidence, d.frp,
+        d.brightness, d.dayNight, d.version, d.raw, country);
+      if (res.changes === 0) { duplicates++; continue; } // empreinte déjà importée
+      const eventId = attachToEvent(d, country);
+      db.prepare(`UPDATE satellite_detections SET satellite_event_id = ? WHERE id = ?`).run(eventId, id);
+      imported++;
     }
-    setSetting('firms_last_error', errors.join(' ; ') || '');
-    if (imported > 0 || linked > 0) broadcast('incident', { satellite: true });
-    return { imported, duplicates, outOfTunisia, linked, errors };
-  } finally {
-    syncRunning = false;
   }
+  const linked = corroborateIncidents(country);
+  // Succès si au moins une source a répondu : l'état (dernier succès, erreur,
+  // rattrapage effectué) est suivi PAR PAYS — la Tunisie garde ses clés
+  // historiques, la France utilise les clés suffixées _fr.
+  if (errors.length < (sources.length || 1)) {
+    setSetting(keyFor('firms_last_success_at', country), new Date().toISOString());
+    if (isBackfill) setSetting(backfillKey, new Date().toISOString());
+  }
+  setSetting(keyFor('firms_last_error', country), errors.join(' ; ') || '');
+  return { imported, duplicates, outOfArea, linked, errors };
 }
 
 // Confiance minimale de publication (réglable) → clause SQL.

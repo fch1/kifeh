@@ -9,7 +9,7 @@ async function shoot(lang, out, out2) {
   const page = await ctx.newPage();
   page.on('pageerror', e => errors.push(lang + ' PAGEERROR ' + e.message));
   await page.goto('http://localhost:3998/', { waitUntil: 'load' });
-  await page.evaluate((l) => { localStorage.setItem('lang', l); }, lang);
+  await page.evaluate((l) => { localStorage.setItem('lang', l); localStorage.setItem('kifeh_country', 'TN'); }, lang);
   await page.reload({ waitUntil: 'load' });
   await page.waitForTimeout(900);
   await page.screenshot({ path: out });

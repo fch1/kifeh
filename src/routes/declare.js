@@ -5,7 +5,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { db, getSetting, getSettingNum, touchIncident } from '../db.js';
 import { uuid, publicId, randomToken, sha256, hmac, encrypt, decrypt } from '../services/crypto.js';
-import { isEmail, isPhone, normalizePhone, isFiniteNum, isIsoDate, cleanText, containsSuspiciousContent } from '../middleware/security.js';
+import { isEmail, isFiniteNum, isIsoDate, cleanText, containsSuspiciousContent } from '../middleware/security.js';
 import { clientIp, countEvents, recordEvent } from '../middleware/rateLimit.js';
 import { anonymizeCoords } from '../services/anonymize.js';
 import { findSimilar, isRepeatedText } from '../services/dedup.js';
@@ -17,6 +17,7 @@ import { broadcast } from './events.js';
 import { audit } from '../services/audit.js';
 import { config, getBaseUrl } from '../config.js';
 import { getLang, msg } from '../i18n.js';
+import { getProfile, countryEnabled, resolveCountry, isPhoneFor, normalizePhoneFor } from '../countries/index.js';
 
 export const declareRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_UPLOAD_BYTES } });
@@ -31,6 +32,40 @@ setInterval(() => {
 const TYPES = ['electricity', 'water', 'fire', 'internet', 'other'];
 const SEVERITIES = ['low', 'moderate', 'high', 'immediate_danger'];
 const nowIso = () => new Date().toISOString();
+
+// Détermine le pays d'un point déclaré, avec validation stricte :
+// - le pays soumis doit contenir le point (jamais de rattachement silencieux) ;
+// - un point dans le polygone d'un AUTRE pays est toujours refusé ;
+// - hors de tout polygone, une tolérance frontalière s'applique (emprise
+//   rectangulaire du pays) car les frontières simplifiées peuvent exclure des
+//   zones réellement nationales — même tolérance que le comportement historique.
+// Retour : { country } ou { errorKey }.
+function countryForDeclaration(lat, lng, submitted) {
+  if (getSetting('multi_country_enabled') !== '1') return { country: 'TN' };
+  const resolved = resolveCountry(lat, lng);
+  const asked = String(submitted || '').toUpperCase();
+  const inLooseBounds = (code) => {
+    const p = getProfile(code);
+    if (!p) return false;
+    const [[s, w], [n, e]] = p.map.maxBounds;
+    return lat >= s && lat <= n && lng >= w && lng <= e;
+  };
+  let country;
+  if (asked) {
+    if (!getProfile(asked)) return { errorKey: 'invalid_params' };
+    if (resolved && resolved !== asked) return { errorKey: 'country_mismatch' };
+    if (!resolved && !inLooseBounds(asked)) return { errorKey: 'country_mismatch' };
+    country = asked;
+  } else {
+    country = resolved || (inLooseBounds('TN') ? 'TN' : null); // clients historiques → Tunisie
+    if (!country) return { errorKey: 'unsupported_location' };
+  }
+  if (!countryEnabled(country)) return { errorKey: 'unsupported_location' };
+  if (country === 'FR' && getSetting('fr_declarations_enabled') !== '1') {
+    return { errorKey: 'unsupported_location' };
+  }
+  return { country };
+}
 
 function draftAuth(req, res) {
   const { incidentId, draftToken } = req.body || {};
@@ -98,6 +133,9 @@ declareRouter.post('/draft', async (req, res) => {
   if (!isFiniteNum(b.lat, -90, 90) || !isFiniteNum(b.lng, -180, 180)) {
     return res.status(400).json({ error: msg(req, 'invalid_location') });
   }
+  // Pays de l'incident : déterminé par la POSITION (jamais par la langue).
+  const cty = countryForDeclaration(Number(b.lat), Number(b.lng), b.country);
+  if (cty.errorKey) return res.status(400).json({ error: msg(req, cty.errorKey), code: cty.errorKey });
   if (!['ongoing', 'finished'].includes(b.temporalStatus)) {
     return res.status(400).json({ error: msg(req, 'invalid_temporal') });
   }
@@ -132,14 +170,14 @@ declareRouter.post('/draft', async (req, res) => {
   db.prepare(
     `INSERT INTO incidents(id, public_id, type, status, severity, description, comment, affected_count,
        temporal_status, started_at, ended_at, time_approximate, lat, lng, public_lat, public_lng,
-       address, public_area, location_source, gps_accuracy)
-     VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       address, public_area, location_source, gps_accuracy, country_code)
+     VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(id, pid, b.type, b.severity, description, comment, affected,
     b.temporalStatus, new Date(b.startedAt).toISOString(), endedAt, b.timeApproximate ? 1 : 0,
     lat, lng, pub.lat, pub.lng,
     cleanText(b.address, 300) || null, cleanText(b.publicArea, 200) || null,
     ['gps', 'address', 'manual'].includes(b.locationSource) ? b.locationSource : 'manual',
-    isFiniteNum(b.gpsAccuracy, 0, 100_000) ? Number(b.gpsAccuracy) : null);
+    isFiniteNum(b.gpsAccuracy, 0, 100_000) ? Number(b.gpsAccuracy) : null, cty.country);
 
   // Jeton de brouillon (mêmes mécanismes que le lien de gestion, TTL court).
   const draftToken = randomToken(32);
@@ -178,8 +216,12 @@ declareRouter.post('/contact', async (req, res) => {
 
   let channel, contact;
   if (b.method === 'sms') {
-    if (!isPhone(b.phone || '')) return res.status(400).json({ error: msg(req, 'invalid_phone') });
-    channel = 'sms'; contact = normalizePhone(b.phone);
+    // Le format attendu suit le PAYS DE L'INCIDENT (jamais la langue).
+    const ctyCode = incident.country_code || 'TN';
+    if (!isPhoneFor(b.phone || '', ctyCode)) {
+      return res.status(400).json({ error: msg(req, ctyCode === 'FR' ? 'invalid_phone_fr' : 'invalid_phone') });
+    }
+    channel = 'sms'; contact = normalizePhoneFor(b.phone, ctyCode);
   } else if (b.method === 'email_code' || b.method === 'email_link') {
     if (!isEmail(b.email || '')) return res.status(400).json({ error: msg(req, 'invalid_email') });
     channel = b.method; contact = String(b.email).toLowerCase().trim();
@@ -330,7 +372,8 @@ async function publishIncident(incidentId, reporterId, ip, lang = 'fr') {
 
   audit('reporter', 'incident_published', incident.id, { status }, ip);
   if (status === 'active') {
-    broadcast('incident', { publicId: incident.public_id, status: 'active', type: incident.type });
+    broadcast('incident', { publicId: incident.public_id, status: 'active', type: incident.type,
+                            country: incident.country_code || 'TN' });
   }
 
   return {

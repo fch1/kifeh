@@ -105,6 +105,13 @@ const I18N = {
     trust_explain: 'Ces informations viennent des habitants de la zone : déclarations et confirmations volontaires, complétées le cas échéant par des détections satellitaires (NASA FIRMS). Kifeh est une plateforme citoyenne — rien ici n’est une confirmation officielle des autorités.',
     summary_around: 'Autour de {q}', summary_here: 'Dans cette zone',
     chip_sat: 'Feux satellite',
+    country_q: 'Dans quel pays souhaitez-vous consulter les incidents ?',
+    country_tn: 'Tunisie',
+    country_fr: 'France',
+    country_use_position: 'Utiliser ma position',
+    country_not_covered: 'Votre position n’est pas dans une zone couverte (Tunisie ou France métropolitaine). Choisissez un pays ci-dessus.',
+    country_switch_aria: 'Changer de pays',
+    country_sheet_aria: 'Choix du pays',
     summary_sat_n: '{n} feu(x) détecté(s) par satellite',
     offline_snapshot: 'Dernières informations disponibles — mises à jour {t}.',
     api_degraded: 'Impossible de mettre à jour les incidents. Les dernières informations disponibles sont affichées.',
@@ -122,6 +129,7 @@ const I18N = {
     sat_no_new: 'Aucune nouvelle détection récente',
     sat_disclaimer: 'Cette information provient d’une détection satellitaire d’anomalie thermique. Elle ne constitue pas à elle seule une confirmation officielle d’incendie. La position affichée est approximative.',
     sat_danger: 'En cas de danger immédiat, éloignez-vous de la zone et contactez la Protection civile (198). Kifeh ne remplace pas les services d’urgence.',
+    sat_danger_fr: 'En cas de danger immédiat, éloignez-vous de la zone et appelez les Pompiers (18) ou le 112. Kifeh ne remplace pas les services d’urgence.',
     sat_i_see: '🔥 Je vois cet incendie',
     sat_not_fire: 'Ce point ne semble pas correspondre à un incendie',
     sat_report_error: 'Signaler une erreur',
@@ -138,10 +146,17 @@ const I18N = {
     useful_numbers: 'Numéros utiles',
     call_btn: '📞 Appeler {name} — {num}',
     fire_safety_msg: 'En cas de danger immédiat, éloignez-vous de la zone et appelez immédiatement la Protection civile au 198. Votre déclaration sur Kifeh ne contacte pas automatiquement les secours.',
+    fire_safety_msg_fr: 'En cas de danger immédiat, éloignez-vous de la zone et appelez immédiatement les Pompiers au 18 ou le 112. Votre déclaration sur Kifeh ne contacte pas automatiquement les secours.',
     fire_safety_donts: 'N’approchez pas du feu, n’entrez pas dans un bâtiment enfumé, et n’attendez ni confirmations communautaires, ni détection satellite, ni modération pour appeler les secours.',
     provider_note_electricity: 'Kifeh enregistre un signalement communautaire : il n’est pas transmis automatiquement à la STEG. Pour une intervention officielle, contactez directement la STEG (la référence client de votre facture peut vous être demandée).',
     provider_note_water: 'Kifeh enregistre un signalement communautaire : il n’est pas transmis automatiquement à la SONEDE. Pour une réclamation officielle ou une intervention, contactez directement la SONEDE.',
     provider_note_danger: 'En cas de danger immédiat (incendie, câbles exposés, inondation dangereuse), appelez d’abord la Protection civile au 198.',
+    // France : jamais de numéro « inventé » — le dépannage dépend du
+    // gestionnaire réel (indiqué sur la facture) et du département.
+    provider_note_electricity_fr: 'Kifeh enregistre un signalement communautaire : il n’est pas transmis au gestionnaire du réseau. Pour un dépannage officiel, utilisez le numéro indiqué sur votre facture d’électricité (il dépend de votre département et de votre gestionnaire).',
+    provider_note_water_fr: 'Kifeh enregistre un signalement communautaire : il n’est pas transmis au service des eaux. Pour un dépannage officiel, utilisez le numéro indiqué sur votre facture d’eau (chaque commune a son propre gestionnaire).',
+    provider_note_danger_fr: 'En cas de danger immédiat (incendie, câbles exposés, inondation dangereuse), appelez d’abord les Pompiers au 18 ou le 112.',
+    declare_maybe_not_covered: 'Cette position semble hors des zones couvertes (Tunisie, France métropolitaine). Vous pouvez continuer : elle sera vérifiée à l’envoi.',
     done_success_note: 'Votre signalement a été enregistré. Il contribue à informer les personnes présentes dans la zone, mais ne remplace pas un appel aux autorités.',
     kifeh_disclaimer: 'Kifeh est une initiative citoyenne tunisienne indépendante. Elle permet de partager des informations avec la communauté, mais ne remplace pas les autorités, les services d’urgence, la STEG ou la SONEDE.',
     map_aria: 'Carte des incidents', you_are_here: 'Vous êtes ici (position non partagée)',
@@ -173,6 +188,7 @@ const I18N = {
     card_electricity: 'Panne d’électricité', card_water: 'Coupure / panne d’eau',
     card_fire: 'Incendie', card_internet: 'Coupure internet', card_other: 'Autre incident',
     fire_warning: 'En cas de danger immédiat, éloignez-vous de la zone et contactez immédiatement les services d’urgence : 198 (protection civile) ou 190 (SAMU).',
+    fire_warning_fr: 'En cas de danger immédiat, éloignez-vous de la zone et contactez immédiatement les services d’urgence : 18 (Pompiers) ou 112.',
     fire_warning_suffix: 'Cette déclaration ne déclenche pas automatiquement l’intervention des secours.',
     // Étape 2
     loc_q: 'Où se situe l’incident ?',
@@ -372,6 +388,13 @@ const I18N = {
     trust_explain: 'هذه المعلومات مصدرها متساكنو المنطقة: تبليغات وتأكيدات تطوعية، تدعمها عند الاقتضاء رصدات الأقمار الاصطناعية (NASA FIRMS). «كيفاه» منصة مواطنية — لا شيء هنا يمثّل تأكيدًا رسميًا من السلطات.',
     summary_around: 'حول {q}', summary_here: 'في هذه المنطقة',
     chip_sat: 'حرائق الأقمار',
+    country_q: 'في أي بلد تريد الاطلاع على الحوادث؟',
+    country_tn: 'تونس',
+    country_fr: 'فرنسا',
+    country_use_position: 'استعمل موقعي',
+    country_not_covered: 'موقعك خارج المناطق المغطاة (تونس أو فرنسا القارية). اختر بلدًا من الأعلى.',
+    country_switch_aria: 'تغيير البلد',
+    country_sheet_aria: 'اختيار البلد',
     summary_sat_n: '{n} حريق مرصود عبر الأقمار',
     offline_snapshot: 'آخر المعلومات المتوفرة — تم تحديثها {t}.',
     api_degraded: 'تعذّر تحديث البلاغات. تُعرض آخر المعلومات المتوفرة.',
@@ -388,6 +411,7 @@ const I18N = {
     sat_no_new: 'لا يوجد رصد جديد مؤخرًا',
     sat_disclaimer: 'هذه المعلومة ناتجة عن رصد شذوذ حراري عبر الأقمار الاصطناعية، ولا تشكّل وحدها تأكيدًا رسميًا لوجود حريق. الموقع المعروض تقريبي.',
     sat_danger: 'في حالة الخطر المباشر، ابتعد عن المكان واتصل بالحماية المدنية (198). «كيفاه» لا يعوّض خدمات النجدة.',
+    sat_danger_fr: 'في حالة الخطر المباشر، ابتعد عن المكان واتصل برجال الإطفاء (18) أو بالرقم 112. «كيفاه» لا يعوّض خدمات النجدة.',
     sat_i_see: '🔥 أرى هذا الحريق',
     sat_not_fire: 'لا يبدو أن هذه النقطة تخص حريقًا',
     sat_report_error: 'الإبلاغ عن خطأ',
@@ -403,10 +427,15 @@ const I18N = {
     useful_numbers: 'أرقام مفيدة',
     call_btn: '📞 الاتصال: {name} — {num}',
     fire_safety_msg: 'في حالة وجود خطر مباشر، ابتعد عن المكان واتصل فورًا بالحماية المدنية على الرقم 198. الإبلاغ عبر Kifeh لا يعني أنه تم الاتصال تلقائيًا بفرق النجدة.',
+    fire_safety_msg_fr: 'في حالة وجود خطر مباشر، ابتعد عن المكان واتصل فورًا برجال الإطفاء على الرقم 18 أو بالرقم 112. الإبلاغ عبر Kifeh لا يعني أنه تم الاتصال تلقائيًا بفرق النجدة.',
     fire_safety_donts: 'لا تقترب من النار، ولا تدخل مبنى مليئًا بالدخان، ولا تنتظر تأكيدات المجتمع أو الرصد عبر الأقمار الاصطناعية أو المراجعة للاتصال بالنجدة.',
     provider_note_electricity: 'يسجّل «كيفاه» بلاغًا مجتمعيًا لا يُحال تلقائيًا إلى الشركة التونسية للكهرباء والغاز. للتدخل الرسمي، اتصل بالشركة مباشرة (قد يُطلب منك المعرّف الموجود على فاتورتك).',
     provider_note_water: 'يسجّل «كيفاه» بلاغًا مجتمعيًا لا يُحال تلقائيًا إلى الشركة الوطنية لاستغلال وتوزيع المياه. للشكاوى الرسمية أو التدخل، اتصل بالشركة مباشرة.',
     provider_note_danger: 'في حالة الخطر المباشر (حريق، أسلاك مكشوفة، فيضان خطير)، اتصل أولاً بالحماية المدنية على الرقم 198.',
+    provider_note_electricity_fr: 'يسجّل «كيفاه» بلاغًا مجتمعيًا لا يُحال إلى مشغّل الشبكة. للتدخل الرسمي، استعمل الرقم المذكور على فاتورة الكهرباء (يختلف حسب المقاطعة والمشغّل).',
+    provider_note_water_fr: 'يسجّل «كيفاه» بلاغًا مجتمعيًا لا يُحال إلى مصلحة المياه. للتدخل الرسمي، استعمل الرقم المذكور على فاتورة الماء (لكل بلدية مشغّلها الخاص).',
+    provider_note_danger_fr: 'في حالة الخطر المباشر (حريق، أسلاك مكشوفة، فيضان خطير)، اتصل أولاً برجال الإطفاء على الرقم 18 أو الرقم 112.',
+    declare_maybe_not_covered: 'يبدو أنّ هذا الموقع خارج المناطق المغطاة (تونس، فرنسا القارية). يمكنك المواصلة: سيتمّ التحقق عند الإرسال.',
     done_success_note: 'تم تسجيل بلاغك. يساهم البلاغ في إعلام الأشخاص الموجودين في المنطقة، لكنه لا يعوّض الاتصال بالسلطات المختصة.',
     kifeh_disclaimer: 'Kifeh مبادرة مواطنية تونسية مستقلة تهدف إلى مشاركة المعلومات مع المجتمع، ولا تعوّض السلطات أو خدمات النجدة أو الشركة التونسية للكهرباء والغاز أو الشركة الوطنية لاستغلال وتوزيع المياه.',
     map_aria: 'خريطة الحوادث', you_are_here: 'أنت هنا (موقعك غير منشور)',
@@ -434,6 +463,7 @@ const I18N = {
     card_electricity: 'انقطاع الكهرباء', card_water: 'انقطاع الماء',
     card_fire: 'حريق', card_internet: 'انقطاع الإنترنت', card_other: 'حادث آخر',
     fire_warning: 'في حالة الخطر الفوري، ابتعد عن المنطقة واتصل فورًا بمصالح النجدة: 198 (الحماية المدنية) أو 190 (الإسعاف).',
+    fire_warning_fr: 'في حالة الخطر الفوري، ابتعد عن المنطقة واتصل فورًا بمصالح النجدة: 18 (رجال الإطفاء) أو 112.',
     fire_warning_suffix: 'هذا التبليغ لا يؤدي تلقائيًا إلى تدخل فرق الإنقاذ.',
     loc_q: 'أين يقع الحادث؟',
     loc_privacy: '🔒 لن يُنشر عنوانك الدقيق أبدًا: تعرض الخريطة العمومية موقعًا تقريبيًا (~250 م). الموقع الدقيق لا يراه إلا الأعوان المخوّلون.',
@@ -610,13 +640,47 @@ const TYPE_LABELS = new Proxy({}, { get: (_, k) => t(`type_${String(k)}`) });
 const STATUS_LABELS = new Proxy({}, { get: (_, k) => t(`status_${String(k)}`) });
 const SEVERITY_LABELS = new Proxy({}, { get: (_, k) => t(`sev_${String(k)}`) });
 
-function fmtDate(iso) {
+// ── Pays (INDÉPENDANT de la langue : on peut consulter la France en arabe) ──
+// Profils client minimaux — la source de vérité serveur est /api/public/config
+// (le repli local couvre le premier rendu et le mode hors connexion).
+const COUNTRY_PROFILES = {
+  TN: {
+    code: 'TN', name: { fr: 'Tunisie', ar: 'تونس' }, flag: '🇹🇳',
+    timezone: 'Africa/Tunis', localeByLanguage: { fr: 'fr-FR', ar: 'ar-TN' },
+    map: { defaultCenter: [34.2, 9.6], defaultZoom: 6 },
+    phonePlaceholder: '+216 20 123 456', callingCode: '+216',
+  },
+  FR: {
+    code: 'FR', name: { fr: 'France', ar: 'فرنسا' }, flag: '🇫🇷',
+    timezone: 'Europe/Paris', localeByLanguage: { fr: 'fr-FR', ar: 'ar' },
+    map: { defaultCenter: [46.6, 2.4], defaultZoom: 6 },
+    phonePlaceholder: '06 12 34 56 78', callingCode: '+33',
+  },
+};
+
+function readStoredCountry() {
+  try { return localStorage.getItem('kifeh_country'); } catch { return null; }
+}
+// null = jamais choisi (la page d'accueil propose alors la sélection).
+let COUNTRY = COUNTRY_PROFILES[readStoredCountry()] ? readStoredCountry() : null;
+function currentCountry() { return COUNTRY || 'TN'; }
+function countryProfile() { return COUNTRY_PROFILES[currentCountry()] || COUNTRY_PROFILES.TN; }
+function setCountry(code) {
+  if (!COUNTRY_PROFILES[code]) return;
+  try { localStorage.setItem('kifeh_country', code); } catch {}
+  COUNTRY = code;
+  location.reload(); // ré-applique carte, compteurs, annuaire et formats
+}
+
+function fmtDate(iso, countryCode) {
   if (!iso) return '—';
-  // Stockage en UTC, affichage en heure de Tunis (Africa/Tunis) quel que soit
-  // le fuseau de l'appareil.
+  // Stockage en UTC, affichage dans le fuseau du PAYS CONSULTÉ — ou du pays
+  // passé en second argument (ex. page de gestion d'un incident français
+  // ouverte depuis la Tunisie). Heure d'été/hiver gérée par le fuseau IANA.
+  const p = COUNTRY_PROFILES[countryCode] || countryProfile();
   try {
-    return new Date(iso).toLocaleString(LANG === 'ar' ? 'ar-TN' : 'fr-FR',
-      { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Tunis' });
+    return new Date(iso).toLocaleString(p.localeByLanguage[LANG] || 'fr-FR',
+      { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: p.timezone });
   } catch { return iso; }
 }
 

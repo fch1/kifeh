@@ -16,7 +16,28 @@ function liteEnabled() {
 }
 const LITE = liteEnabled();
 
-const map = createMap('map', { deferTiles: LITE });
+// ── Vue mémorisée PAR PAYS : revenir à la Tunisie retrouve la vue tunisienne,
+//    passer à la France ouvre la vue française (ou sa vue par défaut). ────────
+function readViewports() {
+  try { return JSON.parse(localStorage.getItem('kifeh_viewport') || '{}'); } catch { return {}; }
+}
+function initialView() {
+  const saved = readViewports()[currentCountry()];
+  if (saved?.center && saved?.zoom) return { center: saved.center, zoom: saved.zoom };
+  const p = countryProfile();
+  return { center: p.map.defaultCenter, zoom: p.map.defaultZoom };
+}
+
+const map = createMap('map', { deferTiles: LITE, ...initialView() });
+map.on('moveend', () => {
+  try {
+    const v = readViewports();
+    const c = map.getCenter();
+    v[currentCountry()] = { center: [c.lat, c.lng], zoom: map.getZoom() };
+    localStorage.setItem('kifeh_viewport', JSON.stringify(v));
+  } catch { /* stockage indisponible : sans conséquence */ }
+});
+
 let userPos = null;
 let verificationRequired = true;
 API.get('/api/public/config').then((c) => {
@@ -24,7 +45,52 @@ API.get('/api/public/config').then((c) => {
   if (c.sandbox) showSandboxBanner();
   // Fond de carte configuré côté serveur (fournisseur principal + secours).
   setTileProviders(c.tileProviders, c.tileFailThreshold);
+  // Pays réellement activés côté serveur : les autres options sont masquées.
+  if (Array.isArray(c.countries)) {
+    const enabled = new Set(c.countries.map((x) => x.code));
+    document.getElementById('countryTN').hidden = !enabled.has('TN');
+    document.getElementById('countryFR').hidden = !enabled.has('FR');
+  }
 }).catch(() => {});
+
+// ── Choix du pays : première visite (aucun pays mémorisé) + bouton d'en-tête ──
+function renderCountryButton() {
+  const btn = document.getElementById('countrySwitch');
+  const p = countryProfile();
+  btn.textContent = `${p.flag} ${p.name[LANG] || p.name.fr}`;
+}
+renderCountryButton();
+document.getElementById('countrySwitch').addEventListener('click', () => openSheet('countrySheet'));
+// Choisir le pays déjà actif referme simplement la feuille (sans rechargement).
+function pickCountry(code) {
+  if (code === currentCountry() && COUNTRY !== null) { closeSheets(); return; }
+  setCountry(code);
+}
+document.getElementById('countryTN').addEventListener('click', () => pickCountry('TN'));
+document.getElementById('countryFR').addEventListener('click', () => pickCountry('FR'));
+// « Utiliser ma position » : géolocalisation UNIQUEMENT sur ce clic, résolution
+// côté serveur (jamais de rattachement au pays « le plus proche »).
+document.getElementById('countryGeo').addEventListener('click', (e) => withButton(e.currentTarget, () => new Promise((resolve) => {
+  const info = document.getElementById('countryGeoInfo');
+  if (!navigator.geolocation) { info.textContent = t('geo_unavailable'); return resolve(); }
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      try {
+        const r = await API.get(`/api/public/resolve-country?lat=${pos.coords.latitude.toFixed(3)}&lng=${pos.coords.longitude.toFixed(3)}`);
+        if (r.country) setCountry(r.country);
+        else info.textContent = t('country_not_covered');
+      } catch { info.textContent = t('search_error'); }
+      resolve();
+    },
+    () => { info.textContent = t('geo_not_found'); resolve(); },
+    { enableHighAccuracy: false, timeout: 8000 }
+  );
+})));
+// Première visite : proposer le choix (sans bloquer — la Tunisie s'affiche déjà).
+if (typeof COUNTRY !== 'undefined' && COUNTRY === null
+    && !location.search.includes('incident=') && !location.search.includes('confirm=')) {
+  setTimeout(() => openSheet('countrySheet'), 400);
+}
 
 // Bandeau discret quand le fond de carte est indisponible : Kifeh reste
 // entièrement utilisable (liste, recherche, filtres, déclaration).
@@ -585,7 +651,7 @@ async function openSatDetail(id) {
     ${ev.lastSyncAt ? `<br><span class="muted small">${t('sat_last_sync', { t: fmtDate(ev.lastSyncAt) })}</span>` : ''}</p>
     ${ev.confirmations_count > 0 ? `<p class="notice ok">${ev.confirmations_count > 1 ? t('affected_n', { n: ev.confirmations_count }) : t('affected_one')}</p>` : ''}
     <p class="notice warn small">${t('sat_disclaimer')}</p>
-    <p class="notice danger small">${t('sat_danger')}</p>
+    <p class="notice danger small">${t(currentCountry() === 'FR' ? 'sat_danger_fr' : 'sat_danger')}</p>
     <div id="satConfirmZone">
       ${confirmed ? `<p class="notice ok">${t('sat_you_confirmed')}</p>` : `<button class="btn" id="btnSatSee">${t('sat_i_see')}</button>`}
     </div>
@@ -820,7 +886,7 @@ function renderConfirmForm(i) {
         <button id="cEmail" aria-pressed="false">${t('email')}</button>
       </div>
       <div id="cPhoneField"><label for="cPhone">${t('phone_label')}</label>
-        <input id="cPhone" type="tel" inputmode="tel" placeholder="${esc(t('phone_ph'))}" autocomplete="tel"></div>
+        <input id="cPhone" type="tel" inputmode="tel" placeholder="${esc(countryProfile().phonePlaceholder)}" autocomplete="tel"></div>
       <div id="cEmailField" hidden><label for="cEmailInput">${t('email_label')}</label>
         <input id="cEmailInput" type="email" inputmode="email" placeholder="${esc(t('email_ph'))}" autocomplete="email"></div>
       <div class="checkbox-row">

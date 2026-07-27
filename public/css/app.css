@@ -70,7 +70,7 @@ p { margin: .4rem 0; }
 a { color: var(--primary); }
 .muted { color: var(--muted); font-size: .875rem; }
 .small { font-size: .8125rem; }
-.brand-logo { width: 34px; height: 34px; flex-shrink: 0; }
+.brand-logo { height: 34px; width: auto; flex-shrink: 0; }
 
 /* Boutons — cibles tactiles ≥ 48px */
 .btn {
@@ -129,11 +129,16 @@ html[dir="rtl"] input[type=datetime-local] { text-align: right; }
 }
 html[dir="rtl"] .topbar .back .arrow { display: inline-block; transform: scaleX(-1); }
 
-.lang-switch {
+.lang-switch,
+.country-switch {
   min-height: 40px; padding: 0 .8rem; border-radius: 20px; border: 1px solid var(--border);
   background: var(--surface); font-weight: 600; font-size: .85rem; cursor: pointer;
   color: var(--primary); font-family: var(--font-latin), var(--font-ar);
 }
+
+/* Choix du pays (indépendant de la langue) : deux grandes options + position */
+.country-options { display: flex; gap: .5rem; margin: .75rem 0; }
+.country-options .country-option { flex: 1; font-size: 1rem; }
 
 /* Page container */
 .page { max-width: 640px; margin: 0 auto; padding: 1rem 1rem 5rem; }
@@ -157,7 +162,7 @@ html[dir="rtl"] .topbar .back .arrow { display: inline-block; transform: scaleX(
   background: var(--surface); border-radius: 20px; padding: .3rem .8rem; font-weight: 700;
   box-shadow: var(--shadow); display: inline-flex; align-items: center; gap: .45rem; font-size: .95rem;
 }
-.home-brandbar .brand-name img { width: 22px; height: 22px; }
+.home-brandbar .brand-name img { height: 24px; width: auto; }
 .home-brandbar .spacer { flex: 1; }
 .searchbox { position: relative; }
 .searchbox input { box-shadow: var(--shadow); border: none; }

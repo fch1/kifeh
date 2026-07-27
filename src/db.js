@@ -271,6 +271,7 @@ db.transaction(() => {
       verified_at TEXT, verified_by TEXT,
       is_active INTEGER NOT NULL DEFAULT 1,
       priority INTEGER NOT NULL DEFAULT 100,
+      country_code TEXT NOT NULL DEFAULT 'TN',
       created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
     );
   `);
@@ -293,6 +294,58 @@ db.transaction(() => {
     { id: 'sonede_contact', fr: 'SONEDE — contact général', ar: 'الشركة الوطنية لاستغلال وتوزيع المياه', disp: '71 887 000', tel: '+21671887000', types: 'water', prio: 2, src: 'SONEDE (sonede.com.tn)', url: 'https://www.sonede.com.tn', vat: VAT },
   ]) seedContact.run(c);
 
+  // Annuaire FRANCE — numéros d'urgence nationaux vérifiés uniquement.
+  // Pas de numéro « inventé » : pour l'électricité/l'eau/internet en France,
+  // l'écran oriente vers le gestionnaire indiqué sur la facture (le numéro
+  // Enedis dépend du département et du gestionnaire réel de la commune).
+  // Migration additive AVANT la graine : les bases déjà déployées n'ont pas
+  // encore la colonne country_code (CREATE IF NOT EXISTS ne l'ajoute pas).
+  const contactCols2 = db.prepare(`PRAGMA table_info(contacts)`).all().map((c) => c.name);
+  if (contactCols2.length && !contactCols2.includes('country_code')) {
+    db.exec(`ALTER TABLE contacts ADD COLUMN country_code TEXT NOT NULL DEFAULT 'TN'`);
+  }
+  {
+    const seedFr = db.prepare(`INSERT OR IGNORE INTO contacts
+      (id, name_fr, name_ar, phone_display, phone_tel, incident_types, coverage,
+       source_name, source_url, verified_at, verified_by, is_active, priority, country_code)
+      VALUES (@id, @fr, @ar, @disp, @tel, @types, 'national', @src, @url, @vat, 'seed', 1, @prio, 'FR')`);
+    const SRCFR = 'Service-Public.fr — numéros d’urgence';
+    const URLFR = 'https://www.service-public.fr/particuliers/vosdroits/F33954';
+    const VATFR = '2026-07-27T00:00:00.000Z';
+    for (const c of [
+      { id: 'fr_pompiers', fr: 'Pompiers', ar: 'رجال الإطفاء', disp: '18', tel: '18', types: 'fire,water,electricity', prio: 1, src: SRCFR, url: URLFR, vat: VATFR },
+      { id: 'fr_urgence_112', fr: 'Numéro d’urgence européen', ar: 'رقم الطوارئ الأوروبي', disp: '112', tel: '112', types: 'fire,water,electricity', prio: 2, src: SRCFR, url: URLFR, vat: VATFR },
+      { id: 'fr_samu', fr: 'SAMU', ar: 'الإسعاف الطبي (SAMU)', disp: '15', tel: '15', types: 'fire', prio: 3, src: SRCFR, url: URLFR, vat: VATFR },
+      { id: 'fr_police', fr: 'Police secours', ar: 'شرطة النجدة', disp: '17', tel: '17', types: 'fire', prio: 4, src: SRCFR, url: URLFR, vat: VATFR },
+      { id: 'fr_sourds_114', fr: 'Urgences par SMS (sourds et malentendants)', ar: 'الطوارئ عبر الرسائل (للصمّ وضعاف السمع)', disp: '114', tel: 'sms:114', types: 'fire', prio: 5, src: SRCFR, url: URLFR, vat: VATFR },
+    ]) seedFr.run(c);
+  }
+
+  // 3e-bis. MULTI-PAYS — colonnes additives `country_code` partout où le sens
+  //         est géographique. Les enregistrements existants sont rattachés à
+  //         la TUNISIE (Kifeh a historiquement opéré en Tunisie) ; les
+  //         coordonnées incohérentes sont signalées en file de revue (journal
+  //         d'audit) SANS suppression ni déplacement silencieux.
+  const incCols3 = db.prepare(`PRAGMA table_info(incidents)`).all().map((c) => c.name);
+  if (!incCols3.includes('country_code')) {
+    db.exec(`ALTER TABLE incidents ADD COLUMN country_code TEXT`);
+    db.exec(`ALTER TABLE incidents ADD COLUMN administrative_level_1 TEXT`);
+    db.exec(`ALTER TABLE incidents ADD COLUMN administrative_level_2 TEXT`);
+    db.exec(`ALTER TABLE incidents ADD COLUMN administrative_level_3 TEXT`);
+    db.exec(`ALTER TABLE incidents ADD COLUMN locality TEXT`);
+    db.exec(`ALTER TABLE incidents ADD COLUMN postal_code TEXT`);
+    db.exec(`UPDATE incidents SET country_code = 'TN' WHERE country_code IS NULL`);
+    // Revue : coordonnées hors de l'emprise tunisienne élargie → à examiner.
+    const odd = db.prepare(`SELECT id, public_id, lat, lng FROM incidents
+      WHERE lat NOT BETWEEN 29.5 AND 38.5 OR lng NOT BETWEEN 6.5 AND 12.5`).all();
+    const auditIns = db.prepare(`INSERT INTO audit_log(actor, action, target, detail)
+      VALUES ('migration', 'country_review_needed', ?, ?)`);
+    for (const r of odd) auditIns.run(r.id, JSON.stringify({ publicId: r.public_id, lat: r.lat, lng: r.lng, assigned: 'TN' }));
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_incidents_country ON incidents(country_code, status);
+             CREATE INDEX IF NOT EXISTS idx_incidents_country_type ON incidents(country_code, type, status);
+             CREATE INDEX IF NOT EXISTS idx_incidents_country_map ON incidents(country_code, status, public_lat, public_lng)`);
+  }
+
   // 3f. NASA FIRMS — détections satellitaires et événements regroupés.
   //     Tables entièrement nouvelles : aucune donnée existante touchée.
   db.exec(`
@@ -309,6 +362,7 @@ db.transaction(() => {
       confidence TEXT NOT NULL CHECK (confidence IN ('low','nominal','high')),
       frp REAL, brightness REAL,
       day_night TEXT, version TEXT,
+      country_code TEXT NOT NULL DEFAULT 'TN',
       raw_payload TEXT,                   -- ligne brute (audit technique)
       imported_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
       satellite_event_id TEXT REFERENCES satellite_events(id)
@@ -328,6 +382,7 @@ db.transaction(() => {
       satellite_count INTEGER NOT NULL DEFAULT 0,
       satellites TEXT NOT NULL DEFAULT '',       -- liste csv
       confirmations_count INTEGER NOT NULL DEFAULT 0,
+      country_code TEXT NOT NULL DEFAULT 'TN',
       status TEXT NOT NULL DEFAULT 'active' CHECK (status IN
         ('active','no_new_detection','archived','false_positive')),
       linked_incident_id TEXT REFERENCES incidents(id),
@@ -357,6 +412,18 @@ db.transaction(() => {
       created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
     );
   `);
+
+  // 3f-bis. MULTI-PAYS sur tables satellites PRÉEXISTANTES : `CREATE TABLE IF
+  //         NOT EXISTS` n'ajoute pas de colonne à une table déjà en place (la
+  //         production a des détections antérieures à cette migration). Ajout
+  //         additif, rattaché à la Tunisie comme le reste de l'historique.
+  for (const t of ['satellite_detections', 'satellite_events']) {
+    const cols = db.prepare(`PRAGMA table_info(${t})`).all().map((c) => c.name);
+    if (cols.length && !cols.includes('country_code')) {
+      db.exec(`ALTER TABLE ${t} ADD COLUMN country_code TEXT NOT NULL DEFAULT 'TN'`);
+    }
+  }
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_satevents_country ON satellite_events(country_code, status, last_detected_at)`);
 })();
 
 // Réglages par défaut (sans écraser les valeurs administrées).

@@ -5,8 +5,16 @@
 const STORAGE_KEY = 'incident_draft_v1';
 const startedFillingAt = Date.now();
 
+// Avertissement incendie de l'étape 1 : numéros du PAYS CONSULTÉ (la position
+// n'est pas encore choisie). Jamais le 198 tunisien affiché à un utilisateur
+// qui consulte la France. Exécuté avant applyI18n (DOMContentLoaded).
+if (typeof currentCountry === 'function' && currentCountry() === 'FR') {
+  document.querySelectorAll('[data-i18n="fire_warning"]').forEach((el) => { el.dataset.i18n = 'fire_warning_fr'; });
+}
+
 const state = Object.assign({
   step: 1, type: null, lat: null, lng: null, locationSource: null, gpsAccuracy: null,
+  country: null, // pays de l'INCIDENT (déduit de la position — le serveur revalide)
   deviceLat: null, deviceLng: null, address: null, publicArea: null,
   temporalStatus: 'ongoing', startedAt: null, endedAt: null, timeApproximate: false,
   description: '', severity: 'moderate', affectedCount: '', comment: '',
@@ -107,7 +115,9 @@ for (const card of document.querySelectorAll('.type-card')) {
 let miniMap = null, marker = null;
 function initMiniMap() {
   if (miniMap) { miniMap.invalidateSize(); return; }
-  miniMap = createMap('miniMap', { center: [34.2, 9.6], zoom: 6 }); // Tunisie
+  // Centre initial : le pays consulté (la position choisie fait ensuite foi).
+  const p = countryProfile();
+  miniMap = createMap('miniMap', { center: p.map.defaultCenter, zoom: p.map.defaultZoom });
   miniMap.on('click', (e) => setPoint(e.latlng.lat, e.latlng.lng, 'manual'));
   if (state.lat != null) {
     setPoint(state.lat, state.lng, state.locationSource || 'manual', { silentGeocode: true });
@@ -205,10 +215,30 @@ addrInput.addEventListener('input', () => {
   }, 350);
 });
 
-document.getElementById('btnLocationNext').addEventListener('click', () => {
+document.getElementById('btnLocationNext').addEventListener('click', (e) => withButton(e.currentTarget, async () => {
   if (state.lat == null) return;
+  const errEl = document.getElementById('geoError'); errEl.textContent = '';
+  // Pays de l'incident : déterminé par la POSITION (jamais par la langue ni le
+  // pays consulté). Si le point n'est dans aucun polygone (littoral simplifié,
+  // zone frontalière), on N'EMPÊCHE PAS de continuer : le serveur applique une
+  // tolérance frontalière et refuse seulement les points réellement hors zone,
+  // avec un message traduit. Ici, simple avertissement le cas échéant.
+  try {
+    const r = await API.get(`/api/public/resolve-country?lat=${state.lat.toFixed(4)}&lng=${state.lng.toFixed(4)}`);
+    if (r.country) state.country = r.country;
+    else { state.country = null; errEl.textContent = t('declare_maybe_not_covered'); }
+  } catch { state.country = state.country || currentCountry(); } // hors connexion : le serveur tranchera
+  applyCountryToContactUI();
+  save();
   show('step3');
-});
+}));
+
+// Adapte le formulaire de contact au pays de l'incident (format du téléphone).
+function applyCountryToContactUI() {
+  const p = COUNTRY_PROFILES[state.country] || countryProfile();
+  const phone = document.getElementById('phoneInput');
+  if (phone) phone.placeholder = p.phonePlaceholder;
+}
 
 // --- Étape 3 : période ------------------------------------------------------
 for (const b of document.querySelectorAll('[data-temporal]')) {
@@ -358,7 +388,7 @@ async function submitContact(allowRetry) {
 async function ensureDraft() {
   if (state.incidentId) return;
   const draft = await API.post('/api/declare/draft', {
-    type: state.type, lat: state.lat, lng: state.lng,
+    type: state.type, lat: state.lat, lng: state.lng, country: state.country,
     locationSource: state.locationSource, gpsAccuracy: state.gpsAccuracy,
     deviceLat: state.deviceLat, deviceLng: state.deviceLng,
     address: state.address, publicArea: state.publicArea,
@@ -474,46 +504,73 @@ document.getElementById('btnVerify').addEventListener('click', (e) => withButton
   }
 }));
 
-// --- Panneau d'urgence tunisien (selon le type d'incident) -------------------
-// Les numéros viennent EXCLUSIVEMENT de l'annuaire vérifié du serveur : aucun
-// numéro en dur ici, jamais de numéro étranger. Incendie → Protection civile
-// en action principale ; électricité → STEG ; eau → SONEDE. La Protection
-// civile est ajoutée aux pannes uniquement en cas de danger déclaré.
+// --- Panneau d'urgence PAR PAYS (selon le type d'incident) -------------------
+// Les numéros viennent EXCLUSIVEMENT de l'annuaire vérifié du serveur, filtré
+// par le pays de l'INCIDENT : aucun numéro en dur ici, jamais un numéro
+// tunisien affiché en France (ni l'inverse), jamais de numéro « inventé ».
+// Tunisie — incendie → Protection civile ; électricité → STEG ; eau → SONEDE.
+// France — les numéros d'urgence (18/112…) ne sont proposés qu'en cas
+// d'incendie ou de danger déclaré ; pour une panne ordinaire, l'écran oriente
+// vers le gestionnaire indiqué sur la facture (le numéro de dépannage dépend
+// du département et de l'opérateur réel — aucun numéro générique fiable).
 async function renderEmergencyPanel(type, severity) {
   const host = document.getElementById('emergencyPanel');
   if (!host) return;
   host.innerHTML = '';
   if (!['fire', 'electricity', 'water'].includes(type)) return;
+  const country = state.country || currentCountry();
   let contacts;
-  try { ({ contacts } = await API.get(`/api/public/contacts?type=${encodeURIComponent(type)}`)); }
-  catch { return; }
-  if (!contacts?.length) return;
+  try {
+    ({ contacts } = await API.get(
+      `/api/public/contacts?type=${encodeURIComponent(type)}&country=${encodeURIComponent(country)}`));
+  } catch { return; }
 
   const danger = severity === 'immediate_danger' || severity === 'high';
-  let list = contacts;
-  if (type !== 'fire') {
-    // Panne ordinaire : fournisseur d'abord ; Protection civile seulement en cas de danger.
-    const pc = contacts.find((c) => c.id === 'protection_civile');
-    list = contacts.filter((c) => c.id !== 'protection_civile');
-    if (danger && pc) list = [pc, ...list];
-  }
   const isFire = type === 'fire';
+  let list = contacts || [];
+  if (!isFire) {
+    if (country === 'FR') {
+      // Panne ordinaire en France : PAS de numéro d'urgence — uniquement la
+      // note d'orientation. Les urgences apparaissent seulement en cas de danger.
+      if (!danger) list = [];
+    } else {
+      // Tunisie : fournisseur d'abord ; Protection civile seulement si danger.
+      const pc = list.find((c) => c.id === 'protection_civile');
+      list = list.filter((c) => c.id !== 'protection_civile');
+      if (danger && pc) list = [pc, ...list];
+    }
+  }
+  const providerNoteKey = `provider_note_${type}${country === 'FR' ? '_fr' : ''}`;
+  const notes = [];
+  if (danger && !isFire) {
+    notes.push(`<p><strong>${t(country === 'FR' ? 'provider_note_danger_fr' : 'provider_note_danger')}</strong></p>`);
+  }
+  if (type === 'electricity' || type === 'water') {
+    notes.push(`<p class="small">${t(providerNoteKey)}</p>`);
+    if (country === 'TN' && type === 'electricity') {
+      notes.push(`<p class="small"><a href="https://www.steg.com.tn" target="_blank" rel="noopener">${t('steg_site_link')}</a></p>`);
+    }
+  }
+  if (!list.length && !notes.length) return;
+
   const nameOf = (c) => (LANG === 'ar' ? c.name_ar : c.name_fr);
+  // Le 114 français est un numéro SMS (sourds et malentendants) : lien sms:.
+  const hrefOf = (c) => (c.phone_tel.startsWith('sms:') ? c.phone_tel : `tel:${c.phone_tel}`);
   const callBtn = (c, primary) =>
-    `<a class="btn call-btn${primary ? ' call-primary' : ' secondary'}" href="tel:${esc(c.phone_tel)}">
+    `<a class="btn call-btn${primary ? ' call-primary' : ' secondary'}" href="${esc(hrefOf(c))}">
        ${esc(t('call_btn', { name: nameOf(c), num: c.phone_display }))}</a>`;
 
+  // Accessibilité : le 114 français (urgences par SMS, sourds et malentendants)
+  // ne doit jamais être coupé par la limite d'affichage.
   const [first, ...rest] = list;
+  const maxSecondary = country === 'FR' ? 4 : 3;
   host.innerHTML = `
     <div class="emergency-panel${isFire || danger ? ' danger' : ''}" role="alert">
       <h2>${isFire ? t('emergency_title') : t('useful_numbers')}</h2>
-      ${isFire ? `<p><strong>${t('fire_safety_msg')}</strong></p><p class="small">${t('fire_safety_donts')}</p>` : ''}
-      ${danger && !isFire ? `<p><strong>${t('provider_note_danger')}</strong></p>` : ''}
-      ${callBtn(first, true)}
-      ${rest.slice(0, 3).map((c) => callBtn(c, false)).join('')}
-      ${type === 'electricity' ? `<p class="small">${t('provider_note_electricity')}</p>
-        <p class="small"><a href="https://www.steg.com.tn" target="_blank" rel="noopener">${t('steg_site_link')}</a></p>` : ''}
-      ${type === 'water' ? `<p class="small">${t('provider_note_water')}</p>` : ''}
+      ${isFire ? `<p><strong>${t(country === 'FR' ? 'fire_safety_msg_fr' : 'fire_safety_msg')}</strong></p><p class="small">${t('fire_safety_donts')}</p>` : ''}
+      ${first ? callBtn(first, true) : ''}
+      ${rest.slice(0, maxSecondary).map((c) => callBtn(c, false)).join('')}
+      ${notes.join('')}
     </div>`;
 }
 
@@ -569,6 +626,8 @@ function finishFromManage(r) {
     b.setAttribute('aria-pressed', b.dataset.method === state.method));
   document.getElementById('phoneField').hidden = state.method !== 'sms';
   document.getElementById('emailField').hidden = state.method !== 'email';
+  // Brouillon repris : ré-applique le format téléphonique du pays de l'incident.
+  if (state.country) applyCountryToContactUI();
   // Reprend à l'étape sauvegardée (jamais au-delà de l'étape 5 sans brouillon serveur).
   const resumable = ['step1', 'step2', 'step3', 'step4', 'step5'];
   show(resumable.includes(state.step) ? state.step : 'step1');
