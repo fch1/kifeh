@@ -459,6 +459,26 @@ html, body { overscroll-behavior: none; }
    est signalée par le poids typographique, jamais par la couleur seule. */
 .summary-official-active { font-weight: 700; }
 
+/* « Depuis votre dernière visite » : retour utile, discret et refermable */
+.since-banner {
+  position: fixed; top: 7.5rem; left: 50%; transform: translateX(-50%);
+  z-index: 1100; background: #fff; border-radius: 14px; padding: .75rem 2.2rem .75rem 1rem;
+  box-shadow: 0 4px 18px rgb(30 42 77 / .18); max-width: min(92vw, 420px);
+  cursor: pointer; border: 1px solid var(--border, #e5e0d8);
+}
+.since-banner .since-line { font-size: .875rem; margin-top: .25rem; }
+.since-close {
+  position: absolute; top: .35rem; inset-inline-end: .4rem; border: none;
+  background: none; font-size: 1rem; cursor: pointer; color: var(--muted, #777);
+  min-width: 32px; min-height: 32px;
+}
+[dir="rtl"] .since-banner { padding: .75rem 1rem .75rem 2.2rem; }
+
+/* Zones suivies : puces avec suppression intégrée */
+.zone-chip { display: inline-flex; align-items: center; gap: .35rem; }
+.zone-del { opacity: .6; padding: 0 .15rem; }
+.zone-del:hover { opacity: 1; color: var(--brand-red); }
+
 /* « Mon statut de sécurité » : carte personnelle, actions larges et claires */
 .safety-card { border: 1.5px solid var(--border, #e5e0d8); margin: 1rem 0; }
 .safety-btn {

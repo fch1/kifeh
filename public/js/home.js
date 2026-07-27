@@ -269,6 +269,8 @@ async function loadIncidents() {
     cluster.setItems(visibleItems());
     renderSummary(false);
     refreshVigilanceMarkers(); // marqueurs ⚠️ vigilance (asynchrone, jamais bloquant)
+    // « Depuis votre dernière visite » : une seule vérification par session.
+    if (!sinceChecked) { sinceChecked = true; sinceLastVisit().catch(() => {}); }
     // Instantané local : la dernière situation chargée reste consultable
     // hors connexion (avec son horodatage, jamais présentée comme actuelle).
     try {
@@ -336,20 +338,36 @@ function renderSummary(degraded, snapshotAt) {
     ${active.length > 0 && typeParts.length ? `<span class="summary-types">${typeParts.join(' · ')}</span>` : ''}
     ${ended > 0 ? `<span class="summary-types">✓ ${ended === 1 ? t('summary_ended_one') : t('summary_ended_n', { n: ended })}</span>` : ''}
     ${active.length > 0 && satsShown.length ? `<span class="summary-sat">🛰️ ${t('summary_sat_n', { n: satsShown.length })} · ${satWindowH()} h</span>` : ''}
-    ${fireSit?.heat ? `<span class="summary-types">🌡️ ${esc(t('heat_now', { c: fireSit.heat.tempC }))}${fireSit.heat.feelsC != null && fireSit.heat.feelsC !== fireSit.heat.tempC ? ` · ${esc(t('heat_feels', { c: fireSit.heat.feelsC }))}` : ''}${fireSit.heat.maxC != null && fireSit.heat.maxC > fireSit.heat.tempC ? ` · ${esc(t('heat_max', { c: fireSit.heat.maxC, h: heatHourLabel(fireSit.heat.maxAt) }))}` : ''}</span>` : ''}
-    ${fireSit?.wind && !fireSit.wind.stale ? `<span class="summary-types">💨 ${esc(t('fs_wind_line', { v: fireSit.wind.speedKmh, dir: windDirName(fireSit.wind.directionToDeg) }))}${fireSit.wind.gustsKmh ? ` · ${esc(t('fs_wind_gusts', { g: fireSit.wind.gustsKmh }))}` : ''}</span>` : ''}
-    ${fireSit?.latestOfficialAt ? `<span class="summary-types${fireSit.safetyActive ? ' summary-official-active' : ''}">🏛️ ${esc(t('fs_latest_official', { t: timeAgo(fireSit.latestOfficialAt) }))}</span>` : ''}
-    ${fireSit?.vigilance ? `<span id="vigStatusLine" class="summary-types vig-line${fireSit.vigilance.activeDepartments > 0 ? ' summary-official-active vig-active' : ''}" role="button" tabindex="0" aria-haspopup="dialog">${fireSit.vigilance.activeDepartments > 0 ? `🟠 ${esc(t('fs_vigilance_active', { n: fireSit.vigilance.activeDepartments }))}` : `🟢 ${esc(t('fs_vigilance_none'))}`} ›</span>` : ''}
+    ${fireSit?.latestOfficialAt && fireSit.safetyActive ? `<span class="summary-types summary-official-active">🏛️ ${esc(t('fs_latest_official', { t: timeAgo(fireSit.latestOfficialAt) }))}</span>` : ''}
+    ${condLineHtml()}
     ${degraded ? `<span class="summary-degraded">${t('api_degraded')}<br>${t('offline_snapshot', { t: timeAgo(new Date(snapshotAt).toISOString()) })}</span>` : ''}`;
 }
+// Ligne « conditions » COMPACTE (France) : chaleur + vent + vigilance réunis
+// sur une seule ligne tappable — les détails vivent dans la fiche dédiée,
+// jamais empilés dans la bulle de résumé (lisibilité mobile d'abord).
+function condLineHtml() {
+  if (!fireSit) return '';
+  const parts = [];
+  if (fireSit.heat) parts.push(`🌡️ ${esc(String(fireSit.heat.tempC))}°`);
+  if (fireSit.wind && !fireSit.wind.stale) parts.push(`💨 ${esc(String(fireSit.wind.speedKmh))} km/h`);
+  const alert = fireSit.vigilance?.activeDepartments > 0;
+  if (fireSit.vigilance) {
+    parts.push(alert ? `🟠 ${esc(t('cond_vig_n', { n: fireSit.vigilance.activeDepartments }))}`
+      : `🟢 ${esc(t('cond_vig_ok'))}`);
+  }
+  if (!parts.length) return '';
+  return `<span id="condLine" class="summary-types vig-line${alert ? ' summary-official-active vig-active' : ''}"
+    role="button" tabindex="0" aria-haspopup="dialog" aria-label="${esc(t('cond_title'))}">${parts.join(' · ')} ›</span>`;
+}
+
 // Le résumé ouvre la liste correspondante (même jeu de données) ; la ligne
-// d'état Vigilance ouvre sa fiche dédiée (clavier : Entrée ou Espace).
+// « conditions » ouvre sa fiche dédiée (clavier : Entrée ou Espace).
 document.getElementById('counter').addEventListener('click', (e) => {
-  if (e.target.closest('#vigStatusLine')) { openVigilanceSheet(); return; }
+  if (e.target.closest('#condLine')) { openVigilanceSheet(); return; }
   renderList(); openSheet('listSheet');
 });
 document.getElementById('counter').addEventListener('keydown', (e) => {
-  if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('#vigStatusLine')) {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('#condLine')) {
     e.preventDefault(); openVigilanceSheet();
   }
 });
@@ -378,18 +396,24 @@ async function openVigilanceSheet() {
   openSheet('vigSheet');
   let v;
   try { v = await API.get('/api/fire-situation/vigilance'); } catch { v = null; }
-  if (!v?.enabled || !v.monitored) {
-    el.innerHTML = `<h2>${esc(t('vig_title'))}</h2><p class="muted small">${esc(t('vig_unavailable'))}</p>`;
-    return;
-  }
-  window.track?.('vigilance_sheet_opened', { alerts: v.alerts.length });
-  const head = v.alerts.length
-    ? `<h2>🟠 ${esc(t('vig_title'))}</h2>
-       <p><strong>${esc(t('fs_vigilance_active', { n: v.alerts.length }))}</strong></p>`
-    : `<h2>🟢 ${esc(t('vig_title'))}</h2>
-       <p><strong>${esc(t('fs_vigilance_none'))}</strong></p>
-       <p class="muted">${esc(t('vig_explainer'))}</p>`;
-  const cards = v.alerts.map((a) => {
+  // Chaque source dégrade INDÉPENDAMMENT : chaleur et vent restent affichés
+  // même si la veille Vigilance n'est pas disponible (et réciproquement).
+  const monitored = Boolean(v?.enabled && v.monitored);
+  const alerts = monitored ? v.alerts : [];
+  window.track?.('vigilance_sheet_opened', { alerts: alerts.length, monitored });
+  const h = fireSit?.heat;
+  const w = fireSit?.wind && !fireSit.wind.stale ? fireSit.wind : null;
+  const local = (h || w) ? `
+    ${h ? `<p>🌡️ <strong>${esc(t('heat_now', { c: h.tempC }))}</strong>${h.feelsC != null && h.feelsC !== h.tempC ? ` · ${esc(t('heat_feels', { c: h.feelsC }))}` : ''}${h.maxC != null && h.maxC > h.tempC ? `<br><span class="muted small">${esc(t('heat_max', { c: h.maxC, h: heatHourLabel(h.maxAt) }))}</span>` : ''}</p>` : ''}
+    ${w ? `<p>💨 <strong>${esc(t('fs_wind_line', { v: w.speedKmh, dir: windDirName(w.directionToDeg) }))}</strong>${w.gustsKmh ? ` · ${esc(t('fs_wind_gusts', { g: w.gustsKmh }))}` : ''}</p>` : ''}
+    <hr style="border:none;border-top:1px solid var(--border,#e5e0d8);margin:.75rem 0">` : '';
+  const head = `<h2>${alerts.length ? '🟠' : '🟢'} ${esc(t('cond_title'))}</h2>${local}`
+    + (!monitored ? `<p class="muted small">${esc(t('vig_unavailable'))}</p>`
+      : alerts.length
+        ? `<p><strong>${esc(t('fs_vigilance_active', { n: alerts.length }))}</strong></p>`
+        : `<p><strong>${esc(t('fs_vigilance_none'))}</strong></p>
+           <p class="muted">${esc(t('vig_explainer'))}</p>`);
+  const cards = alerts.map((a) => {
     const summary = LANG === 'ar' && a.summaryAr
       ? `${esc(a.summaryAr)}<br><span class="muted small">${esc(t('fs_ar_summary_note'))}</span>`
       : esc(a.summaryFr);
@@ -402,14 +426,17 @@ async function openVigilanceSheet() {
       </div>`;
   }).join('');
   el.innerHTML = `${head}${cards}
-    ${v.alerts.length ? `<p class="muted small">${esc(t('fs_fr_alert_note'))}</p>` : ''}
+    ${alerts.length ? `<p class="muted small">${esc(t('fs_fr_alert_note'))}</p>` : ''}
     <p><a href="https://vigilance.meteofrance.fr" target="_blank" rel="noopener">${esc(t('vig_official_map'))} ↗</a></p>
-    ${v.checkedAt ? `<p class="muted small">${esc(t('vig_checked_at', { t: fmtDate(v.checkedAt) }))}</p>` : ''}
-    ${pushSupported() ? `<button class="btn secondary" id="vigAlertsBtn" type="button">🔔 ${esc(t('vig_enable_alerts'))}</button>` : ''}`;
+    ${monitored && v.checkedAt ? `<p class="muted small">${esc(t('vig_checked_at', { t: fmtDate(v.checkedAt) }))}</p>` : ''}
+    ${pushSupported() ? `<button class="btn secondary" id="vigAlertsBtn" type="button">🔔 ${esc(t('vig_enable_alerts'))}</button>` : ''}
+    <button class="btn ghost small-btn" id="vigFollowZone" type="button">☆ ${esc(t('follow_zone_btn'))}</button>`;
   document.getElementById('vigAlertsBtn')?.addEventListener('click', (e) => {
     closeSheets();
     withButton(document.getElementById('btnAlerts'), toggleAlerts);
   });
+  document.getElementById('vigFollowZone')?.addEventListener('click', (e) =>
+    saveCurrentZone(e.currentTarget));
 }
 
 // Marqueurs ⚠️ des départements en alerte — un point honnête au centre du
@@ -552,17 +579,21 @@ function syncTypeControls() {
   document.querySelectorAll('.chip[data-type]').forEach((c) =>
     c.setAttribute('aria-pressed', filters.types.has(c.dataset.type)));
   document.querySelectorAll('.fType').forEach((c) => { c.checked = filters.types.has(c.value); });
-  document.getElementById('chipSat').setAttribute('aria-pressed', filters.types.has('satellite'));
+  // Le satellite est une COUCHE D'INFORMATION (jamais un type d'incident) :
+  // case dédiée dans « Plus de filtres », confiance visible seulement si active.
+  const satBox = document.getElementById('fSatLayer');
+  if (satBox) satBox.checked = filters.types.has('satellite');
+  const confWrap = document.getElementById('fSatConfWrap');
+  if (confWrap) confWrap.hidden = !filters.types.has('satellite') && !filters.satConf;
   document.getElementById('fSource').value = filters.source;
   updateFilterBadge();
 }
-// Filtre rapide : les feux détectés par satellite, comme un type d'incident.
-document.getElementById('chipSat').addEventListener('click', () => {
-  if (filters.types.has('satellite')) filters.types.delete('satellite');
-  else filters.types.add('satellite');
+document.getElementById('fSatLayer')?.addEventListener('change', (e) => {
+  if (e.currentTarget.checked) filters.types.add('satellite');
+  else { filters.types.delete('satellite'); filters.satConf = ''; document.getElementById('fSatConf').value = ''; }
   syncTypeControls();
-  loadIncidents();
 });
+syncTypeControls(); // état initial (confiance satellite masquée par défaut)
 for (const chip of document.querySelectorAll('.chip[data-type]')) {
   chip.addEventListener('click', () => {
     const ty = chip.dataset.type;
@@ -629,6 +660,7 @@ document.getElementById('btnList').addEventListener('click', () => { renderList(
 document.getElementById('sortSelect').addEventListener('change', renderList);
 
 function renderList() {
+  renderSavedZoneChips(); // zones suivies : accès en un geste depuis la liste
   const sort = document.getElementById('sortSelect').value;
   const sevRank = { immediate_danger: 0, high: 1, moderate: 2, low: 3 };
   // Même jeu filtré que la carte et le résumé (cohérence garantie).
@@ -758,6 +790,7 @@ async function openDetail(publicId) {
     ? `<button class="btn secondary" id="btnReopen" style="margin-top:.5rem">${t('reopen_btn')}</button>
     <div id="reopenZone"></div>` : ''}
     <button class="btn ghost small-btn" id="btnShare" style="margin-top:.5rem">${t('share_btn')}</button>
+    <button class="btn ghost small-btn" id="btnFollow" style="margin-top:.5rem" aria-pressed="${isFollowed(i.public_id)}">${isFollowed(i.public_id) ? `★ ${t('follow_on')}` : `☆ ${t('follow_btn')}`}</button>
     <button class="btn ghost small-btn" id="btnLocCorrect" style="margin-top:.5rem">${t('loc_correct_title')}</button>
     <div id="locCorrectZone"></div>
     <button class="btn ghost small-btn" id="btnReport" style="margin-top:.5rem">${t('report_content')}</button>
@@ -787,6 +820,14 @@ async function openDetail(publicId) {
   });
   document.getElementById('btnLocCorrect').addEventListener('click', () => renderCorrectionForm(i));
   document.getElementById('btnReport').addEventListener('click', () => renderReportForm(i));
+  // « Suivre cet incident » : mémorisé localement, sans compte — permet d'y
+  // revenir et alimente « Depuis votre dernière visite » (fin, réouverture…).
+  document.getElementById('btnFollow').addEventListener('click', (e) => {
+    const on = toggleFollow(i);
+    e.currentTarget.textContent = on ? `★ ${t('follow_on')}` : `☆ ${t('follow_btn')}`;
+    e.currentTarget.setAttribute('aria-pressed', String(on));
+    window.track?.(on ? 'incident_followed' : 'incident_unfollowed', { incident_type: i.type });
+  });
 
   // « C'est toujours en cours » : actualise la fraîcheur, sans doublon ni compteur.
   document.getElementById('btnStill')?.addEventListener('click', (e) => withButton(e.currentTarget, async () => {
@@ -1433,4 +1474,135 @@ async function renderSafetyHelp(ctx) {
     ${list || `<p class="muted small">${esc(t('contacts_unavailable'))}</p>`}
     <button class="btn ghost small-btn" id="sfBack">${esc(t('back'))}</button>`;
   document.getElementById('sfBack').addEventListener('click', () => renderSafetyCard(ctx));
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Suivi et retour utile — « Suivre cet incident », « Suivre cette zone » et
+// « Depuis votre dernière visite ». Tout est LOCAL au navigateur (aucun
+// compte), et le retour n'est jamais fabriqué : si rien d'important n'a
+// changé, rien n'est affiché. Mécanique de retour éthique, pas d'engagement
+// artificiel.
+// ═════════════════════════════════════════════════════════════════════════════
+
+// --- Incidents suivis (max 10, les plus récents) ----------------------------
+function followStore() {
+  try { return JSON.parse(localStorage.getItem('kifeh_follows') || '{}'); } catch { return {}; }
+}
+function isFollowed(publicId) { return Boolean(followStore()[publicId]); }
+function toggleFollow(i) {
+  const s = followStore();
+  const on = !s[i.public_id];
+  if (on) {
+    s[i.public_id] = { area: i.area || '', type: i.type, lastStatus: i.status, at: Date.now() };
+    const keys = Object.keys(s);
+    if (keys.length > 10) delete s[keys.sort((a, b) => s[a].at - s[b].at)[0]];
+  } else delete s[i.public_id];
+  try { localStorage.setItem('kifeh_follows', JSON.stringify(s)); } catch {}
+  return on;
+}
+
+// --- Zones suivies (max 3, approximatives : centre + zoom, jamais d'adresse) -
+function zoneStore() {
+  try { return JSON.parse(localStorage.getItem('kifeh_zones') || '[]'); } catch { return []; }
+}
+function saveCurrentZone(btn) {
+  const zones = zoneStore();
+  if (zones.length >= 3) return transientBanner(t('follow_zone_limit'));
+  const c = map.getCenter();
+  const q = document.getElementById('search').value.trim();
+  const label = (q ? q.split(',')[0] : '').slice(0, 30) || `${t('follow_zone_default')} ${zones.length + 1}`;
+  zones.push({ label, lat: +c.lat.toFixed(3), lng: +c.lng.toFixed(3),
+    zoom: map.getZoom(), country: currentCountry(), at: Date.now() });
+  try { localStorage.setItem('kifeh_zones', JSON.stringify(zones)); } catch {}
+  window.track?.('zone_followed', {});
+  if (btn) btn.textContent = `★ ${t('follow_zone_done')}`;
+  transientBanner(t('follow_zone_saved', { name: label }));
+}
+function removeZone(idx) {
+  const zones = zoneStore(); zones.splice(idx, 1);
+  try { localStorage.setItem('kifeh_zones', JSON.stringify(zones)); } catch {}
+  renderSavedZoneChips();
+}
+// Puces « zones suivies » en tête de liste : y aller en un geste.
+function renderSavedZoneChips() {
+  const host = document.getElementById('savedZonesRow');
+  if (!host) return;
+  const zones = zoneStore().filter((z) => z.country === currentCountry());
+  if (!zones.length) { host.innerHTML = ''; return; }
+  host.innerHTML = `<div class="chips" style="margin:.25rem 0 .5rem">
+    ${zones.map((z, i) => `<button class="chip zone-chip" data-zi="${i}">📍 ${esc(z.label)}
+      <span class="zone-del" data-zdel="${i}" role="button" aria-label="${esc(t('follow_zone_remove'))}">✕</span></button>`).join('')}
+  </div>`;
+  host.querySelectorAll('.zone-chip').forEach((chip) => chip.addEventListener('click', (e) => {
+    if (e.target.closest('.zone-del')) return;
+    const z = zones[+chip.dataset.zi];
+    closeSheets();
+    map.setView([z.lat, z.lng], z.zoom);
+    window.track?.('zone_chip_opened', {});
+  }));
+  host.querySelectorAll('.zone-del').forEach((x) => x.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const z = zones[+x.dataset.zdel];
+    removeZone(zoneStore().findIndex((s) => s.at === z.at));
+  }));
+}
+
+// --- « Depuis votre dernière visite » ---------------------------------------
+// Comparé au dernier instantané local (par pays) : nouveaux incidents dans la
+// zone, incidents suivis terminés/rouverts, changement de vigilance. Montré
+// UNIQUEMENT après une vraie absence (6 h+) et seulement si quelque chose
+// d'important a changé — jamais de bannière fabriquée.
+const VISIT_GAP_MS = 6 * 3600_000;
+let sinceChecked = false;
+function readVisitSnap() {
+  try { return JSON.parse(localStorage.getItem('kifeh_visit') || 'null'); } catch { return null; }
+}
+async function sinceLastVisit() {
+  const prev = readVisitSnap();
+  const changes = [];
+  // Incidents suivis : détection des fins et réouvertures (toujours vérifié).
+  const follows = followStore();
+  let followsDirty = false;
+  for (const [pid, f] of Object.entries(follows).slice(0, 10)) {
+    try {
+      const cur = await API.get(`/api/public/incidents/${encodeURIComponent(pid)}`);
+      if (cur.status !== f.lastStatus) {
+        changes.push(cur.status === 'active'
+          ? t('since_followed_reopened', { area: f.area || pid })
+          : t('since_followed_ended', { area: f.area || pid }));
+        f.lastStatus = cur.status; followsDirty = true;
+      }
+    } catch { /* incident purgé ou hors ligne : silencieux */ }
+  }
+  if (followsDirty) { try { localStorage.setItem('kifeh_follows', JSON.stringify(follows)); } catch {} }
+  // Zone visible : nouveaux incidents et vigilance, après une vraie absence.
+  const activeIds = incidents.filter((i) => i.status === 'active').map((i) => i.public_id);
+  const vigN = fireSit?.vigilance?.activeDepartments ?? null;
+  if (prev && prev.country === currentCountry() && Date.now() - prev.at > VISIT_GAP_MS) {
+    const fresh = activeIds.filter((id) => !(prev.activeIds || []).includes(id)).length;
+    if (fresh > 0) changes.push(fresh === 1 ? t('since_new_one') : t('since_new_n', { n: fresh }));
+    if (prev.vigN != null && vigN != null && vigN !== prev.vigN) changes.push(t('since_vig_changed'));
+  }
+  try {
+    localStorage.setItem('kifeh_visit', JSON.stringify({
+      at: Date.now(), country: currentCountry(), activeIds: activeIds.slice(0, 200), vigN,
+    }));
+  } catch {}
+  if (changes.length) showSinceBanner(changes);
+}
+function showSinceBanner(changes) {
+  const b = document.createElement('div');
+  b.className = 'since-banner';
+  b.setAttribute('role', 'status');
+  b.innerHTML = `
+    <button class="since-close" aria-label="✕">✕</button>
+    <strong>${esc(t('since_title'))}</strong>
+    ${changes.slice(0, 4).map((c) => `<div class="since-line">${esc(c)}</div>`).join('')}`;
+  document.body.appendChild(b);
+  b.addEventListener('click', (e) => {
+    if (e.target.closest('.since-close')) { b.remove(); return; }
+    b.remove(); renderList(); openSheet('listSheet');
+  });
+  setTimeout(() => b.remove(), 45_000);
+  window.track?.('since_last_visit_shown', { changes: changes.length });
 }

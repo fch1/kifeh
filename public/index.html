@@ -74,7 +74,6 @@
     <button class="chip" data-type="water" aria-pressed="false">💧 <span data-i18n="type_water"></span></button>
     <button class="chip" data-type="fire" aria-pressed="false">🔥 <span data-i18n="type_fire"></span></button>
     <button class="chip" data-type="internet" aria-pressed="false">📶 <span data-i18n="type_internet"></span></button>
-    <button class="chip" id="chipSat" aria-pressed="false">🛰️ <span data-i18n="chip_sat"></span></button>
     <button class="chip" id="chipOngoing" aria-pressed="true" data-i18n="chip_ongoing"></button>
     <button class="chip" id="chipFilters" aria-pressed="false"><span data-i18n="chip_filters"></span><span class="chip-badge" id="filterBadge" hidden></span></button>
   </div>
@@ -102,7 +101,12 @@
     <label class="checkbox-row"><input type="checkbox" class="fType" value="water"> 💧 <span data-i18n="type_water"></span></label>
     <label class="checkbox-row"><input type="checkbox" class="fType" value="fire"> 🔥 <span data-i18n="type_fire"></span></label>
     <label class="checkbox-row"><input type="checkbox" class="fType" value="internet"> 📶 <span data-i18n="type_internet"></span></label>
-    <label class="checkbox-row"><input type="checkbox" class="fType" value="satellite"> 🛰️ <span data-i18n="chip_sat"></span></label>
+  </div>
+  <!-- Le satellite est une SOURCE d'information, jamais un type d'incident :
+       il vit dans les couches, pas dans les catégories. -->
+  <label data-i18n="filter_layers"></label>
+  <div role="group">
+    <label class="checkbox-row"><input type="checkbox" id="fSatLayer"> 🛰️ <span data-i18n="layer_sat"></span></label>
   </div>
   <label for="fStatus" data-i18n="filter_status"></label>
   <select id="fStatus">
@@ -123,11 +127,13 @@
     <option value="citizen" data-i18n="filter_source_citizen"></option>
     <option value="corroborated" data-i18n="filter_source_corroborated"></option>
   </select>
-  <label for="fSatConf" data-i18n="filter_sat_conf"></label>
-  <select id="fSatConf">
-    <option value="" data-i18n="filter_sat_conf_all"></option>
-    <option value="high" data-i18n="filter_sat_conf_high"></option>
-  </select>
+  <div id="fSatConfWrap">
+    <label for="fSatConf" data-i18n="filter_sat_conf"></label>
+    <select id="fSatConf">
+      <option value="" data-i18n="filter_sat_conf_all"></option>
+      <option value="high" data-i18n="filter_sat_conf_high"></option>
+    </select>
+  </div>
   <label class="checkbox-row" style="margin-top:.75rem"><input type="checkbox" id="liteToggle"> <span data-i18n="lite_toggle"></span></label>
   <p class="muted small" id="filterCount" aria-live="polite"></p>
   <p class="muted small" id="satSyncInfo" hidden></p>
@@ -150,6 +156,7 @@
       <option value="severity" data-i18n="sort_severity"></option>
     </select>
   </div>
+  <div id="savedZonesRow"></div>
   <div id="listContainer"></div>
 </div>
 
