@@ -58,14 +58,7 @@ API.get('/api/public/config').then((c) => {
 // Abonnement au navigateur : quand un incident est publié dans le rayon choisi
 // (centre de carte arrondi ~1 km), une notification arrive — même app fermée.
 let pushKey = null;
-function pushSupported() {
-  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
-}
-function urlB64ToUint8(base64) {
-  const pad = '='.repeat((4 - (base64.length % 4)) % 4);
-  const raw = atob((base64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
-  return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
-}
+const pushSupported = kifehPushSupported; // helpers partagés (api.js)
 function alertsBtnState(on) {
   const btn = document.getElementById('btnAlerts');
   btn.setAttribute('aria-pressed', String(on));
@@ -78,11 +71,7 @@ function transientBanner(text) {
   document.body.appendChild(b);
   setTimeout(() => b.remove(), 5000);
 }
-async function currentPushSubscription() {
-  if (!pushSupported()) return null;
-  const reg = await navigator.serviceWorker.getRegistration('/sw.js');
-  return reg ? reg.pushManager.getSubscription() : null;
-}
+const currentPushSubscription = kifehCurrentPushSubscription; // helper partagé (api.js)
 async function toggleAlerts() {
   if (!pushSupported()) return transientBanner(t('alerts_unsupported'));
   try {
@@ -95,27 +84,15 @@ async function toggleAlerts() {
       window.track?.('zone_alerts_disabled', {});
       return transientBanner(t('alerts_off_done'));
     }
-    const perm = await Notification.requestPermission();
-    if (perm !== 'granted') return transientBanner(t('alerts_denied'));
-    const reg = await navigator.serviceWorker.register('/sw.js');
-    await navigator.serviceWorker.ready;
-    if (!pushKey) return transientBanner(t('search_error'));
-    const sub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlB64ToUint8(pushKey),
-    });
     // Zone = centre actuel de la carte ; rayon selon le niveau de zoom (5–50 km).
     const c = map.getCenter();
     const radiusKm = Math.max(5, Math.min(50, Math.round(300 / 2 ** (map.getZoom() - 6))));
-    await API.post('/api/public/push/subscribe', {
-      subscription: sub.toJSON(), lat: c.lat, lng: c.lng, radiusKm,
-      country: currentCountry(),
-    });
+    await kifehSubscribePush({ lat: c.lat, lng: c.lng, radiusKm, key: pushKey, country: currentCountry() });
     alertsBtnState(true);
     window.track?.('zone_alerts_enabled', { radius_km: radiusKm });
     transientBanner(t('alerts_on_done', { km: radiusKm }));
-  } catch {
-    transientBanner(t('search_error'));
+  } catch (ex) {
+    transientBanner(t(ex.message === 'denied' ? 'alerts_denied' : 'search_error'));
   }
 }
 document.getElementById('btnAlerts').addEventListener('click', (e) => withButton(e.currentTarget, toggleAlerts));
@@ -809,6 +786,8 @@ async function directConfirm(i) {
     window.track?.('incident_confirmed', { incident_type: i.type });
     markDone('confirmed', i.public_id);
     zone.innerHTML = `<p class="notice ok">${t('you_confirmed')}</p>`;
+    // Moment de motivation maximale : proposer (sans forcer) les alertes de zone.
+    offerZoneAlerts(zone, i.lat, i.lng);
     const counts = document.getElementById('affectedCount');
     counts.hidden = false;
     counts.className = 'notice ok';
@@ -1042,13 +1021,42 @@ function renderConfirmCode(i, verificationId) {
   }));
 }
 
-// Lien profond depuis le parcours de déclaration : ?confirm=INC-XXXXXX
+// Invitation discrète aux alertes de zone — uniquement si pertinent : push
+// pris en charge, pas déjà abonné, permission pas déjà refusée. Une ligne,
+// jamais bloquante, jamais répétée dans la même fiche.
+async function offerZoneAlerts(zone, lat, lng) {
+  try {
+    if (!pushSupported() || Notification.permission === 'denied' || !pushKey) return;
+    if (await currentPushSubscription()) return;
+    if (zone.querySelector('.alerts-offer')) return;
+    const p = document.createElement('p');
+    p.className = 'notice alerts-offer';
+    p.innerHTML = `${esc(t('alerts_offer'))}<br><button class="btn secondary small-btn" style="margin-top:.4rem">${esc(t('alerts_offer_btn'))}</button>`;
+    p.querySelector('button').addEventListener('click', (e) => withButton(e.currentTarget, async () => {
+      try {
+        await kifehSubscribePush({ lat, lng, radiusKm: 10, key: pushKey, country: currentCountry() });
+        window.track?.('zone_alerts_enabled', { radius_km: 10, source: 'after_confirm' });
+        alertsBtnState(true);
+        p.innerHTML = `<span>${esc(t('alerts_on_done', { km: 10 }))}</span>`;
+      } catch (ex) {
+        p.innerHTML = `<span>${esc(t(ex.message === 'denied' ? 'alerts_denied' : 'search_error'))}</span>`;
+      }
+    }));
+    zone.appendChild(p);
+  } catch { /* invitation facultative : jamais d'erreur visible */ }
+}
+
+// Lien profond depuis le parcours de déclaration : ?confirm=INC-XXXXXX,
+// ?incident=INC-XXXXXX (partage, notification), ?satellite=<id> (notification).
 (function deepLinks() {
   const p = new URLSearchParams(location.search);
   const confirmId = p.get('confirm');
   const viewId = p.get('incident');
+  const satId = p.get('satellite');
+  if (p.get('src') === 'push') window.track?.('push_notification_opened', {});
   if (confirmId) openDetail(confirmId).then(() => document.getElementById('btnConfirm')?.click());
   else if (viewId) openDetail(viewId);
+  else if (satId) openSatDetail(satId);
 })();
 
 function renderReportForm(i) {

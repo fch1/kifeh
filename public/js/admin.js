@@ -221,13 +221,73 @@ async function renderSettings() {
   let s;
   try { s = (await adminApi.get('/api/admin/settings')).settings; }
   catch (e) { content.innerHTML = `<div class="notice danger">${esc(e.message)} (rôle administrateur requis)</div>`; return; }
-  content.innerHTML = `<div class="card"><h2>Configuration</h2>
+  content.innerHTML = `
+    <div class="card"><h2>Sécurité</h2>
+      <p class="muted small">Double authentification (TOTP) : un code à 6 chiffres depuis une
+      application gratuite (Google Authenticator, Aegis, FreeOTP…) est exigé à chaque connexion.
+      Issue de secours : variable d'environnement <code>ADMIN_TOTP_RESET=1</code>.</p>
+      <div id="twoFaZone"><button class="btn secondary" id="btn2faSetup">Activer la double authentification</button></div>
+      <hr style="border:none;border-top:1px solid var(--border);margin:1rem 0">
+      <p class="muted small">Sauvegarde hors-site chiffrée (dépôt GitHub privé) : quotidienne dès
+      que <code>GITHUB_BACKUP_TOKEN</code> est renseigné (voir .env.example).</p>
+      <button class="btn secondary" id="btnOffsite">Lancer une sauvegarde hors-site maintenant</button>
+      <div id="offsiteFeedback" role="status"></div>
+    </div>
+    <div class="card"><h2>Configuration</h2>
     ${Object.entries(s).map(([k, v]) => `
       <label for="set_${esc(k)}">${esc(SETTING_LABELS[k] || k)}</label>
       <input id="set_${esc(k)}" data-key="${esc(k)}" type="text" value="${esc(v)}">`).join('')}
     <div class="field-error" id="setError"></div>
     <button class="btn" id="btnSaveSettings" style="margin-top:1rem">Enregistrer</button>
     <div id="setFeedback" role="status"></div></div>`;
+
+  // ── Double authentification : activation en 2 étapes (secret → code vérifié) ──
+  const twoFa = document.getElementById('twoFaZone');
+  document.getElementById('btn2faSetup').addEventListener('click', (e) => withButton(e.currentTarget, async () => {
+    try {
+      const r = await adminApi.post('/api/admin/2fa/setup', {});
+      twoFa.innerHTML = `
+        <p>1. Dans votre application TOTP, ajoutez un compte avec ce secret :</p>
+        <p><code style="font-size:1.05rem;user-select:all">${esc(r.secret)}</code></p>
+        <p class="muted small">ou collez ce lien : <code style="user-select:all">${esc(r.otpauth)}</code></p>
+        <label for="twoFaCode">2. Saisissez le code affiché par l'application :</label>
+        <input id="twoFaCode" type="text" inputmode="numeric" maxlength="6" style="max-width:140px">
+        <div class="field-error" id="twoFaError" role="alert"></div>
+        <button class="btn" id="btn2faEnable" style="margin-top:.5rem">Vérifier et activer</button>`;
+      document.getElementById('btn2faEnable').addEventListener('click', (e2) => withButton(e2.currentTarget, async () => {
+        try {
+          await adminApi.post('/api/admin/2fa/enable', { code: document.getElementById('twoFaCode').value.trim() });
+          twoFa.innerHTML = '<p class="notice ok">Double authentification activée — le code sera demandé à chaque connexion.</p>';
+        } catch (ex) { document.getElementById('twoFaError').textContent = ex.message; }
+      }));
+    } catch (ex) {
+      // Déjà activée : proposer la désactivation (code exigé).
+      twoFa.innerHTML = `
+        <p class="notice ok">Double authentification déjà activée.</p>
+        <label for="twoFaOff">Code actuel pour la désactiver :</label>
+        <input id="twoFaOff" type="text" inputmode="numeric" maxlength="6" style="max-width:140px">
+        <div class="field-error" id="twoFaOffError" role="alert"></div>
+        <button class="btn danger" id="btn2faDisable" style="margin-top:.5rem">Désactiver</button>`;
+      document.getElementById('btn2faDisable').addEventListener('click', (e2) => withButton(e2.currentTarget, async () => {
+        try {
+          await adminApi.post('/api/admin/2fa/disable', { code: document.getElementById('twoFaOff').value.trim() });
+          twoFa.innerHTML = '<p class="notice warn">Double authentification désactivée.</p>';
+        } catch (ex2) { document.getElementById('twoFaOffError').textContent = ex2.message; }
+      }));
+    }
+  }));
+
+  // ── Sauvegarde hors-site : déclenchement manuel + retour d'état ──
+  document.getElementById('btnOffsite').addEventListener('click', (e) => withButton(e.currentTarget, async () => {
+    const fb = document.getElementById('offsiteFeedback');
+    try {
+      const r = await adminApi.post('/api/admin/offsite-backup', {});
+      fb.innerHTML = r.skipped === 'no_token'
+        ? '<div class="notice warn">Aucun jeton configuré (GITHUB_BACKUP_TOKEN) — voir .env.example.</div>'
+        : r.ok ? `<div class="notice ok">Sauvegarde chiffrée envoyée : ${esc(r.path)} (${Math.round(r.bytes / 1024)} Ko).</div>`
+        : `<div class="notice danger">${esc(r.error || 'Erreur inconnue')}</div>`;
+    } catch (ex) { fb.innerHTML = `<div class="notice danger">${esc(ex.message)}</div>`; }
+  }));
   document.getElementById('btnSaveSettings').addEventListener('click', (e) => withButton(e.currentTarget, async () => {
     const settings = {};
     content.querySelectorAll('[data-key]').forEach((inp) => settings[inp.dataset.key] = inp.value);

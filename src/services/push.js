@@ -25,7 +25,7 @@ export function ensureVapid() {
     setSetting('vapid_private_key', priv);
   }
   if (!configured) {
-    webpush.setVapidDetails('mailto:chabchoub.farah@gmail.com', pub, priv);
+    webpush.setVapidDetails('mailto:contact@kifeh.org', pub, priv);
     configured = true;
   }
   return pub;
@@ -53,6 +53,72 @@ export function subscriptionsFor(incident) {
     && (!s.types || s.types.split(',').includes(incident.type)));
 }
 
+// Abonnés couverts par un ÉVÉNEMENT SATELLITE : même pays, distance ≤ rayon,
+// et intérêt incendie (tous types, ou « fire » explicitement coché).
+export function subscriptionsForSatellite(ev) {
+  const rows = db.prepare(
+    `SELECT * FROM push_subscriptions WHERE country_code = ? AND failures < 5`
+  ).all(ev.country_code || 'TN');
+  return rows.filter((s) =>
+    distanceKm(s.center_lat, s.center_lng, ev.centroid_lat, ev.centroid_lng) <= s.radius_km
+    && (!s.types || s.types.split(',').includes('fire')));
+}
+
+// Notification pour une NOUVELLE détection satellite regroupée (confiance
+// nominal/high uniquement). Libellé honnête — « détection satellite », jamais
+// « incendie confirmé » — et plafond STRICT par abonné (2/jour par défaut,
+// réglable) : l'alerte reste un signal, jamais du spam.
+export async function notifySatelliteEvent(ev) {
+  if (process.env.WEB_PUSH_DISABLED === '1') return { sent: 0 };
+  if (getSetting('push_satellite_enabled') === '0') return { sent: 0 };
+  if (!['nominal', 'high'].includes(ev.max_confidence)) return { sent: 0 };
+  const dailyMax = Number(getSetting('push_satellite_daily_max') || 2);
+  const today = new Date().toISOString().slice(0, 10);
+  let sent = 0;
+  try {
+    ensureVapid();
+    for (const s of subscriptionsForSatellite(ev)) {
+      const count = s.sat_day === today ? s.sat_count : 0;
+      if (count >= dailyMax) continue; // plafond quotidien atteint
+      const lang = s.lang === 'ar' ? 'ar' : 'fr';
+      const payload = JSON.stringify({
+        title: msg(lang, 'push_sat_title'),
+        body: msg(lang, 'push_sat_body'),
+        url: `${getBaseUrl()}/?satellite=${encodeURIComponent(ev.id)}&src=push`,
+        tag: `kifeh-sat-${ev.id}`,
+      });
+      try {
+        await webpush.sendNotification(
+          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+          payload, { TTL: 3600 });
+        db.prepare(`UPDATE push_subscriptions SET sat_day = ?, sat_count = ?,
+                    last_notified_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), failures = 0
+                    WHERE id = ?`).run(today, count + 1, s.id);
+        sent++;
+      } catch (e) {
+        if (e.statusCode === 404 || e.statusCode === 410) {
+          db.prepare(`DELETE FROM push_subscriptions WHERE id = ?`).run(s.id);
+        } else {
+          db.prepare(`UPDATE push_subscriptions SET failures = failures + 1 WHERE id = ?`).run(s.id);
+        }
+      }
+    }
+  } catch (e) {
+    console.error('[push-sat]', e.message);
+  }
+  return { sent };
+}
+
+// Purge RGPD des abonnements dormants : jamais notifiés depuis 6 mois, en
+// échec durable depuis 30 jours, ou sans notification depuis 12 mois.
+export function prunePushSubscriptions() {
+  return db.prepare(`DELETE FROM push_subscriptions WHERE
+      (last_notified_at IS NULL AND created_at < strftime('%Y-%m-%dT%H:%M:%fZ','now','-180 days'))
+   OR (failures >= 5 AND created_at < strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days'))
+   OR (last_notified_at IS NOT NULL AND last_notified_at < strftime('%Y-%m-%dT%H:%M:%fZ','now','-365 days'))`)
+    .run().changes;
+}
+
 // Envoie la notification « nouvel incident dans votre zone » aux abonnés
 // concernés. Jamais bloquant pour la publication (erreurs avalées, journal
 // technique seulement) ; les abonnements morts (410/404) sont supprimés.
@@ -67,7 +133,7 @@ export async function notifyIncidentPublished(incident) {
       const payload = JSON.stringify({
         title: msg(lang, `push_title_${incident.type}`) || msg(lang, 'push_title_generic'),
         body: msg(lang, 'push_body', { area: incident.public_area || msg(lang, 'push_near_you') }),
-        url: `${getBaseUrl()}/?incident=${encodeURIComponent(incident.public_id)}`,
+        url: `${getBaseUrl()}/?incident=${encodeURIComponent(incident.public_id)}&src=push`, // src=push : mesure des retours dans GA
         tag: `kifeh-${incident.public_id}`, // regroupe les doublons côté OS
       });
       try {

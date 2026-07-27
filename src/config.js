@@ -172,6 +172,10 @@ export const defaultSettings = {
   // réouverture possible) ou 'threshold' (seuil de signalements indépendants).
   resolution_mode: 'immediate',
   community_resolution_enabled: '1',
+  // Alertes de zone (Web Push) : les détections satellite crédibles notifient
+  // aussi (libellé honnête), plafonnées STRICTEMENT par abonné et par jour.
+  push_satellite_enabled: '1',
+  push_satellite_daily_max: '2',
 };
 
 function devSecret(label) {

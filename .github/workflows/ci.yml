@@ -19,5 +19,20 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Suites API (unitaires, fonctionnalités, NASA simulée, multi-pays)
+      - name: Suites API (unitaires, fonctionnalités, NASA simulée, multi-pays, rétention)
         run: npm test
+
+  interface:
+    # Tests navigateur (Playwright) : régressions d'interface FR/AR sur mobile.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Tests navigateur (mobile FR/AR)
+        run: npm run test:browser

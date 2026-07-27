@@ -12,8 +12,8 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'Kifeh';
   event.waitUntil(self.registration.showNotification(title, {
     body: data.body || '',
-    icon: '/img/icon-192.png?v=marque3',
-    badge: '/img/icon-192.png?v=marque3',
+    icon: '/img/icon-192.png?v=marque4',
+    badge: '/img/icon-192.png?v=marque4',
     tag: data.tag || 'kifeh',
     data: { url: data.url || '/' },
   }));

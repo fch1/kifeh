@@ -576,6 +576,29 @@ async function renderEmergencyPanel(type, severity) {
     </div>`;
 }
 
+// Invitation aux alertes de zone juste après la publication (motivation
+// maximale) : une ligne, jamais bloquante, seulement si pertinent.
+async function offerZoneAlertsAfterPublish(host, lat, lng) {
+  try {
+    if (!kifehPushSupported() || Notification.permission === 'denied') return;
+    const cfg = await API.get('/api/public/config');
+    if (!cfg.pushKey || await kifehCurrentPushSubscription()) return;
+    const p = document.createElement('p');
+    p.className = 'notice';
+    p.innerHTML = `${esc(t('alerts_offer_declare'))}<br><button class="btn secondary small-btn" style="margin-top:.4rem">${esc(t('alerts_offer_btn'))}</button>`;
+    p.querySelector('button').addEventListener('click', (e) => withButton(e.currentTarget, async () => {
+      try {
+        await kifehSubscribePush({ lat, lng, radiusKm: 10, key: cfg.pushKey, country: state.country || currentCountry() });
+        window.track?.('zone_alerts_enabled', { radius_km: 10, source: 'after_publish' });
+        p.innerHTML = `<span>${esc(t('alerts_on_done', { km: 10 }))}</span>`;
+      } catch (ex) {
+        p.innerHTML = `<span>${esc(t(ex.message === 'denied' ? 'alerts_denied' : 'search_error'))}</span>`;
+      }
+    }));
+    host.appendChild(p);
+  } catch { /* facultatif */ }
+}
+
 function finish(r) {
   clearInterval(pollTimer);
   clearDraft();
@@ -588,6 +611,8 @@ function finish(r) {
        <span class="badge status ${esc(r.status)}">${esc(STATUS_LABELS[r.status] || r.status)}</span></p>
     <p class="muted">${esc(i.area || t('area_approx'))}<br>${t('started')} ${esc(fmtDate(i.startedAt))}</p>
     ${r.pendingReview ? `<p class="notice warn">${t('pending_review_note')}</p>` : `<p class="notice ok">${t('visible_note')}</p>`}`;
+  // Invitation aux alertes de zone (position de l'incident déclaré).
+  if (i.lat != null) offerZoneAlertsAfterPublish(document.getElementById('doneSummary'), i.lat, i.lng);
   const link = document.getElementById('manageLink');
   link.href = r.manageUrl;
   document.getElementById('btnCopyLink').addEventListener('click', async (e) => {

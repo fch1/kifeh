@@ -7,7 +7,7 @@ chiffrées : la sécurité est prise au sérieux.
 
 Merci de signaler toute faille **en privé**, sans ouvrir d'issue publique :
 
-- e-mail : **chabchoub.farah@gmail.com** (objet : `[Kifeh sécurité]`)
+- e-mail : **contact@kifeh.org** (objet : `[Kifeh sécurité]`)
 
 Décrivez le problème, les étapes de reproduction et l'impact estimé. Vous
 recevrez une réponse sous 72 h. Nous vous créditerons dans les notes de

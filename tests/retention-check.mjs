@@ -107,6 +107,38 @@ async function main() {
     'désabonnement : abonnement supprimé côté serveur');
   db.close();
 
+  // ── Alertes satellite : ciblage honnête et plafonné ──
+  section('Alertes satellite (libellé honnête, plafond quotidien)');
+  // Réabonne l'appareil tunisien (supprimé plus haut) + un abonné « eau seulement ».
+  await api('POST', '/api/public/push/subscribe', subBody('https://push.example/tn-2'));
+  await api('POST', '/api/public/push/subscribe',
+    subBody('https://push.example/tn-eau', { types: 'water' }));
+  const { subscriptionsForSatellite } = await import('../src/services/push.js');
+  const satTn = subscriptionsForSatellite({ country_code: 'TN', centroid_lat: 36.82, centroid_lng: 10.20, max_confidence: 'nominal' });
+  ok(satTn.length === 1 && satTn[0].endpoint.endsWith('tn-2'),
+    'événement satellite à Tunis → abonné « tous types » ciblé, abonné « eau » ignoré');
+  const satFrOnly = subscriptionsForSatellite({ country_code: 'FR', centroid_lat: 36.82, centroid_lng: 10.20, max_confidence: 'high' });
+  ok(satFrOnly.every((s) => !s.endpoint.includes('tn-')), 'cloisonnement pays respecté côté satellite');
+  db = new Database(DB);
+  const capCols = db.prepare(`PRAGMA table_info(push_subscriptions)`).all().map((c) => c.name);
+  ok(capCols.includes('sat_day') && capCols.includes('sat_count'),
+    'colonnes de plafond quotidien présentes (2/jour par défaut, réglable)');
+
+  // ── Purge RGPD des abonnements dormants ──
+  section('Purge des abonnements dormants');
+  db.prepare(`INSERT INTO push_subscriptions(id, endpoint, p256dh, auth, center_lat, center_lng, created_at)
+              VALUES ('old-1', 'https://push.example/dormant', 'k', 'a', 36.8, 10.18,
+                      strftime('%Y-%m-%dT%H:%M:%fZ','now','-200 days'))`).run();
+  db.close();
+  const { prunePushSubscriptions } = await import('../src/services/push.js');
+  const pruned = prunePushSubscriptions();
+  db = new Database(DB, { readonly: true });
+  ok(pruned >= 1 && !db.prepare(`SELECT 1 FROM push_subscriptions WHERE id = 'old-1'`).get(),
+    'abonnement jamais notifié depuis 6 mois → supprimé');
+  ok(db.prepare(`SELECT COUNT(*) n FROM push_subscriptions`).get().n >= 2,
+    'les abonnements récents restent intacts');
+  db.close();
+
   // ── Double authentification admin (TOTP) ──
   section('Admin : double authentification TOTP (activation sûre)');
   const { totpCode } = await import('../src/services/totp.js');

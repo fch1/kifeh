@@ -38,8 +38,8 @@
   --border: #E7E1D6;
   --primary: #1E2A4D;       /* marine — structure, textes forts, boutons secondaires */
   --primary-dark: #141D38;
-  --brand-red: #E8262B;     /* rouge signal — action principale, marque */
-  --brand-red-dark: #C21E23;
+  --brand-red: #E8432E;     /* rouge Kifeh (identique à la communication) */
+  --brand-red-dark: #C4331F;
   --secondary: #C4622D;     /* terracotta (héritée) */
   --danger: #C7392F;
   --ok: #1E7F52;
@@ -47,7 +47,7 @@
   --info-bg: #EEF0F6;
   --elec: #F0A400;
   --water: #1B76B4;
-  --fire: #E8262B;
+  --fire: #E8432E;
   --internet: #33415C;
   --other: #5B7185;
   --radius: 14px;

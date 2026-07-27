@@ -11,6 +11,7 @@ import { pruneRateEvents } from '../middleware/rateLimit.js';
 import { config, getBaseUrl } from '../config.js';
 import { syncFirms } from './firms.js';
 import { offsiteBackup } from './offsite.js';
+import { prunePushSubscriptions } from './push.js';
 import { msg } from '../i18n.js';
 
 export function startScheduler() {
@@ -34,6 +35,8 @@ export async function tick() {
   if (!config.isSandbox) {
     try { await offsiteBackup(); } catch (e) { console.error('[offsite]', e.message); }
   }
+  // Purge RGPD des abonnements d'alertes dormants (voir services/push.js).
+  try { prunePushSubscriptions(); } catch { /* jamais bloquant */ }
 }
 
 // Sauvegardes sur le disque persistant (dossier backups/) :

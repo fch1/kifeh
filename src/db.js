@@ -419,7 +419,9 @@ db.transaction(() => {
       lang TEXT NOT NULL DEFAULT 'fr',
       failures INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-      last_notified_at TEXT
+      last_notified_at TEXT,
+      sat_day TEXT,                     -- plafond quotidien des alertes satellite
+      sat_count INTEGER NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS idx_push_country ON push_subscriptions(country_code);
 
@@ -432,6 +434,14 @@ db.transaction(() => {
       created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
     );
   `);
+
+  // Plafond quotidien des notifications satellite (colonnes additives — la
+  // table push_subscriptions peut déjà exister en production sans elles).
+  const pushCols = db.prepare(`PRAGMA table_info(push_subscriptions)`).all().map((c) => c.name);
+  if (pushCols.length && !pushCols.includes('sat_day')) {
+    db.exec(`ALTER TABLE push_subscriptions ADD COLUMN sat_day TEXT`);
+    db.exec(`ALTER TABLE push_subscriptions ADD COLUMN sat_count INTEGER NOT NULL DEFAULT 0`);
+  }
 
   // 3f-bis. MULTI-PAYS sur tables satellites PRÉEXISTANTES : `CREATE TABLE IF
   //         NOT EXISTS` n'ajoute pas de colonne à une table déjà en place (la

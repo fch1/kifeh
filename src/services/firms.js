@@ -13,6 +13,7 @@ import { broadcast } from '../routes/events.js';
 import { audit } from './audit.js';
 import { config } from '../config.js';
 import { getProfile, enabledCountries, inCountry } from '../countries/index.js';
+import { notifySatelliteEvent } from './push.js';
 
 // Clé de réglage par pays. La Tunisie GARDE les clés historiques (déjà en
 // production) ; les autres pays sont suffixés (_fr…).
@@ -150,6 +151,9 @@ function attachToEvent(d, country) {
         d.acquiredAt, d.acquiredAt, d.confidence, d.frp,
         nearThermalSource(d.lat, d.lng) ? 'false_positive' : 'active', country);
     ev = db.prepare(`SELECT * FROM satellite_events WHERE id = ?`).get(id);
+    // Alerte de zone pour une NOUVELLE détection crédible (jamais bloquant,
+    // plafond quotidien par abonné géré dans le service push).
+    if (ev.status === 'active') notifySatelliteEvent(ev).catch(() => {});
   }
 
   // Centroïde = moyenne pondérée par le nombre de détections (position estimée,

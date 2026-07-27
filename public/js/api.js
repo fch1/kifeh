@@ -115,6 +115,38 @@ function initOfflineBanner() {
 }
 document.addEventListener('DOMContentLoaded', initOfflineBanner);
 
+// ── Alertes de zone (Web Push) — helpers partagés (accueil + déclaration) ───
+function kifehPushSupported() {
+  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+}
+function kifehUrlB64ToUint8(base64) {
+  const pad = '='.repeat((4 - (base64.length % 4)) % 4);
+  const raw = atob((base64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+}
+// Abonne cet appareil aux alertes autour de (lat, lng). Renvoie true si actif.
+// Lève une erreur claire si la permission est refusée.
+async function kifehSubscribePush({ lat, lng, radiusKm = 10, key, country }) {
+  if (!kifehPushSupported() || !key) throw new Error('unsupported');
+  const perm = await Notification.requestPermission();
+  if (perm !== 'granted') throw new Error('denied');
+  const reg = await navigator.serviceWorker.register('/sw.js');
+  await navigator.serviceWorker.ready;
+  const sub = await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: kifehUrlB64ToUint8(key),
+  });
+  await API.post('/api/public/push/subscribe', {
+    subscription: sub.toJSON(), lat, lng, radiusKm, country,
+  });
+  return true;
+}
+async function kifehCurrentPushSubscription() {
+  if (!kifehPushSupported()) return null;
+  const reg = await navigator.serviceWorker.getRegistration('/sw.js');
+  return reg ? reg.pushManager.getSubscription() : null;
+}
+
 // Anti double-soumission : désactive le bouton pendant l'action.
 async function withButton(btn, fn) {
   if (btn.disabled) return;

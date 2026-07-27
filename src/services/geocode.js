@@ -10,7 +10,7 @@ import { config } from '../config.js';
 import { getProfile } from '../countries/index.js';
 
 const cache = new Map();
-const HEADERS = { 'User-Agent': 'kifeh-app/1.0 (contact: admin@kifeh.tn)' };
+const HEADERS = { 'User-Agent': 'kifeh-app/1.0 (contact: contact@kifeh.org)' };
 const TTL = 10 * 60 * 1000;
 
 async function cached(key, fn) {

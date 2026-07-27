@@ -49,7 +49,8 @@ if (!boot || boot.count !== 0) {
   process.exit(1);
 }
 
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--no-sandbox'] });
+const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--no-sandbox'] })
+  .catch(() => chromium.launch({ args: ['--no-sandbox'] })); // CI : Chromium Playwright standard
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'fr-FR' });
 // Choix de consentement déjà fait (la bannière GA est testée par ailleurs).
 await ctx.addInitScript(() => {
