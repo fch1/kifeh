@@ -546,15 +546,7 @@ searchInput.addEventListener('input', () => {
         const b = document.createElement('button');
         b.setAttribute('role', 'option');
         b.textContent = r.label;
-        b.addEventListener('click', () => {
-          searchResults.hidden = true;
-          searchInput.value = r.label.split(',').slice(0, 2).join(',');
-          searchInput.blur(); // referme le clavier mobile pour voir la carte
-          map.setView([r.lat, r.lng], 15);
-          if (window._searchMarker) map.removeLayer(window._searchMarker);
-          window._searchMarker = L.circleMarker([r.lat, r.lng], { radius: 9, color: '#C4622D', fillOpacity: .7 })
-            .addTo(map).bindPopup(esc(r.label.split(',').slice(0, 2).join(',')));
-        });
+        b.addEventListener('click', () => selectPlace(r, true));
         searchResults.appendChild(b);
       }
       searchResults.hidden = false;
@@ -569,6 +561,43 @@ searchInput.addEventListener('input', () => {
 });
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.searchbox')) searchResults.hidden = true;
+});
+
+// Sélection d'un lieu (résultat ou lieu récent) : centrer, marquer, mémoriser.
+// Les lieux récents restent LOCAUX à l'appareil — jamais envoyés en mesure.
+function selectPlace(r, remember) {
+  searchResults.hidden = true;
+  const short = r.label.split(',').slice(0, 2).join(',');
+  searchInput.value = short;
+  searchInput.blur(); // referme le clavier mobile pour voir la carte
+  map.setView([r.lat, r.lng], 15);
+  if (window._searchMarker) map.removeLayer(window._searchMarker);
+  window._searchMarker = L.circleMarker([r.lat, r.lng], { radius: 9, color: '#C4622D', fillOpacity: .7 })
+    .addTo(map).bindPopup(esc(short));
+  if (remember) {
+    try {
+      const rec = JSON.parse(localStorage.getItem('kifeh_recent_places') || '[]')
+        .filter((p) => p.label !== r.label);
+      rec.unshift({ label: r.label, lat: r.lat, lng: r.lng });
+      localStorage.setItem('kifeh_recent_places', JSON.stringify(rec.slice(0, 5)));
+    } catch { /* stockage indisponible : sans conséquence */ }
+  }
+}
+// Champ vide + focus → lieux récents (recherche plus rapide au retour).
+searchInput.addEventListener('focus', () => {
+  if (searchInput.value.trim().length >= 3) return;
+  let rec = [];
+  try { rec = JSON.parse(localStorage.getItem('kifeh_recent_places') || '[]'); } catch {}
+  if (!rec.length) return;
+  searchResults.innerHTML = '';
+  for (const r of rec) {
+    const b = document.createElement('button');
+    b.setAttribute('role', 'option');
+    b.textContent = `🕘 ${r.label.split(',').slice(0, 2).join(',')}`;
+    b.addEventListener('click', () => selectPlace(r, false));
+    searchResults.appendChild(b);
+  }
+  searchResults.hidden = false;
 });
 
 // --- Filtres ----------------------------------------------------------------
@@ -650,6 +679,16 @@ document.getElementById('filterReset').addEventListener('click', () => {
 // --- Feuilles (bottom sheets) ----------------------------------------------
 function openSheet(id) { closeSheets(); document.getElementById(id).classList.add('open'); }
 function closeSheets() { document.querySelectorAll('.sheet').forEach((s) => s.classList.remove('open')); }
+// Fermeture visible et cohérente sur TOUTES les feuilles (accessibilité :
+// la poignée seule n'est pas une affordance suffisante).
+document.querySelectorAll('.sheet').forEach((s) => {
+  if (s.querySelector('.sheet-close')) return;
+  const b = document.createElement('button');
+  b.className = 'sheet-close'; b.type = 'button'; b.textContent = '✕';
+  b.setAttribute('aria-label', t('sheet_close'));
+  b.addEventListener('click', closeSheets);
+  s.prepend(b);
+});
 document.querySelectorAll('.sheet .handle').forEach((h) =>
   h.parentElement.addEventListener('click', (e) => { if (e.target === h) closeSheets(); }));
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheets(); });
@@ -674,19 +713,44 @@ function renderList() {
   }
   const el = document.getElementById('listContainer');
   const showSat = filters.source !== 'citizen' && filters.source !== 'corroborated';
-  el.innerHTML = (rows.length || (showSat && visibleSats().length)) ? '' : `<p class="muted">${t('list_empty')}</p>`;
+  // État vide UTILE : jamais un cul-de-sac — suivre la zone ou contribuer.
+  if (!rows.length && !(showSat && visibleSats().length)) {
+    el.innerHTML = `
+      <p class="muted">${t('list_empty')}</p>
+      <div class="empty-actions">
+        <button class="btn secondary small-btn" id="emptyFollowZone">☆ ${esc(t('follow_zone_btn'))}</button>
+        <a class="btn secondary small-btn" href="declare.html">${esc(t('declare_btn'))}</a>
+      </div>`;
+    document.getElementById('emptyFollowZone')?.addEventListener('click', (e) =>
+      saveCurrentZone(e.currentTarget));
+    return;
+  }
+  el.innerHTML = '';
+  // Cartes d'incident : hiérarchie stricte — type + statut, lieu, fraîcheur,
+  // UN signal de confiance. La gravité et les détails techniques restent dans
+  // la fiche (une carte se lit en une seconde).
+  const follows = followStore();
   for (const i of rows) {
     const btn = document.createElement('button');
-    btn.className = 'list-item';
+    btn.className = `list-item${i.status !== 'active' ? ' list-ended' : ''}`;
+    const freshness = i.status === 'active'
+      ? `${t('started_ago')} ${timeAgo(i.started_at)}`
+      : `${t('ended')} ${timeAgo(i.resolved_at || i.updated_at)}`;
+    const trust = i.satellite_last_seen
+      ? `🛰️ ${t('sat_corroborated')}`
+      : i.confirmations_count > 0
+        ? (i.confirmations_count > 1 ? t('list_confirmed_n', { n: i.confirmations_count }) : t('list_confirmed_one'))
+        : '';
     btn.innerHTML = `
       <div class="type-dot ${esc(i.type)}">${TYPE_ICONS[i.type] || '•'}</div>
       <div style="flex:1">
         <strong>${esc(TYPE_LABELS[i.type])}</strong>
         <span class="badge status ${esc(i.status)}">${esc(STATUS_LABELS[i.status] || i.status)}</span>
-        ${i.satellite_last_seen ? '<span class="badge sat">🛰️</span>' : ''}<br>
-        <span class="muted">${esc(i.area || t('area_approx'))} · ${t('started_ago')} ${esc(fmtDate(i.started_at))}
-        · ${t('severity_short')} ${esc(SEVERITY_LABELS[i.severity])}</span>
-      </div>`;
+        ${follows[i.public_id] ? '<span class="follow-star" title="' + esc(t('follow_on')) + '">★</span>' : ''}<br>
+        <span class="list-place">${esc(i.area || t('area_approx'))}</span><br>
+        <span class="muted small">${esc(freshness)}${trust ? ` · ${esc(trust)}` : ''}</span>
+      </div>
+      <span class="list-chevron" aria-hidden="true">›</span>`;
     btn.addEventListener('click', () => openDetail(i.public_id));
     el.appendChild(btn);
   }
@@ -1523,16 +1587,22 @@ function removeZone(idx) {
   try { localStorage.setItem('kifeh_zones', JSON.stringify(zones)); } catch {}
   renderSavedZoneChips();
 }
-// Puces « zones suivies » en tête de liste : y aller en un geste.
+// Puces « suivis » en tête de liste : zones ET incidents suivis, en un geste.
 function renderSavedZoneChips() {
   const host = document.getElementById('savedZonesRow');
   if (!host) return;
   const zones = zoneStore().filter((z) => z.country === currentCountry());
-  if (!zones.length) { host.innerHTML = ''; return; }
+  const follows = Object.entries(followStore()).slice(0, 5);
+  if (!zones.length && !follows.length) { host.innerHTML = ''; return; }
   host.innerHTML = `<div class="chips" style="margin:.25rem 0 .5rem">
     ${zones.map((z, i) => `<button class="chip zone-chip" data-zi="${i}">📍 ${esc(z.label)}
       <span class="zone-del" data-zdel="${i}" role="button" aria-label="${esc(t('follow_zone_remove'))}">✕</span></button>`).join('')}
+    ${follows.map(([pid, f]) => `<button class="chip follow-chip" data-pid="${esc(pid)}">★ ${TYPE_ICONS[f.type] || ''} ${esc(f.area || pid)}</button>`).join('')}
   </div>`;
+  host.querySelectorAll('.follow-chip').forEach((chip) => chip.addEventListener('click', () => {
+    openDetail(chip.dataset.pid);
+    window.track?.('followed_incident_opened', {});
+  }));
   host.querySelectorAll('.zone-chip').forEach((chip) => chip.addEventListener('click', (e) => {
     if (e.target.closest('.zone-del')) return;
     const z = zones[+chip.dataset.zi];

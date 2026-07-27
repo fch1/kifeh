@@ -459,6 +459,31 @@ html, body { overscroll-behavior: none; }
    est signalée par le poids typographique, jamais par la couleur seule. */
 .summary-official-active { font-weight: 700; }
 
+/* Micro-interactions : chaque geste répond immédiatement (150–250 ms),
+   désactivées quand l'utilisateur préfère réduire les animations. */
+.btn, .chip, .list-item { transition: transform .15s ease, background-color .15s ease, box-shadow .15s ease; }
+.btn:active, .chip:active { transform: scale(.97); }
+.list-item:active { background: var(--sand, #FAF7F1); }
+@media (prefers-reduced-motion: reduce) {
+  .btn, .chip, .list-item { transition: none; }
+  .btn:active, .chip:active { transform: none; }
+}
+
+/* Cartes d'incident : lieu lisible, terminés estompés, invitation à ouvrir */
+.list-place { font-weight: 600; }
+.list-ended { opacity: .62; }
+.list-chevron { align-self: center; color: var(--muted, #9a9a9a); font-size: 1.25rem; padding-inline-start: .25rem; }
+.follow-star { color: #C4622D; margin-inline-start: .25rem; }
+.empty-actions { display: flex; gap: .5rem; margin-top: .75rem; flex-wrap: wrap; }
+
+/* Fermeture visible des feuilles */
+.sheet-close {
+  position: absolute; top: .5rem; inset-inline-end: .5rem; z-index: 2;
+  border: none; background: var(--sand, #F3EFE7); border-radius: 50%;
+  width: 36px; height: 36px; font-size: 1rem; cursor: pointer; color: var(--text);
+}
+.sheet-close:hover { background: #e8e2d6; }
+
 /* « Depuis votre dernière visite » : retour utile, discret et refermable */
 .since-banner {
   position: fixed; top: 7.5rem; left: 50%; transform: translateX(-50%);
