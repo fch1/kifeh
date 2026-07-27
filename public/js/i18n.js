@@ -621,6 +621,11 @@ function applyI18n(root = document) {
   root.querySelectorAll('[data-i18n-title]').forEach((el) => { el.title = t(el.dataset.i18nTitle); });
   // Blocs réservés à une langue (textes longs, ex. page légale).
   root.querySelectorAll('[data-lang-block]').forEach((el) => { el.hidden = el.dataset.langBlock !== LANG; });
+  // Blocs réservés à un pays (ex. numéros d'urgence de la page légale) :
+  // jamais un numéro tunisien affiché en France, ni l'inverse.
+  root.querySelectorAll('[data-country-block]').forEach((el) => { el.hidden = el.dataset.countryBlock !== currentCountry(); });
+  // Marque : « Kifeh كيفاه » en Tunisie, « Kifeh » seul en France.
+  root.querySelectorAll('.brand-arabic').forEach((el) => { el.hidden = currentCountry() === 'FR'; });
   // Bouton de langue générique.
   root.querySelectorAll('.lang-switch').forEach((btn) => {
     btn.textContent = t('lang_button');
