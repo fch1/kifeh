@@ -43,6 +43,7 @@ let verificationRequired = true;
 API.get('/api/public/config').then((c) => {
   verificationRequired = c.verificationRequired !== false;
   if (c.sandbox) showSandboxBanner();
+  pushKey = c.pushKey || null; // clé publique VAPID (alertes de zone)
   // Fond de carte configuré côté serveur (fournisseur principal + secours).
   setTileProviders(c.tileProviders, c.tileFailThreshold);
   // Pays réellement activés côté serveur : les autres options sont masquées.
@@ -52,6 +53,76 @@ API.get('/api/public/config').then((c) => {
     document.getElementById('countryFR').hidden = !enabled.has('FR');
   }
 }).catch(() => {});
+
+// ── Alertes de zone « M'alerter dans cette zone » (Web Push, gratuit) ────────
+// Abonnement au navigateur : quand un incident est publié dans le rayon choisi
+// (centre de carte arrondi ~1 km), une notification arrive — même app fermée.
+let pushKey = null;
+function pushSupported() {
+  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+}
+function urlB64ToUint8(base64) {
+  const pad = '='.repeat((4 - (base64.length % 4)) % 4);
+  const raw = atob((base64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+}
+function alertsBtnState(on) {
+  const btn = document.getElementById('btnAlerts');
+  btn.setAttribute('aria-pressed', String(on));
+  btn.textContent = on ? t('alerts_btn_on') : t('alerts_btn');
+}
+function transientBanner(text) {
+  const b = document.createElement('div');
+  b.className = 'map-banner'; b.setAttribute('role', 'status');
+  b.innerHTML = `<span>${esc(text)}</span>`;
+  document.body.appendChild(b);
+  setTimeout(() => b.remove(), 5000);
+}
+async function currentPushSubscription() {
+  if (!pushSupported()) return null;
+  const reg = await navigator.serviceWorker.getRegistration('/sw.js');
+  return reg ? reg.pushManager.getSubscription() : null;
+}
+async function toggleAlerts() {
+  if (!pushSupported()) return transientBanner(t('alerts_unsupported'));
+  try {
+    const existing = await currentPushSubscription();
+    if (existing) {
+      // Désactivation : on se désabonne côté navigateur ET côté serveur.
+      await API.post('/api/public/push/unsubscribe', { endpoint: existing.endpoint }).catch(() => {});
+      await existing.unsubscribe();
+      alertsBtnState(false);
+      window.track?.('zone_alerts_disabled', {});
+      return transientBanner(t('alerts_off_done'));
+    }
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') return transientBanner(t('alerts_denied'));
+    const reg = await navigator.serviceWorker.register('/sw.js');
+    await navigator.serviceWorker.ready;
+    if (!pushKey) return transientBanner(t('search_error'));
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlB64ToUint8(pushKey),
+    });
+    // Zone = centre actuel de la carte ; rayon selon le niveau de zoom (5–50 km).
+    const c = map.getCenter();
+    const radiusKm = Math.max(5, Math.min(50, Math.round(300 / 2 ** (map.getZoom() - 6))));
+    await API.post('/api/public/push/subscribe', {
+      subscription: sub.toJSON(), lat: c.lat, lng: c.lng, radiusKm,
+      country: currentCountry(),
+    });
+    alertsBtnState(true);
+    window.track?.('zone_alerts_enabled', { radius_km: radiusKm });
+    transientBanner(t('alerts_on_done', { km: radiusKm }));
+  } catch {
+    transientBanner(t('search_error'));
+  }
+}
+document.getElementById('btnAlerts').addEventListener('click', (e) => withButton(e.currentTarget, toggleAlerts));
+// État initial du bouton (abonnement déjà actif ?) — sans demander de permission.
+if (pushSupported()) {
+  currentPushSubscription().then((s) => alertsBtnState(Boolean(s))).catch(() => {});
+}
 
 // ── Choix du pays : première visite (aucun pays mémorisé) + bouton d'en-tête ──
 function renderCountryButton() {
@@ -595,6 +666,7 @@ async function openDetail(publicId) {
     ${i.status === 'resolved' && (!i.resolved_at || Date.now() - Date.parse(i.resolved_at) < 24 * 3600_000)
     ? `<button class="btn secondary" id="btnReopen" style="margin-top:.5rem">${t('reopen_btn')}</button>
     <div id="reopenZone"></div>` : ''}
+    <button class="btn ghost small-btn" id="btnShare" style="margin-top:.5rem">${t('share_btn')}</button>
     <button class="btn ghost small-btn" id="btnLocCorrect" style="margin-top:.5rem">${t('loc_correct_title')}</button>
     <div id="locCorrectZone"></div>
     <button class="btn ghost small-btn" id="btnReport" style="margin-top:.5rem">${t('report_content')}</button>
@@ -605,6 +677,16 @@ async function openDetail(publicId) {
     renderConfirmForm(i);
   });
   document.getElementById('btnEnded')?.addEventListener('click', () => renderEndedForm(i));
+  // Partage : lien direct vers la fiche (Web Share natif, repli copie).
+  document.getElementById('btnShare').addEventListener('click', async (e) => {
+    const url = `${location.origin}${API_BASE}/?incident=${encodeURIComponent(i.public_id)}`;
+    const text = `${TYPE_ICONS[i.type]} ${TYPE_LABELS[i.type]} — ${i.area || t('area_approx')}`;
+    window.track?.('incident_shared', { incident_type: i.type });
+    try {
+      if (navigator.share) await navigator.share({ title: 'Kifeh', text, url });
+      else { await navigator.clipboard.writeText(url); e.target.textContent = t('link_copied'); }
+    } catch { /* partage annulé par l'utilisateur : sans conséquence */ }
+  });
   document.getElementById('btnLocCorrect').addEventListener('click', () => renderCorrectionForm(i));
   document.getElementById('btnReport').addEventListener('click', () => renderReportForm(i));
 

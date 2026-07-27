@@ -10,6 +10,7 @@ import { audit } from './audit.js';
 import { pruneRateEvents } from '../middleware/rateLimit.js';
 import { config, getBaseUrl } from '../config.js';
 import { syncFirms } from './firms.js';
+import { offsiteBackup } from './offsite.js';
 import { msg } from '../i18n.js';
 
 export function startScheduler() {
@@ -28,6 +29,10 @@ export async function tick() {
   // firms_sync_interval_min, 15 min par défaut ; inactif sans clé API).
   if (!config.isSandbox) {
     try { await syncFirms(); } catch (e) { console.error('[firms]', e.message); }
+  }
+  // Sauvegarde HORS-SITE quotidienne chiffrée (inactif sans GITHUB_BACKUP_TOKEN).
+  if (!config.isSandbox) {
+    try { await offsiteBackup(); } catch (e) { console.error('[offsite]', e.message); }
   }
 }
 

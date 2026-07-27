@@ -20,9 +20,14 @@ document.getElementById('btnLogin').addEventListener('click', (e) => withButton(
     session = await API.post('/api/admin/login', {
       username: document.getElementById('adminUser').value.trim(),
       password: document.getElementById('adminPass').value,
+      totp: document.getElementById('adminTotp')?.value.trim() || undefined,
     });
     enter();
-  } catch (ex) { err.textContent = ex.message; }
+  } catch (ex) {
+    err.textContent = ex.message;
+    // Double authentification activée : révèle le champ code (TOTP).
+    if (ex.data?.totpRequired) document.getElementById('totpField').hidden = false;
+  }
 }));
 
 document.getElementById('btnLogout').addEventListener('click', async () => {

@@ -8,7 +8,7 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "node tests/run-tests.mjs && node tests/features-check.mjs && node tests/firms-check.mjs && node tests/country-check.mjs",
+    "test": "node tests/run-tests.mjs && node tests/features-check.mjs && node tests/firms-check.mjs && node tests/country-check.mjs && node tests/retention-check.mjs",
     "start": "node server.js",
     "dev": "NODE_ENV=development node server.js",
     "check:prod": "node tests/prod-check.mjs",
@@ -36,7 +36,8 @@
     "leaflet": "^1.9.4",
     "multer": "^2.2.0",
     "nodemailer": "^9.0.3",
-    "sharp": "^0.35.3"
+    "sharp": "^0.35.3",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "playwright": "^1.61.1"

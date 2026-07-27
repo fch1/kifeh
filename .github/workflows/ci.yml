@@ -1,0 +1,23 @@
+# Intégration continue : chaque push et chaque pull request exécute les
+# suites API complètes (multi-pays et NASA simulée incluses). Une PR qui
+# casse un comportement est signalée AVANT relecture humaine.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Suites API (unitaires, fonctionnalités, NASA simulée, multi-pays)
+        run: npm test

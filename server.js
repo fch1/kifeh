@@ -26,12 +26,14 @@ app.set('trust proxy', 1);
 app.use(securityHeaders);
 app.use((req, res, next) => { captureBaseUrl(req); next(); });
 
-// Domaine canonique (optionnel) : CANONICAL_HOST=www.kifeh.org redirige tous
-// les autres domaines (ex. kifeh.app) vers celui-ci en 301. Règle le partage
-// des préférences (langue, consentement) entre les deux adresses. La sonde
-// /healthz n'est jamais redirigée (contrôles de santé Render).
+// Domaine canonique : kifeh.app PAR DÉFAUT en production (les alias comme
+// www.kifeh.org redirigent en 301 — un seul domaine indexé par les moteurs,
+// préférences partagées). Surchargeable : CANONICAL_HOST=<domaine>, ou
+// CANONICAL_HOST=off pour désactiver. La sonde /healthz et l'URL interne
+// onrender.com ne sont jamais redirigées (contrôles de santé Render).
 app.use((req, res, next) => {
-  const canonical = (process.env.CANONICAL_HOST || '').trim().toLowerCase();
+  const configured = (process.env.CANONICAL_HOST || '').trim().toLowerCase();
+  const canonical = configured === 'off' ? '' : (configured || (config.isDev ? '' : 'kifeh.app'));
   if (!canonical || req.path === '/healthz' || config.isSandbox) return next();
   const host = String(req.get('host') || '').toLowerCase();
   if (host && host !== canonical && !host.startsWith('localhost') && !host.startsWith('127.')
@@ -66,7 +68,17 @@ app.get('/healthz', (req, res) => {
       detections: db.prepare(`SELECT COUNT(*) AS n FROM satellite_detections`).get().n,
     };
   } catch { /* la sonde reste valide même sans ces informations */ }
-  res.json({ ok: true, backupAt, incidents, firms });
+  // Sauvegarde hors-site : configurée ? dernière copie ? (aucun secret exposé).
+  let offsite = null;
+  try {
+    const g = (k) => db.prepare(`SELECT value FROM settings WHERE key = ?`).get(k)?.value || null;
+    offsite = {
+      configured: Boolean(process.env.GITHUB_BACKUP_TOKEN),
+      lastBackupAt: g('offsite_backup_at'),
+      hasError: Boolean(g('offsite_backup_error')),
+    };
+  } catch { /* idem */ }
+  res.json({ ok: true, backupAt, incidents, firms, offsite });
 });
 
 // ── Sandbox (/sandbox) — environnement de test totalement cloisonné ─────────

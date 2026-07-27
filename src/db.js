@@ -403,6 +403,26 @@ db.transaction(() => {
 
     -- Sources thermiques persistantes connues (industries, torchères…) :
     -- masquées de la publication automatique pour éviter les faux incendies.
+    -- Abonnements « M'alerter dans cette zone » (Web Push, gratuit et sans
+    -- service tiers : les notifications passent par le navigateur lui-même).
+    -- Vie privée : centre de zone ARRONDI (~1 km), aucun identifiant personnel.
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id TEXT PRIMARY KEY,
+      endpoint TEXT UNIQUE NOT NULL,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      country_code TEXT NOT NULL DEFAULT 'TN',
+      center_lat REAL NOT NULL,
+      center_lng REAL NOT NULL,
+      radius_km REAL NOT NULL DEFAULT 10,
+      types TEXT NOT NULL DEFAULT '',   -- csv vide = tous les types
+      lang TEXT NOT NULL DEFAULT 'fr',
+      failures INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      last_notified_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_push_country ON push_subscriptions(country_code);
+
     CREATE TABLE IF NOT EXISTS thermal_sources (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -436,6 +456,14 @@ for (const [k, v] of Object.entries(defaultSettings)) insertSetting.run(k, v);
 if (!db.prepare(`SELECT 1 FROM settings WHERE key = 'migr_otp_off_202607'`).get()) {
   db.prepare(`INSERT INTO settings(key, value) VALUES ('migr_otp_off_202607', 'done')`).run();
   db.prepare(`UPDATE settings SET value = '0' WHERE key = 'verification_required'`).run();
+}
+
+// Issue de secours 2FA : ADMIN_TOTP_RESET=1 au démarrage désactive la double
+// authentification de l'administration (téléphone perdu, application changée) —
+// jamais de blocage définitif du compte.
+if (process.env.ADMIN_TOTP_RESET === '1') {
+  db.prepare(`UPDATE settings SET value = '' WHERE key IN ('admin_totp_secret', 'admin_totp_pending')`).run();
+  console.log('Double authentification admin réinitialisée (ADMIN_TOTP_RESET=1).');
 }
 
 // Bascule ponctuelle (juillet 2026) : NASA FIRMS activée aussi pour la France,

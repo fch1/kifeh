@@ -18,6 +18,7 @@ import { audit } from '../services/audit.js';
 import { config, getBaseUrl } from '../config.js';
 import { getLang, msg } from '../i18n.js';
 import { getProfile, countryEnabled, resolveCountry, isPhoneFor, normalizePhoneFor } from '../countries/index.js';
+import { notifyIncidentPublished } from '../services/push.js';
 
 export const declareRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_UPLOAD_BYTES } });
@@ -374,6 +375,8 @@ async function publishIncident(incidentId, reporterId, ip, lang = 'fr') {
   if (status === 'active') {
     broadcast('incident', { publicId: incident.public_id, status: 'active', type: incident.type,
                             country: incident.country_code || 'TN' });
+    // Alertes de zone (Web Push) : jamais bloquant pour la publication.
+    notifyIncidentPublished(incident).catch(() => {});
   }
 
   return {

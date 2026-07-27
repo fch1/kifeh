@@ -1,0 +1,30 @@
+# Surveillance de production GRATUITE via GitHub Actions : toutes les 30 min,
+# vérifie que kifeh.app répond, que la base est saine et que la synchronisation
+# NASA n'est pas en erreur. En cas d'échec, GitHub envoie automatiquement un
+# e-mail au propriétaire du dépôt (aucun service externe nécessaire).
+name: Surveillance production
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  healthz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Vérifier /healthz
+        run: |
+          set -e
+          H=$(curl -sS -m 20 https://kifeh.app/healthz)
+          echo "$H"
+          echo "$H" | python3 -c "
+          import json, sys
+          h = json.load(sys.stdin)
+          assert h.get('ok') is True, 'healthz ok:false'
+          assert h.get('incidents', 0) >= 0, 'compteur incidents absent'
+          firms = h.get('firms', {})
+          assert firms.get('hasError') is not True, 'synchronisation NASA en erreur (stale >45min)'
+          print('Production saine —', h['incidents'], 'incidents,', firms.get('detections'), 'détections NASA')
+          "

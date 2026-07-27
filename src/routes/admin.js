@@ -14,6 +14,8 @@ import { audit } from '../services/audit.js';
 import { defaultSettings, config as firmsConfig } from '../config.js';
 import { syncFirms } from '../services/firms.js';
 import { devOutbox } from '../services/notifier.js';
+import { generateTotpSecret, verifyTotp, otpauthUrl } from '../services/totp.js';
+import { offsiteBackup } from '../services/offsite.js';
 
 export const adminRouter = Router();
 
@@ -25,11 +27,54 @@ adminRouter.post('/login', ipRateLimit('admin_login', 10, 15), (req, res) => {
     audit('system', 'admin_login_failed', null, { username: String(username || '').slice(0, 30) }, clientIp(req));
     return res.status(401).json({ error: 'Identifiants incorrects.' });
   }
+  // Double authentification facultative (TOTP) — issue de secours documentée :
+  // ADMIN_TOTP_RESET=1 en variable d'environnement désactive le second facteur
+  // au démarrage suivant (jamais de blocage définitif du compte).
+  const totpSecret = getSetting('admin_totp_secret');
+  if (totpSecret) {
+    if (!req.body?.totp) return res.status(401).json({ error: 'Code de double authentification requis.', totpRequired: true });
+    if (!verifyTotp(totpSecret, req.body.totp)) {
+      audit('system', 'admin_totp_failed', null, null, clientIp(req));
+      return res.status(401).json({ error: 'Code de double authentification incorrect.', totpRequired: true });
+    }
+  }
   const { cookie, csrf } = createSession(admin.id);
   res.cookie?.('admin_session', cookie); // express sans cookie-parser : en-tête manuel ci-dessous
   res.set('Set-Cookie', `admin_session=${encodeURIComponent(cookie)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${8 * 3600}`);
   audit(admin.username, 'admin_login', null, null, clientIp(req));
   res.json({ ok: true, csrf, role: admin.role, username: admin.username });
+});
+
+// ── Double authentification (TOTP) — activation en 2 étapes sûres :
+//    setup → secret proposé ; enable {code} → vérifié PUIS activé (jamais
+//    d'activation sans preuve que l'application TOTP fonctionne).
+adminRouter.post('/2fa/setup', requireAdmin(), (req, res) => {
+  if (getSetting('admin_totp_secret')) return res.status(400).json({ error: 'Déjà activée.' });
+  const secret = generateTotpSecret();
+  setSetting('admin_totp_pending', secret);
+  res.json({ secret, otpauth: otpauthUrl(secret, req.admin.username) });
+});
+adminRouter.post('/2fa/enable', requireAdmin(), (req, res) => {
+  const pending = getSetting('admin_totp_pending');
+  if (!pending) return res.status(400).json({ error: 'Aucune activation en cours.' });
+  if (!verifyTotp(pending, req.body?.code)) return res.status(400).json({ error: 'Code incorrect — réessayez.' });
+  setSetting('admin_totp_secret', pending);
+  setSetting('admin_totp_pending', '');
+  audit(req.admin.username, 'admin_2fa_enabled', null, null, clientIp(req));
+  res.json({ ok: true });
+});
+adminRouter.post('/2fa/disable', requireAdmin(), (req, res) => {
+  const secret = getSetting('admin_totp_secret');
+  if (!secret) return res.status(400).json({ error: 'Non activée.' });
+  if (!verifyTotp(secret, req.body?.code)) return res.status(400).json({ error: 'Code incorrect.' });
+  setSetting('admin_totp_secret', '');
+  audit(req.admin.username, 'admin_2fa_disabled', null, null, clientIp(req));
+  res.json({ ok: true });
+});
+
+// Sauvegarde hors-site : état + déclenchement manuel.
+adminRouter.post('/offsite-backup', requireAdmin(), async (req, res) => {
+  res.json(await offsiteBackup({ force: true }));
 });
 
 adminRouter.post('/logout', requireAdmin(), (req, res) => {

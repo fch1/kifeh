@@ -15,6 +15,7 @@ import { audit } from '../services/audit.js';
 import { getLang, msg } from '../i18n.js';
 import { config } from '../config.js';
 import { requestCountry, enabledCountries, getProfile, resolveCountry, isPhoneFor, normalizePhoneFor } from '../countries/index.js';
+import { publicVapidKey } from '../services/push.js';
 
 export const publicRouter = Router();
 
@@ -537,6 +538,8 @@ publicRouter.get('/config', (req, res) => {
       { url: getSetting('tile_secondary_url'), attribution: getSetting('tile_secondary_attribution') },
     ].filter((p) => p.url),
     tileFailThreshold: getSettingNum('tile_fail_threshold') || 6,
+    // Alertes de zone (Web Push) : clé publique VAPID — la clé privée reste en base.
+    pushKey: publicVapidKey(),
     // Multi-pays : profils CLIENT-SÛRS uniquement (jamais de clé, jamais de
     // configuration serveur). La liste ne contient que les pays activés.
     multiCountry: multiCountry(),
@@ -555,6 +558,46 @@ publicRouter.get('/config', (req, res) => {
       };
     }),
   });
+});
+
+// --- Alertes de zone (Web Push — gratuit, sans service tiers) ----------------
+// « M'alerter dans cette zone » : abonnement navigateur (VAPID) rattaché à un
+// point ARRONDI (~1 km) + rayon + pays. Aucune donnée personnelle stockée.
+publicRouter.post('/push/subscribe', ipRateLimit('push_ip', 10, 60), (req, res) => {
+  const b = req.body || {};
+  const sub = b.subscription || {};
+  const endpoint = String(sub.endpoint || '');
+  const p256dh = String(sub.keys?.p256dh || '');
+  const auth = String(sub.keys?.auth || '');
+  if (!/^https:\/\//.test(endpoint) || endpoint.length > 1024 || !p256dh || !auth) {
+    return res.status(400).json({ error: msg(req, 'invalid_params') });
+  }
+  if (!isFiniteNum(b.lat, -90, 90) || !isFiniteNum(b.lng, -180, 180)) {
+    return res.status(400).json({ error: msg(req, 'invalid_location') });
+  }
+  const radius = isFiniteNum(b.radiusKm, 1, 100) ? Number(b.radiusKm) : 10;
+  const types = String(b.types || '').split(',')
+    .filter((t) => ['electricity', 'water', 'fire', 'internet', 'other'].includes(t)).join(',');
+  const country = requestCountry(req);
+  const lang = getLang(req) === 'ar' ? 'ar' : 'fr';
+  // Arrondi du centre (~1 km) : la zone suffit, la précision ne regarde personne.
+  const lat = Math.round(Number(b.lat) * 100) / 100;
+  const lng = Math.round(Number(b.lng) * 100) / 100;
+  db.prepare(`INSERT INTO push_subscriptions(id, endpoint, p256dh, auth, country_code,
+                center_lat, center_lng, radius_km, types, lang)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(endpoint) DO UPDATE SET p256dh = excluded.p256dh, auth = excluded.auth,
+                country_code = excluded.country_code, center_lat = excluded.center_lat,
+                center_lng = excluded.center_lng, radius_km = excluded.radius_km,
+                types = excluded.types, lang = excluded.lang, failures = 0`)
+    .run(uuid(), endpoint, p256dh, auth, country, lat, lng, radius, types, lang);
+  res.json({ ok: true, radiusKm: radius, country });
+});
+
+publicRouter.post('/push/unsubscribe', ipRateLimit('push_ip', 10, 60), (req, res) => {
+  const endpoint = String(req.body?.endpoint || '');
+  if (endpoint) db.prepare(`DELETE FROM push_subscriptions WHERE endpoint = ?`).run(endpoint);
+  res.json({ ok: true });
 });
 
 // --- Télémétrie d'erreurs frontend ------------------------------------------
