@@ -116,7 +116,11 @@ export const defaultSettings = {
   otp_max_resends: '5',
   active_incident_ttl_h: '24',        // expiration auto d'un incident « en cours »
   reminder_before_expiry_h: '2',      // rappel « toujours en cours ? »
-  resolved_visible_h: '12',           // durée d'affichage des incidents résolus
+  resolved_visible_h: '12',           // (historique) durée courte d'affichage des résolus
+  // Historique récent visible publiquement : les incidents terminés (résolus ou
+  // expirés) des N derniers jours restent consultables, clairement marqués —
+  // la carte ne paraît jamais « vide » alors que des données existent.
+  history_visible_days: '7',
   max_declarations_per_ip_per_h: '10',
   max_declarations_per_contact_per_day: '5',
   max_confirms_per_ip_per_h: '10',
@@ -156,7 +160,7 @@ export const defaultSettings = {
   country_tn_enabled: '1',
   country_fr_enabled: '1',
   fr_declarations_enabled: '1',       // déclarations côté France
-  fr_nasa_firms_enabled: '0',         // NASA France : à activer explicitement
+  fr_nasa_firms_enabled: '1',         // NASA France (même clé API que la Tunisie)
   // Fond de carte : fournisseur principal + secours (bascule automatique côté
   // client sur 403/429/5xx/timeout — jamais de tuile en dur dans le code carte).
   tile_primary_url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',

@@ -67,14 +67,15 @@ publicRouter.get('/incidents', (req, res) => {
     params.country = requestCountry(req);
   }
 
-  // Statuts visibles publiquement : actifs + résolus récents.
-  const resolvedH = getSettingNum('resolved_visible_h');
+  // Statuts visibles publiquement : actifs + TERMINÉS récents (résolus ou
+  // expirés, dans la fenêtre d'historique). Un incident expiré n'est pas une
+  // donnée perdue : il reste consultable, clairement marqué comme terminé.
+  const historyH = Math.max(1, getSettingNum('history_visible_days') || 7) * 24;
+  const endedCond = `(status IN ('resolved','expired')
+    AND updated_at > strftime('%Y-%m-%dT%H:%M:%fZ','now','-${historyH} hours'))`;
   if (q.status === 'active') conds.push(`status = 'active'`);
-  else if (q.status === 'resolved') {
-    conds.push(`status = 'resolved' AND updated_at > strftime('%Y-%m-%dT%H:%M:%fZ','now','-${resolvedH} hours')`);
-  } else {
-    conds.push(`(status = 'active' OR (status = 'resolved' AND updated_at > strftime('%Y-%m-%dT%H:%M:%fZ','now','-${resolvedH} hours')))`);
-  }
+  else if (q.status === 'resolved') conds.push(endedCond);
+  else conds.push(`(status = 'active' OR ${endedCond})`);
 
   if (q.type && ['electricity', 'water', 'fire', 'internet', 'other'].includes(q.type)) {
     conds.push('type = @type'); params.type = q.type;

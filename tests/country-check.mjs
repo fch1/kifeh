@@ -157,6 +157,24 @@ async function main() {
     'Tunisie (sans paramètre) : STEG présent, aucun numéro français');
   const sms114 = cFr.data.contacts.find((c) => c.id === 'fr_sourds_114');
   ok(sms114?.phone_tel === 'sms:114', 'le 114 français est bien un numéro SMS');
+  // Numéros EXACTS, vérifiés contre les sources officielles (Service-Public.fr,
+  // Ministère de l'Intérieur tunisien, STEG, SONEDE) — toute divergence casse le test.
+  const numOf = (list, id) => list.find((c) => c.id === id)?.phone_display;
+  ok(numOf(cFr.data.contacts, 'fr_pompiers') === '18'
+    && numOf(cFr.data.contacts, 'fr_urgence_112') === '112'
+    && numOf(cFr.data.contacts, 'fr_samu') === '15'
+    && numOf(cFr.data.contacts, 'fr_police') === '17'
+    && numOf(cFr.data.contacts, 'fr_sourds_114') === '114',
+    'France : 18 / 112 / 15 / 17 / 114 exacts');
+  const cTnFire = await api('GET', '/api/public/contacts?type=fire&country=TN');
+  ok(numOf(cTnFire.data.contacts, 'protection_civile') === '198'
+    && numOf(cTnFire.data.contacts, 'samu') === '190'
+    && numOf(cTnFire.data.contacts, 'police_secours') === '197'
+    && numOf(cTnFire.data.contacts, 'garde_nationale') === '193',
+    'Tunisie : 198 / 190 / 197 / 193 exacts');
+  ok(numOf(cTn.data.contacts, 'steg_urgence') === '80 100 444', 'Tunisie : urgences STEG 80 100 444');
+  const cTnWater = await api('GET', '/api/public/contacts?type=water&country=TN');
+  ok(numOf(cTnWater.data.contacts, 'sonede_urgence') === '80 100 319', 'Tunisie : numéro vert SONEDE 80 100 319');
 
   // ── Téléphones par pays (pays de l'INCIDENT, jamais la langue) ──
   section('Téléphone : format du pays de l’incident');

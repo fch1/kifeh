@@ -438,6 +438,14 @@ if (!db.prepare(`SELECT 1 FROM settings WHERE key = 'migr_otp_off_202607'`).get(
   db.prepare(`UPDATE settings SET value = '0' WHERE key = 'verification_required'`).run();
 }
 
+// Bascule ponctuelle (juillet 2026) : NASA FIRMS activée aussi pour la France,
+// avec la même clé API que la Tunisie. Exécutée UNE seule fois (marqueur) —
+// désactivable à tout moment via Admin → Configuration ou FR_NASA_FIRMS_ENABLED=0.
+if (!db.prepare(`SELECT 1 FROM settings WHERE key = 'migr_fr_firms_202607'`).get()) {
+  db.prepare(`INSERT INTO settings(key, value) VALUES ('migr_fr_firms_202607', 'done')`).run();
+  db.prepare(`UPDATE settings SET value = '1' WHERE key = 'fr_nasa_firms_enabled'`).run();
+}
+
 // Purge des données sur demande : incrémenter WIPE_GENERATION et déployer
 // suffit à remettre la base à zéro UNE fois (admin + configuration conservés).
 const WIPE_GENERATION = '2026-07-23-2';

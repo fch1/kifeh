@@ -130,9 +130,11 @@ function showSandboxBanner() {
 let incidents = [];
 let satEvents = [];
 let satLastSync = null;
-const filters = { types: new Set(), status: 'active', periodH: '', source: '', satConf: '' };
-// Le sélecteur de statut reflète le filtre par défaut (« En cours uniquement »).
+// Par défaut : incidents en cours + terminés récents (marqués, grisés sur la
+// carte) — le compteur principal, lui, ne compte QUE les incidents en cours.
+const filters = { types: new Set(), status: '', periodH: '', source: '', satConf: '' };
 document.getElementById('fStatus').value = filters.status;
+document.getElementById('chipOngoing').setAttribute('aria-pressed', 'false');
 
 const cluster = new GridCluster(map, (it) => it.satellite ? openSatDetail(it.id) : openDetail(it.public_id));
 
@@ -243,6 +245,9 @@ function renderSummary(degraded, snapshotAt) {
   const byType = {};
   for (const i of active) byType[i.type] = (byType[i.type] || 0) + 1;
   const typeParts = Object.entries(byType).map(([ty, n]) => `${TYPE_ICONS[ty]} ${n}`);
+  // Incidents terminés récents affichés (grisés) : comptés à part, jamais
+  // mélangés au chiffre principal « en cours ».
+  const ended = citizenVisible() ? incidents.filter((i) => i.status !== 'active').length : 0;
   let mainLine;
   if (active.length === 0 && satsShown.length === 0) mainLine = t('counter_none');
   else if (active.length > 0) mainLine = active.length === 1 ? t('counter_one') : t('counter_n', { n: active.length });
@@ -252,6 +257,7 @@ function renderSummary(degraded, snapshotAt) {
     <span class="summary-where">${esc(where)}</span>
     <strong>${mainLine}</strong>
     ${active.length > 0 && typeParts.length ? `<span class="summary-types">${typeParts.join(' · ')}</span>` : ''}
+    ${ended > 0 ? `<span class="summary-types">✓ ${ended === 1 ? t('summary_ended_one') : t('summary_ended_n', { n: ended })}</span>` : ''}
     ${active.length > 0 && satsShown.length ? `<span class="summary-sat">🛰️ ${t('summary_sat_n', { n: satsShown.length })} · ${satWindowH()} h</span>` : ''}
     ${degraded ? `<span class="summary-degraded">${t('api_degraded')}<br>${t('offline_snapshot', { t: timeAgo(new Date(snapshotAt).toISOString()) })}</span>` : ''}`;
 }
@@ -260,7 +266,9 @@ document.getElementById('counter').addEventListener('click', () => { renderList(
 
 // Nombre de filtres actifs (badge du bouton « Plus de filtres »).
 function activeFilterCount() {
-  return filters.types.size + (filters.status !== 'active' ? 1 : 0) + (filters.periodH ? 1 : 0)
+  // Un filtre est « actif » quand il diffère de son défaut (défaut : tous les
+  // statuts — en cours + terminés récents).
+  return filters.types.size + (filters.status ? 1 : 0) + (filters.periodH ? 1 : 0)
     + (filters.source ? 1 : 0) + (filters.satConf ? 1 : 0);
 }
 function updateFilterBadge() {
@@ -429,13 +437,13 @@ document.getElementById('filterApply').addEventListener('click', async () => {
   closeSheets();
 });
 document.getElementById('filterReset').addEventListener('click', () => {
-  filters.types.clear(); filters.status = 'active'; filters.periodH = '';
+  filters.types.clear(); filters.status = ''; filters.periodH = '';
   filters.source = ''; filters.satConf = '';
-  document.getElementById('fStatus').value = 'active';
+  document.getElementById('fStatus').value = '';
   document.getElementById('fPeriod').value = '';
   document.getElementById('fSource').value = '';
   document.getElementById('fSatConf').value = '';
-  document.getElementById('chipOngoing').setAttribute('aria-pressed', 'true');
+  document.getElementById('chipOngoing').setAttribute('aria-pressed', 'false');
   syncTypeControls();
   closeSheets(); loadIncidents();
 });
