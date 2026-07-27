@@ -346,42 +346,6 @@ db.transaction(() => {
       UNIQUE(event_id, contributor_hash, kind)
     );
 
-    -- Coupures officielles STEG (connecteur préparé, ingestion désactivée tant
-    -- qu'aucune source AUTORISÉE n'est configurée — jamais de scraping).
-    CREATE TABLE IF NOT EXISTS steg_official_outages (
-      id TEXT PRIMARY KEY,
-      external_id TEXT UNIQUE,
-      source TEXT NOT NULL,               -- 'manual_admin' | 'official_api' | 'webhook' | 'sftp' | 'feed'
-      official_status TEXT NOT NULL CHECK (official_status IN
-        ('planned','ongoing','restoration_in_progress','resolved','cancelled')),
-      incident_type TEXT NOT NULL DEFAULT 'electricity',
-      planned INTEGER NOT NULL DEFAULT 0,
-      reason TEXT,
-      affected_governorate TEXT, affected_delegation TEXT, affected_locality TEXT,
-      affected_geometry TEXT,             -- GeoJSON éventuel
-      lat REAL, lng REAL,
-      started_at TEXT, estimated_restoration_at TEXT, ended_at TEXT,
-      published_at TEXT, source_updated_at TEXT,
-      steg_district TEXT, source_reference TEXT,
-      verified_at TEXT, verified_by TEXT,
-      linked_incident_id TEXT REFERENCES incidents(id),
-      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-    );
-
-    -- Annuaire vérifié des districts STEG (gouvernorat, contact public, source).
-    CREATE TABLE IF NOT EXISTS steg_districts (
-      id TEXT PRIMARY KEY,
-      governorate TEXT NOT NULL,
-      district_name TEXT NOT NULL,
-      address TEXT,
-      phone TEXT,
-      source_name TEXT, source_url TEXT,
-      verified_at TEXT, verified_by TEXT,
-      is_active INTEGER NOT NULL DEFAULT 1,
-      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-    );
-
     -- Sources thermiques persistantes connues (industries, torchères…) :
     -- masquées de la publication automatique pour éviter les faux incendies.
     CREATE TABLE IF NOT EXISTS thermal_sources (
@@ -495,8 +459,3 @@ try {
   const n = db.prepare('SELECT COUNT(*) AS n FROM incidents').get().n;
   console.log(`Base de données : ${config.dbPath} — ${n} incident(s)`);
 } catch { /* première création */ }
-
-export function backup() {
-  const dest = `${config.dbPath}.backup-${new Date().toISOString().replace(/[:.]/g, '-')}`;
-  return db.backup(dest).then(() => console.log(`Sauvegarde créée : ${dest}`));
-}

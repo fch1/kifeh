@@ -97,16 +97,6 @@ manageRouter.post('/update', (req, res) => {
   res.json({ ok: true });
 });
 
-// Signaler une erreur de localisation (transmis aux opérateurs).
-manageRouter.post('/location-issue', (req, res) => {
-  const i = tokenAuth(req, res);
-  if (!i) return;
-  db.prepare(`INSERT INTO reports(id, incident_id, reason, detail) VALUES (?, ?, 'wrong_location', ?)`)
-    .run(uuid(), i.id, cleanText(req.body?.detail, 500) || 'Erreur de localisation signalée par le déclarant');
-  audit('reporter', 'location_issue', i.id);
-  res.json({ ok: true, message: msg(req, 'location_thanks') });
-});
-
 // Corriger la localisation (déclarant vérifié via son lien de gestion) :
 // appliquée DIRECTEMENT sur l'incident existant — jamais de nouvel incident.
 // L'ancienne position est conservée dans l'historique (location_corrections),

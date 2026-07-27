@@ -1,4 +1,4 @@
-// Tests NASA FIRMS + fin d'incident + connecteur STEG — avec un serveur FIRMS
+// Tests NASA FIRMS + fin d'incident — avec un serveur FIRMS
 // SIMULÉ (aucun appel réel à la NASA, aucune clé réelle nécessaire).
 // Usage : node tests/firms-check.mjs
 import { spawn } from 'node:child_process';
@@ -237,31 +237,6 @@ async function main() {
   ok(closed.status === 200, 'clôture directe par le déclarant');
   const closedView = await api('GET', `/api/public/incidents/${own.publicId}`);
   ok(closedView.data.status === 'resolved' && closedView.data.ended_at, 'statut Résolu + heure de fin visibles');
-
-  section('Connecteur STEG (préparé, désactivé)');
-  const cfg = await api('GET', '/api/public/config');
-  ok(cfg.data.stegOfficialLayer === false, 'couche officielle STEG désactivée par défaut');
-  const stegPub = await api('GET', '/api/public/steg/outages');
-  ok(stegPub.data.count === 0, 'aucune donnée STEG exposée tant que la couche est inactive');
-  const noRef = await adminPost('/api/admin/steg/outages',
-    { officialStatus: 'planned', planned: true, affectedGovernorate: 'Sfax' });
-  ok(noRef.status === 400, 'import manuel refusé SANS référence de communication officielle');
-  const imported = await adminPost('/api/admin/steg/outages', {
-    externalId: 'steg-2026-001', officialStatus: 'planned', planned: true,
-    affectedGovernorate: 'Sfax', startedAt: new Date(Date.now() + 24 * 3600_000).toISOString(),
-    sourceReference: 'Communiqué STEG du 24/07/2026 — steg.com.tn/actualites',
-  });
-  ok(imported.status === 200, 'annonce officielle vérifiable importée par un administrateur');
-  const dupSteg = await adminPost('/api/admin/steg/outages', {
-    externalId: 'steg-2026-001', officialStatus: 'ongoing', planned: true,
-    sourceReference: 'Communiqué STEG maj',
-  });
-  ok(dupSteg.status === 200, 'réimport du même external_id → mise à jour, pas de doublon');
-  const stegAdmin = await adminGet('/api/admin/steg/outages');
-  ok(stegAdmin.outages.length === 1 && stegAdmin.outages[0].official_status === 'ongoing',
-    'un seul enregistrement officiel, statut mis à jour');
-  const stillHidden = await api('GET', '/api/public/steg/outages');
-  ok(stillHidden.data.count === 0, 'toujours rien d’exposé publiquement (couche désactivée)');
 
   section('Confidentialité de la clé');
   for (const f of ['js/home.js', 'js/api.js', 'js/declare.js', 'js/i18n.js']) {

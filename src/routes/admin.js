@@ -13,7 +13,6 @@ import { broadcast } from './events.js';
 import { audit } from '../services/audit.js';
 import { defaultSettings, config as firmsConfig } from '../config.js';
 import { syncFirms } from '../services/firms.js';
-import { upsertOfficialOutage } from '../services/steg.js';
 import { devOutbox } from '../services/notifier.js';
 
 export const adminRouter = Router();
@@ -315,50 +314,6 @@ adminRouter.post('/firms/thermal-sources', requireAdmin('moderate'), (req, res) 
 adminRouter.post('/firms/thermal-sources/:id/toggle', requireAdmin('moderate'), (req, res) => {
   db.prepare(`UPDATE thermal_sources SET is_active = 1 - is_active WHERE id = ?`).run(String(req.params.id));
   res.json({ ok: true });
-});
-
-// --- STEG : import manuel d'annonces officielles + annuaire des districts ----
-// Seule voie autorisée aujourd'hui : un administrateur saisit une coupure
-// PLANIFIÉE issue d'une communication officielle STEG vérifiable (référence
-// de source obligatoire). Jamais de scraping, jamais d'étiquette « STEG »
-// sans source officielle.
-adminRouter.get('/steg/outages', requireAdmin('review'), (req, res) => {
-  res.json({
-    connectorEnabled: getSetting('steg_connector_enabled') === '1',
-    layerEnabled: getSetting('steg_official_layer_enabled') === '1',
-    outages: db.prepare('SELECT * FROM steg_official_outages ORDER BY created_at DESC LIMIT 100').all(),
-  });
-});
-
-adminRouter.post('/steg/outages', requireAdmin('moderate'), (req, res) => {
-  const result = upsertOfficialOutage(req.body, 'manual_admin', req.admin.username);
-  if (result.error) {
-    const messages = {
-      source_reference_required: 'La référence de la communication officielle STEG est obligatoire.',
-      invalid_status: 'Statut officiel invalide.',
-    };
-    return res.status(400).json({ error: messages[result.error] || 'Import refusé.' });
-  }
-  res.json(result);
-});
-
-adminRouter.get('/steg/districts', requireAdmin('review'), (req, res) => {
-  res.json({ districts: db.prepare('SELECT * FROM steg_districts ORDER BY governorate, district_name').all() });
-});
-
-adminRouter.post('/steg/districts', requireAdmin('moderate'), (req, res) => {
-  const b = req.body || {};
-  const gov = cleanText(b.governorate, 80), name = cleanText(b.districtName, 120);
-  if (!gov || !name) return res.status(400).json({ error: 'Gouvernorat et nom du district requis.' });
-  const id = uuid();
-  db.prepare(`INSERT INTO steg_districts(id, governorate, district_name, address, phone,
-              source_name, source_url, verified_at, verified_by)
-              VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), ?)`)
-    .run(id, gov, name, cleanText(b.address, 300) || null,
-      cleanText(b.phone, 30).replace(/[^\d+ ]/g, '') || null,
-      cleanText(b.sourceName, 200) || null, cleanText(b.sourceUrl, 300) || null, req.admin.username);
-  audit(req.admin.username, 'steg_district_added', id, null, clientIp(req));
-  res.json({ ok: true, id });
 });
 
 // --- Annuaire de contacts tunisiens ------------------------------------------

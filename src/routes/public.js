@@ -444,21 +444,6 @@ publicRouter.post('/satellite/events/:id/feedback', ipRateLimit('sat_feedback_ip
   res.json({ ok: true, confirmations, threshold: getSettingNum('fire_confirm_threshold') });
 });
 
-// --- Coupures officielles STEG (uniquement si la couche officielle est
-// activée ET que les enregistrements viennent d'une source autorisée) --------
-publicRouter.get('/steg/outages', (req, res) => {
-  if (getSetting('steg_official_layer_enabled') !== '1') return res.json({ count: 0, outages: [] });
-  const rows = db.prepare(
-    `SELECT id, official_status, planned, reason, affected_governorate, affected_delegation,
-            affected_locality, lat, lng, started_at, estimated_restoration_at, ended_at,
-            published_at, source_updated_at
-     FROM steg_official_outages
-     WHERE official_status IN ('planned','ongoing','restoration_in_progress')
-     ORDER BY COALESCE(started_at, published_at) DESC LIMIT 200`
-  ).all();
-  res.json({ count: rows.length, outages: rows });
-});
-
 // --- Annuaire de contacts tunisiens vérifiés --------------------------------
 // Source unique des numéros affichés (jamais de numéro en dur côté frontend,
 // jamais de numéro étranger). Filtré par type d'incident, trié par priorité.
@@ -507,7 +492,6 @@ publicRouter.get('/config', (req, res) => {
     sandbox: config.isSandbox,
     gaId: config.isSandbox ? '' : config.gaId, // pas de mesure d'audience dans la sandbox
     satelliteLayer: getSetting('nasa_firms_public_layer_enabled') !== '0',
-    stegOfficialLayer: getSetting('steg_official_layer_enabled') === '1',
     communityResolution: getSetting('community_resolution_enabled') !== '0',
     resolutionMode: getSetting('resolution_mode') || 'immediate',
     // Fond de carte : fournisseurs configurés côté serveur (jamais en dur).

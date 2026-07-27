@@ -1,23 +1,32 @@
 {
   "name": "kifeh",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Plateforme citoyenne tunisienne de signalement d’incidents en temps réel (électricité, eau, incendies, internet) — FR/AR, carte communautaire + détections satellite NASA FIRMS.",
+  "main": "server.js",
   "directories": {
     "doc": "docs",
     "test": "tests"
   },
   "scripts": {
-    "test": "node tests/run-tests.mjs",
+    "test": "node tests/run-tests.mjs && node tests/features-check.mjs && node tests/firms-check.mjs",
     "start": "node server.js",
     "dev": "NODE_ENV=development node server.js",
-    "backup": "node -e \"import('./src/db.js').then(m=>m.backup())\"",
     "check:prod": "node tests/prod-check.mjs",
-    "check:sandbox": "node tests/sandbox-check.mjs"
+    "check:sandbox": "node tests/sandbox-check.mjs",
+    "test:browser": "node tests/features-browser.mjs && node tests/smoke-browser.mjs"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "tunisia",
+    "civic-tech",
+    "incidents",
+    "map",
+    "nasa-firms",
+    "community",
+    "arabic",
+    "rtl"
+  ],
+  "author": "Farah Chabchoub",
+  "license": "MIT",
   "type": "module",
   "dependencies": {
     "@fontsource/ibm-plex-sans": "^5.3.0",
@@ -31,5 +40,9 @@
   },
   "devDependencies": {
     "playwright": "^1.61.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fch1/kifeh"
   }
 }

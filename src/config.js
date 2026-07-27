@@ -160,8 +160,6 @@ export const defaultSettings = {
   // Fin d'incident communautaire : 'immediate' (appliquée dès confirmation,
   // réouverture possible) ou 'threshold' (seuil de signalements indépendants).
   resolution_mode: 'immediate',
-  steg_connector_enabled: '0',        // ingestion officielle STEG : désactivée tant
-  steg_official_layer_enabled: '0',   // qu'aucune source autorisée n'est configurée
   community_resolution_enabled: '1',
 };
 

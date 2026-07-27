@@ -78,7 +78,6 @@ const CATALOG = {
     manage_link_invalid: 'Ce lien de gestion est invalide, expiré ou révoqué.',
     not_ongoing: 'Cette déclaration n’est pas un incident en cours.',
     cannot_close: 'Cette déclaration ne peut plus être clôturée.',
-    location_thanks: 'Merci, un opérateur examinera la localisation.',
     // Fichiers
     no_file: 'Aucun fichier reçu.',
     max_attachments: 'Trois pièces jointes maximum.',
@@ -152,7 +151,6 @@ const CATALOG = {
     manage_link_invalid: 'رابط المتابعة هذا غير صالح أو منتهي الصلاحية أو ملغى.',
     not_ongoing: 'هذا التبليغ ليس حادثًا جاريًا.',
     cannot_close: 'لم يعد من الممكن إغلاق هذا التبليغ.',
-    location_thanks: 'شكرًا، سيقوم أحد الأعوان بمراجعة الموقع.',
     no_file: 'لم يتم استلام أي ملف.',
     max_attachments: 'ثلاثة مرفقات كحد أقصى.',
     file_format: 'صيغة الملف غير مدعومة (JPEG أو PNG أو WebP أو MP4).',
