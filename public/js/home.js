@@ -186,6 +186,15 @@ function showSandboxBanner() {
 let incidents = [];
 let satEvents = [];
 let satLastSync = null;
+let fireSit = null; // « Situation incendie » (France) : vent + infos officielles
+
+// Nom cardinal d'une direction (degrés → « nord-est »).
+function windDirName(deg) {
+  const names = ['dir_n', 'dir_ne', 'dir_e', 'dir_se', 'dir_s', 'dir_sw', 'dir_w', 'dir_nw'];
+  return t(names[Math.round(((deg % 360) + 360) % 360 / 45) % 8]);
+}
+// Libellé public d'un type d'information officielle (jamais l'énumération brute).
+function infoTypeLabel(type) { return t(`it_${type}`) === `it_${type}` ? t('it_other') : t(`it_${type}`); }
 // Par défaut : incidents en cours + terminés récents (marqués, grisés sur la
 // carte) — le compteur principal, lui, ne compte QUE les incidents en cours.
 const filters = { types: new Set(), status: '', periodH: '', source: '', satConf: '' };
@@ -246,6 +255,17 @@ async function loadIncidents() {
       satEvents = sat.events || [];
       satLastSync = sat.lastSyncAt;
     } catch { /* la carte citoyenne fonctionne même sans données satellite */ }
+    // « Situation incendie » (France) : résumé compact de la zone VISIBLE —
+    // vent + dernière info officielle. Panne indépendante : jamais bloquant.
+    if (currentCountry() === 'FR') {
+      try {
+        fireSit = await API.get(`/api/fire-situation/summary?${new URLSearchParams({
+          minLat: b.getSouth().toFixed(3), maxLat: b.getNorth().toFixed(3),
+          minLng: b.getWest().toFixed(3), maxLng: b.getEast().toFixed(3),
+        })}`);
+        if (fireSit && !fireSit.enabled) fireSit = null;
+      } catch { fireSit = null; }
+    } else fireSit = null;
     cluster.setItems(visibleItems());
     renderSummary(false);
     // Instantané local : la dernière situation chargée reste consultable
@@ -315,6 +335,8 @@ function renderSummary(degraded, snapshotAt) {
     ${active.length > 0 && typeParts.length ? `<span class="summary-types">${typeParts.join(' · ')}</span>` : ''}
     ${ended > 0 ? `<span class="summary-types">✓ ${ended === 1 ? t('summary_ended_one') : t('summary_ended_n', { n: ended })}</span>` : ''}
     ${active.length > 0 && satsShown.length ? `<span class="summary-sat">🛰️ ${t('summary_sat_n', { n: satsShown.length })} · ${satWindowH()} h</span>` : ''}
+    ${fireSit?.wind && !fireSit.wind.stale ? `<span class="summary-types">💨 ${esc(t('fs_wind_line', { v: fireSit.wind.speedKmh, dir: windDirName(fireSit.wind.directionToDeg) }))}${fireSit.wind.gustsKmh ? ` · ${esc(t('fs_wind_gusts', { g: fireSit.wind.gustsKmh }))}` : ''}</span>` : ''}
+    ${fireSit?.latestOfficialAt ? `<span class="summary-types${fireSit.safetyActive ? ' summary-official-active' : ''}">🏛️ ${esc(t('fs_latest_official', { t: timeAgo(fireSit.latestOfficialAt) }))}</span>` : ''}
     ${degraded ? `<span class="summary-degraded">${t('api_degraded')}<br>${t('offline_snapshot', { t: timeAgo(new Date(snapshotAt).toISOString()) })}</span>` : ''}`;
 }
 // Le résumé ouvre la liste correspondante (même jeu de données).
@@ -649,6 +671,9 @@ async function openDetail(publicId) {
     <button class="btn ghost small-btn" id="btnReport" style="margin-top:.5rem">${t('report_content')}</button>
     <div id="reportZone"></div>`;
 
+  // « Situation incendie » (France) : vent + consignes officielles sur les feux.
+  if (i.type === 'fire') renderFireSituationSections(el, i.lat, i.lng);
+
   document.getElementById('btnConfirm')?.addEventListener('click', (e) => {
     if (!verificationRequired) return withButton(e.currentTarget, () => directConfirm(i));
     renderConfirmForm(i);
@@ -699,6 +724,64 @@ async function openDetail(publicId) {
   }));
 }
 
+// ── « Situation incendie » : sections vent + consignes officielles d'une fiche.
+// Chaque source échoue INDÉPENDAMMENT ; les états « indisponible » et
+// « périmé » sont toujours affichés honnêtement, jamais tus.
+async function renderFireSituationSections(host, fireLat, fireLng) {
+  if (currentCountry() !== 'FR' || !host) return;
+  const zone = document.createElement('div');
+  host.appendChild(zone);
+  // A. Ce que le vent indique
+  try {
+    const params = new URLSearchParams({ fireLat: fireLat.toFixed(3), fireLng: fireLng.toFixed(3) });
+    if (userPos) { params.set('userLat', userPos.lat.toFixed(3)); params.set('userLng', userPos.lng.toFixed(3)); }
+    const w = await API.get(`/api/fire-situation/wind?${params}`);
+    if (w.enabled) {
+      let inner;
+      if (!w.wind) inner = `<p class="muted small">${esc(t('fs_wind_unavailable'))}</p>`;
+      else if (w.wind.stale) inner = `<p class="muted small">${esc(t('fs_wind_stale'))}</p>`;
+      else {
+        const dirTxt = windDirName(w.wind.directionToDeg);
+        const ctx = w.downwind === 'downwind' ? t('fs_downwind')
+          : (w.downwind === 'crosswind' || w.downwind === 'upwind') ? t('fs_not_downwind')
+          : w.downwind === 'unknown' ? t('fs_downwind_unknown') : '';
+        inner = `
+          <p><strong>💨 ${esc(t('fs_wind_line', { v: w.wind.speedKmh, dir: dirTxt }))}</strong>
+          ${w.wind.gustsKmh ? `· ${esc(t('fs_wind_gusts', { g: w.wind.gustsKmh }))}` : ''}</p>
+          ${ctx ? `<p>${esc(ctx)}</p>` : ''}
+          <p class="muted small">${esc(t('fs_wind_note'))}<br>${esc(t('fs_wind_at', { t: fmtDate(w.wind.observedAt) }))}</p>`;
+      }
+      zone.insertAdjacentHTML('beforeend', `<h2 style="margin-top:1rem">${esc(t('fs_wind_head'))}</h2>${inner}`);
+    }
+  } catch { /* le vent tombe en panne sans bloquer la fiche */ }
+  // B. Consignes officielles (source la plus spécifique d'abord)
+  try {
+    const o = await API.get(`/api/fire-situation/official?lat=${fireLat.toFixed(3)}&lng=${fireLng.toFixed(3)}`);
+    if (o.enabled) {
+      let inner;
+      if (!o.updates.length) inner = `<p class="muted small">${esc(t('fs_official_none'))}</p>`;
+      else {
+        const u = o.updates[0];
+        const summary = LANG === 'ar' && u.summaryAr
+          ? `${esc(u.summaryAr)}<br><span class="muted small">${esc(t('fs_ar_summary_note'))}</span>`
+          : esc(u.summaryFr);
+        inner = `
+          <div class="notice ${['evacuation', 'shelter_in_place', 'safety_instruction'].includes(u.infoType) ? 'danger' : ''}">
+            <strong>${esc(u.isFrAlert ? 'FR-Alert' : u.authority)}</strong> · ${esc(infoTypeLabel(u.infoType))}<br>
+            <span class="small">${esc(timeAgo(u.publishedAt))}</span>
+            <p>${summary}</p>
+            ${u.sourceUrl ? `<a href="${esc(u.sourceUrl)}" target="_blank" rel="noopener">${esc(t('fs_official_read'))}</a>` : ''}
+          </div>
+          <p class="muted small">${esc(t('fs_fr_alert_note'))}</p>`;
+      }
+      zone.insertAdjacentHTML('beforeend', `<h2 style="margin-top:1rem">${esc(t('fs_official_head'))}</h2>${inner}`);
+    }
+  } catch {
+    zone.insertAdjacentHTML('beforeend',
+      `<h2 style="margin-top:1rem">${esc(t('fs_official_head'))}</h2><p class="muted small">${esc(t('fs_official_unavailable'))}</p>`);
+  }
+}
+
 // --- Fiche d'un événement satellite (NASA FIRMS) -----------------------------
 // Anomalie thermique détectée par satellite : présentation distincte des
 // signalements citoyens, jamais comme confirmation officielle d'incendie.
@@ -733,6 +816,13 @@ async function openSatDetail(id) {
     <button class="btn ghost small-btn" id="btnSatNotFire" style="margin-top:.5rem">${t('sat_not_fire')}</button>
     <button class="btn ghost small-btn" id="btnSatError" style="margin-top:.5rem">${t('sat_report_error')}</button>
     <div id="satFeedbackZone"></div>`;
+
+  // Zone d'activité approximative + vent + consignes officielles (France).
+  if (ev.activityRadiusM) {
+    el.insertAdjacentHTML('beforeend',
+      `<p class="notice sat small"><strong>${esc(t('fs_sat_zone'))}</strong> · ~${esc(String(Math.round(ev.activityRadiusM / 100) / 10))} km<br>${esc(t('fs_sat_zone_note'))}</p>`);
+  }
+  renderFireSituationSections(el, ev.lat, ev.lng);
 
   const feedback = async (kind, btn) => {
     try {

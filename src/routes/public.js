@@ -47,13 +47,32 @@ function distanceKm(lat1, lng1, lat2, lng2) {
   return 2 * R * Math.asin(Math.sqrt(a));
 }
 
-// Identifiant pseudonymisé du contributeur : identifiant d'appareil fourni par
-// le client (durable) sinon repli sur l'adresse IP — jamais stocké en clair.
-function contributorHash(req, incidentId, prefix) {
+// Identifiants pseudonymisés du contributeur : TOUS ses dénominateurs
+// (appareil s'il est fourni, adresse IP toujours) — jamais stockés en clair.
+// Règle : au moins un dénominateur pour contribuer, et un dénominateur déjà
+// utilisé ne peut JAMAIS resservir sur le même incident (même avec un autre
+// appareil derrière la même IP, ou la même IP sans identifiant d'appareil).
+function contributorHashes(req, incidentId, prefix) {
   const deviceId = String(req.body?.deviceId || '').slice(0, 64);
-  return /^[A-Za-z0-9_-]{16,64}$/.test(deviceId)
-    ? hmac(`${prefix}:${incidentId}:device:${deviceId}`)
-    : hmac(`${prefix}:${incidentId}:ip:${clientIp(req)}`);
+  const hashes = [];
+  if (/^[A-Za-z0-9_-]{16,64}$/.test(deviceId)) {
+    hashes.push(hmac(`${prefix}:${incidentId}:device:${deviceId}`));
+  }
+  hashes.push(hmac(`${prefix}:${incidentId}:ip:${clientIp(req)}`));
+  return hashes; // [0] = principal (appareil si présent), dernier = IP
+}
+// Compatibilité : hachage principal seul (fraîcheur, réouverture…).
+function contributorHash(req, incidentId, prefix) {
+  return contributorHashes(req, incidentId, prefix)[0];
+}
+// Un des dénominateurs a-t-il déjà servi sur cet incident dans cette table ?
+// hashCol : colonne du hachage principal ('contact_hash' ou 'contributor_hash').
+function denominatorUsed(table, refCol, hashCol, refId, hashes) {
+  const ph = hashes.map(() => '?').join(',');
+  return Boolean(db.prepare(
+    `SELECT 1 FROM ${table} WHERE ${refCol} = ?
+     AND (${hashCol} IN (${ph}) OR secondary_hash IN (${ph})) LIMIT 1`
+  ).get(refId, ...hashes, ...hashes));
 }
 
 // --- Incidents visibles dans une zone de carte -----------------------------
@@ -244,11 +263,17 @@ publicRouter.post('/confirm/direct', ipRateLimit('confirm_ip', 10, 60), (req, re
     verificationStatus = 'nearby';
   }
 
+  // Verrou sur TOUS les dénominateurs : appareil ET adresse IP — aucun des
+  // deux ne peut resservir sur cet incident (même via un autre appareil).
+  const hashes = contributorHashes(req, incident.id, 'ipconfirm');
+  if (denominatorUsed('confirmations', 'incident_id', 'contact_hash', incident.id, hashes)) {
+    return res.status(400).json({ error: msg(req, 'already_confirmed'), alreadyConfirmed: true });
+  }
   try {
-    db.prepare(`INSERT INTO confirmations(id, incident_id, contact_hash, approx_lat, approx_lng,
+    db.prepare(`INSERT INTO confirmations(id, incident_id, contact_hash, secondary_hash, approx_lat, approx_lng,
                                           confirmation_type, verification_status)
-                VALUES (?, ?, ?, ?, ?, ?, ?)`)
-      .run(uuid(), incident.id, contributorHash(req, incident.id, 'ipconfirm'),
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(uuid(), incident.id, hashes[0], hashes[1] || null,
         hasPos ? Math.round(Number(b.approxLat) * 100) / 100 : null,
         hasPos ? Math.round(Number(b.approxLng) * 100) / 100 : null,
         incident.type === 'fire' ? 'fire_seen' : 'affected', verificationStatus);
@@ -274,11 +299,12 @@ publicRouter.post('/incidents/:publicId/still-active', ipRateLimit('still_ip', 2
                                WHERE public_id = ? AND status = 'active'`)
     .get(String(req.params.publicId));
   if (!incident) return res.status(404).json({ error: msg(req, 'incident_closed_or_missing') });
-  const who = contributorHash(req, incident.id, 'still');
-  if (countEvents('still_active', who, 30) > 0) {
+  // Fraîcheur : une actualisation par demi-heure, verrou sur TOUS les dénominateurs.
+  const stillHashes = contributorHashes(req, incident.id, 'still');
+  if (stillHashes.some((h) => countEvents('still_active', h, 30) > 0)) {
     return res.status(400).json({ error: msg(req, 'already_confirmed'), alreadyReported: true });
   }
-  recordEvent('still_active', who);
+  for (const h of stillHashes) recordEvent('still_active', h);
   const now = nowIso();
   db.prepare(`UPDATE incidents SET still_active_at = ?,
               updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`).run(now, incident.id);
@@ -296,11 +322,12 @@ publicRouter.post('/incidents/:publicId/reopen', ipRateLimit('reopen_ip', 5, 60)
   if (incident.resolved_at && Date.now() - Date.parse(incident.resolved_at) > 24 * 3600_000) {
     return res.status(400).json({ error: msg(req, 'reopen_too_old') });
   }
-  const who = contributorHash(req, incident.id, 'reopen');
-  if (countEvents('reopen', who, 24 * 60) > 0) {
+  // Réouverture : verrou 24 h sur TOUS les dénominateurs.
+  const reopenHashes = contributorHashes(req, incident.id, 'reopen');
+  if (reopenHashes.some((h) => countEvents('reopen', h, 24 * 60) > 0)) {
     return res.status(400).json({ error: msg(req, 'already_confirmed'), alreadyReported: true });
   }
-  recordEvent('reopen', who);
+  for (const h of reopenHashes) recordEvent('reopen', h);
   const ttlH = getSettingNum('active_incident_ttl_h') || 24;
   db.prepare(`UPDATE incidents SET status = 'active', temporal_status = 'ongoing', ended_at = NULL,
               resolved_at = NULL, resolution_source = NULL,
@@ -342,10 +369,15 @@ publicRouter.post('/incidents/:publicId/resolution', ipRateLimit('resolution_ip'
     proposedEndedAt = new Date(ts).toISOString();
   }
 
+  // Même verrou multi-dénominateurs que les confirmations.
+  const resHashes = contributorHashes(req, incident.id, 'resolution');
+  if (denominatorUsed('resolution_reports', 'incident_id', 'contributor_hash', incident.id, resHashes)) {
+    return res.status(400).json({ error: msg(req, 'resolution_already'), alreadyReported: true });
+  }
   try {
-    db.prepare(`INSERT INTO resolution_reports(id, incident_id, contributor_hash, proposed_ended_at, is_now, comment)
-                VALUES (?, ?, ?, ?, ?, ?)`)
-      .run(uuid(), incident.id, contributorHash(req, incident.id, 'resolution'),
+    db.prepare(`INSERT INTO resolution_reports(id, incident_id, contributor_hash, secondary_hash, proposed_ended_at, is_now, comment)
+                VALUES (?, ?, ?, ?, ?, ?, ?)`)
+      .run(uuid(), incident.id, resHashes[0], resHashes[1] || null,
         proposedEndedAt, isNow ? 1 : 0, cleanText(b.comment, 300) || null);
   } catch {
     return res.status(400).json({ error: msg(req, 'resolution_already'), alreadyReported: true });
@@ -416,6 +448,7 @@ publicRouter.get('/satellite/events', (req, res) => {
   const countryCond = multiCountry() ? `AND COALESCE(country_code, 'TN') = ?` : '';
   const rows = db.prepare(
     `SELECT id, centroid_lat AS lat, centroid_lng AS lng, uncertainty_radius_m,
+            COALESCE(activity_radius_m, uncertainty_radius_m) AS activityRadiusM,
             first_detected_at, last_detected_at, max_confidence, max_frp,
             detection_count, satellite_count, satellites, confirmations_count, status
      FROM satellite_events
@@ -435,6 +468,7 @@ publicRouter.get('/satellite/events', (req, res) => {
 publicRouter.get('/satellite/events/:id', (req, res) => {
   const ev = db.prepare(
     `SELECT id, centroid_lat AS lat, centroid_lng AS lng, uncertainty_radius_m,
+            COALESCE(activity_radius_m, uncertainty_radius_m) AS activityRadiusM,
             first_detected_at, last_detected_at, max_confidence, max_frp,
             detection_count, satellite_count, satellites, confirmations_count, status
      FROM satellite_events WHERE id = ? AND status != 'false_positive'`
@@ -450,9 +484,17 @@ publicRouter.post('/satellite/events/:id/feedback', ipRateLimit('sat_feedback_ip
     .get(String(req.params.id));
   if (!ev) return res.status(404).json({ error: msg(req, 'incident_closed_or_missing') });
   const kind = ['confirm', 'not_fire', 'error'].includes(req.body?.kind) ? req.body.kind : 'confirm';
+  // Verrou multi-dénominateurs, par type de retour.
+  const fbHashes = contributorHashes(req, ev.id, `satfb-${kind}`);
+  const fbUsed = db.prepare(
+    `SELECT 1 FROM satellite_event_feedback WHERE event_id = ? AND kind = ?
+     AND (contributor_hash IN (${fbHashes.map(() => '?').join(',')})
+       OR secondary_hash IN (${fbHashes.map(() => '?').join(',')})) LIMIT 1`
+  ).get(ev.id, kind, ...fbHashes, ...fbHashes);
+  if (fbUsed) return res.status(400).json({ error: msg(req, 'already_confirmed'), alreadyConfirmed: true });
   try {
-    db.prepare(`INSERT INTO satellite_event_feedback(id, event_id, kind, contributor_hash) VALUES (?, ?, ?, ?)`)
-      .run(uuid(), ev.id, kind, contributorHash(req, ev.id, `satfb-${kind}`));
+    db.prepare(`INSERT INTO satellite_event_feedback(id, event_id, kind, contributor_hash, secondary_hash) VALUES (?, ?, ?, ?, ?)`)
+      .run(uuid(), ev.id, kind, fbHashes[0], fbHashes[1] || null);
   } catch {
     return res.status(400).json({ error: msg(req, 'already_confirmed'), alreadyConfirmed: true });
   }

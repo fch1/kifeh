@@ -17,6 +17,10 @@ function ok(cond, label) {
 }
 function section(t) { console.log(`\n■ ${t}`); }
 
+// Simule une personne différente : appareil distinct + adresse IP distincte
+// (le verrou anti-abus refuse tout dénominateur déjà utilisé sur l'incident).
+const asPerson = (n) => ({ 'X-Forwarded-For': `10.20.${Math.floor(n / 250)}.${(n % 250) + 1}` });
+
 async function api(method, url, body, headers = {}) {
   const res = await fetch(`${BASE}${url}`, {
     method,
@@ -104,13 +108,13 @@ async function main() {
   section('« Je suis aussi concerné » — un seul comptage par personne');
   const inc = await publish();
   ok(inc.ok && inc.status === 'active', 'incident test publié');
-  const c1 = await api('POST', '/api/public/confirm/direct', { publicId: inc.publicId, deviceId: device(1) });
+  const c1 = await api('POST', '/api/public/confirm/direct', { publicId: inc.publicId, deviceId: device(1) }, asPerson(1));
   ok(c1.status === 200 && c1.data.confirmations === 1, 'première confirmation comptée (1)');
-  const c1b = await api('POST', '/api/public/confirm/direct', { publicId: inc.publicId, deviceId: device(1) });
+  const c1b = await api('POST', '/api/public/confirm/direct', { publicId: inc.publicId, deviceId: device(1) }, asPerson(1));
   ok(c1b.status === 400 && c1b.data.alreadyConfirmed, 'double clic / requête répétée refusée');
   const detail1 = await api('GET', `/api/public/incidents/${inc.publicId}`);
   ok(detail1.data.confirmations_count === 1, 'compteur toujours à 1 après la tentative en double');
-  const c2 = await api('POST', '/api/public/confirm/direct', { publicId: inc.publicId, deviceId: device(2) });
+  const c2 = await api('POST', '/api/public/confirm/direct', { publicId: inc.publicId, deviceId: device(2) }, asPerson(2));
   ok(c2.data.confirmations === 2, 'deuxième personne comptée (2)');
   const list = await api('GET', '/api/public/incidents?status=active');
   ok(list.data.incidents.filter((x) => x.public_id === inc.publicId).length === 1,
@@ -121,31 +125,31 @@ async function main() {
   const fireInc = await publish({ type: 'fire', lat: 36.9, lng: 10.2, description: `Feu test ${Math.random().toString(36).slice(2, 6)}` });
   const df0 = await api('GET', `/api/public/incidents/${fireInc.publicId}`);
   ok(df0.data.fireThreshold === 3 && df0.data.communityConfirmed === false, 'incendie non confirmé au départ (0/3)');
-  const f1 = await api('POST', '/api/public/confirm/direct', { publicId: fireInc.publicId, deviceId: device(11) });
+  const f1 = await api('POST', '/api/public/confirm/direct', { publicId: fireInc.publicId, deviceId: device(11) }, asPerson(11));
   ok(f1.data.communityConfirmed === false && f1.data.confirmations === 1, '1 confirmation sur 3 → pas encore confirmé');
-  await api('POST', '/api/public/confirm/direct', { publicId: fireInc.publicId, deviceId: device(12) });
-  const f3 = await api('POST', '/api/public/confirm/direct', { publicId: fireInc.publicId, deviceId: device(13) });
+  await api('POST', '/api/public/confirm/direct', { publicId: fireInc.publicId, deviceId: device(12) }, asPerson(12));
+  const f3 = await api('POST', '/api/public/confirm/direct', { publicId: fireInc.publicId, deviceId: device(13) }, asPerson(13));
   ok(f3.data.communityConfirmed === true && f3.data.confirmations === 3, '3 confirmations → confirmé par la communauté');
   const farAway = await api('POST', '/api/public/confirm/direct',
-    { publicId: fireInc.publicId, deviceId: device(14), approxLat: 48.85, approxLng: 2.35 });
+    { publicId: fireInc.publicId, deviceId: device(14), approxLat: 48.85, approxLng: 2.35 }, asPerson(14));
   ok(farAway.status === 400 && farAway.data.tooFar, 'confirmation à 1 500 km refusée (contrôle de proximité)');
   const near = await api('POST', '/api/public/confirm/direct',
-    { publicId: fireInc.publicId, deviceId: device(15), approxLat: 36.91, approxLng: 10.21 });
+    { publicId: fireInc.publicId, deviceId: device(15), approxLat: 36.91, approxLng: 10.21 }, asPerson(15));
   ok(near.status === 200, 'confirmation à proximité acceptée');
 
   // ── Fin d'incident communautaire ──────────────────────────────────────────
   section('« Signaler que cet incident est terminé » — seuil de 3');
   const endInc = await publish({ lat: 35.8, lng: 10.6 });
   const r1 = await api('POST', `/api/public/incidents/${endInc.publicId}/resolution`,
-    { deviceId: device(21), proposedEndedAt: new Date().toISOString(), comment: 'Courant revenu' });
+    { deviceId: device(21), proposedEndedAt: new Date().toISOString(), comment: 'Courant revenu' }, asPerson(21));
   ok(r1.status === 200 && r1.data.reports === 1 && !r1.data.resolved, '1er signalement enregistré, incident toujours actif');
-  const r1b = await api('POST', `/api/public/incidents/${endInc.publicId}/resolution`, { deviceId: device(21) });
+  const r1b = await api('POST', `/api/public/incidents/${endInc.publicId}/resolution`, { deviceId: device(21) }, asPerson(21));
   ok(r1b.status === 400 && r1b.data.alreadyReported, 'signalement en double refusé');
-  const r2 = await api('POST', `/api/public/incidents/${endInc.publicId}/resolution`, { deviceId: device(22) });
+  const r2 = await api('POST', `/api/public/incidents/${endInc.publicId}/resolution`, { deviceId: device(22) }, asPerson(22));
   ok(r2.data.reports === 2 && !r2.data.resolved, '2e signalement : toujours pas de clôture');
   const still = await api('GET', `/api/public/incidents/${endInc.publicId}`);
   ok(still.data.status === 'active' && still.data.resolutionReports === 2, 'détail : 2 signalements visibles, statut actif');
-  const r3 = await api('POST', `/api/public/incidents/${endInc.publicId}/resolution`, { deviceId: device(23) });
+  const r3 = await api('POST', `/api/public/incidents/${endInc.publicId}/resolution`, { deviceId: device(23) }, asPerson(23));
   ok(r3.data.resolved === true, '3e signalement indépendant → clôture automatique');
   const after = await api('GET', `/api/public/incidents/${endInc.publicId}`);
   ok(after.data.status === 'resolved' && after.data.ended_at, 'incident résolu avec heure de fin');

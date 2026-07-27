@@ -3,12 +3,12 @@
 // donnée sensible est journalisée.
 import { Router } from 'express';
 import { db, getSetting, setSetting, touchIncident } from '../db.js';
-import { scryptVerify, scryptHash, uuid } from '../services/crypto.js';
+import { scryptVerify, scryptHash, uuid, sha256 } from '../services/crypto.js';
 import { createSession, destroySession, requireAdmin, can } from '../middleware/adminAuth.js';
 import { ipRateLimit, clientIp } from '../middleware/rateLimit.js';
 import { mergeAsDuplicate } from '../services/dedup.js';
 import { anonymizeCoords } from '../services/anonymize.js';
-import { cleanText } from '../middleware/security.js';
+import { cleanText, isFiniteNum } from '../middleware/security.js';
 import { broadcast } from './events.js';
 import { audit } from '../services/audit.js';
 import { defaultSettings, config as firmsConfig } from '../config.js';
@@ -75,6 +75,98 @@ adminRouter.post('/2fa/disable', requireAdmin(), (req, res) => {
 // Sauvegarde hors-site : état + déclenchement manuel.
 adminRouter.post('/offsite-backup', requireAdmin(), async (req, res) => {
   res.json(await offsiteBackup({ force: true }));
+});
+
+// ── « Situation incendie » : autorités officielles (liste blanche) ───────────
+// Seules les autorités enregistrées et vérifiées ici peuvent publier des
+// informations officielles. Jamais de source anonyme ni de réseau social.
+adminRouter.get('/official/authorities', requireAdmin(), (req, res) => {
+  res.json({ authorities: db.prepare(`SELECT * FROM official_authorities ORDER BY country_code, name`).all() });
+});
+adminRouter.post('/official/authorities', requireAdmin(), (req, res) => {
+  const b = req.body || {};
+  const types = ['commune', 'intercommunalite', 'prefecture', 'departement', 'sdis', 'ministere', 'fr_alert', 'autre_autorite'];
+  const levels = ['commune', 'intercommunalite', 'departement', 'region', 'national'];
+  if (!b.name || !types.includes(b.authorityType) || !levels.includes(b.coverageLevel)) {
+    return res.status(400).json({ error: 'Nom, type d’autorité et niveau de couverture requis.' });
+  }
+  const id = uuid();
+  db.prepare(`INSERT INTO official_authorities
+      (id, country_code, name, authority_type, official_domain, coverage_level,
+       coverage_codes, source_url, retrieval_method, verified_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'admin_import', strftime('%Y-%m-%dT%H:%M:%fZ','now'))`)
+    .run(id, String(b.countryCode || 'FR').toUpperCase(), cleanText(b.name, 200),
+      b.authorityType, cleanText(b.officialDomain, 200) || null, b.coverageLevel,
+      cleanText(b.coverageCodes, 200) || null, cleanText(b.sourceUrl, 500) || null);
+  audit(req.admin.username, 'official_authority_added', id, { name: b.name }, clientIp(req));
+  res.json({ ok: true, id });
+});
+
+// Import d'un message officiel : source vérifiée obligatoire, texte original
+// PRÉSERVÉ, possibilité de remplacer un message antérieur (supersedes).
+adminRouter.post('/official/updates', requireAdmin(), (req, res) => {
+  const b = req.body || {};
+  const authority = db.prepare(`SELECT * FROM official_authorities WHERE id = ? AND is_active = 1`)
+    .get(String(b.authorityId || ''));
+  if (!authority) return res.status(400).json({ error: 'Autorité inconnue ou inactive (liste blanche obligatoire).' });
+  const types = ['situation_update', 'safety_instruction', 'evacuation', 'shelter_in_place', 'road_closure',
+    'access_restriction', 'fire_status', 'end_of_alert', 'prevention', 'other'];
+  if (!types.includes(b.infoType)) return res.status(400).json({ error: 'Type d’information invalide.' });
+  if (!b.publishedAt || Number.isNaN(Date.parse(b.publishedAt))) {
+    return res.status(400).json({ error: 'Horodatage de publication requis.' });
+  }
+  if (!cleanText(b.summaryFr, 500)) return res.status(400).json({ error: 'Résumé français requis.' });
+  let geometryJson = null;
+  if (b.geometry) {
+    try { geometryJson = JSON.stringify(b.geometry).slice(0, 100_000); }
+    catch { return res.status(400).json({ error: 'Géométrie invalide.' }); }
+    if (!cleanText(b.geometrySource, 200)) {
+      return res.status(400).json({ error: 'Un périmètre doit indiquer sa source.' });
+    }
+  }
+  const id = uuid();
+  const raw = String(b.rawContent || '').slice(0, 20_000);
+  db.prepare(`INSERT INTO official_updates
+      (id, country_code, authority_id, source_url, source_title, raw_content,
+       summary_fr, summary_ar, info_type, severity, affected_dept_codes, affected_commune_codes,
+       centroid_lat, centroid_lng, radius_km, geometry_json, geometry_source,
+       valid_from, valid_until, published_at, updated_at_source, source_hash, supersedes_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(id, authority.country_code, authority.id,
+      cleanText(b.sourceUrl, 500) || null, cleanText(b.sourceTitle, 300) || null, raw || null,
+      cleanText(b.summaryFr, 500), cleanText(b.summaryAr, 500) || null,
+      b.infoType, ['info', 'important', 'urgent'].includes(b.severity) ? b.severity : 'info',
+      cleanText(b.deptCodes, 100) || null, cleanText(b.communeCodes, 300) || null,
+      isFiniteNum(b.lat, -90, 90) ? Number(b.lat) : null,
+      isFiniteNum(b.lng, -180, 180) ? Number(b.lng) : null,
+      isFiniteNum(b.radiusKm, 1, 500) ? Number(b.radiusKm) : null,
+      geometryJson, cleanText(b.geometrySource, 200) || null,
+      b.validFrom || null, b.validUntil || null,
+      new Date(b.publishedAt).toISOString(), b.updatedAtSource || null,
+      sha256(raw || b.summaryFr), b.supersedesId || null);
+  // Le message remplacé reste en historique (jamais supprimé).
+  if (b.supersedesId) {
+    db.prepare(`UPDATE official_updates SET status = 'superseded',
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`).run(String(b.supersedesId));
+  }
+  audit(req.admin.username, 'official_update_imported', id,
+    { authority: authority.name, type: b.infoType }, clientIp(req));
+  broadcast('incident', { official: true, country: authority.country_code });
+  res.json({ ok: true, id });
+});
+adminRouter.get('/official/updates', requireAdmin(), (req, res) => {
+  res.json({
+    updates: db.prepare(
+      `SELECT u.*, a.name AS authority_name FROM official_updates u
+       JOIN official_authorities a ON a.id = u.authority_id
+       ORDER BY u.published_at DESC LIMIT 100`).all(),
+  });
+});
+adminRouter.post('/official/updates/:id/archive', requireAdmin(), (req, res) => {
+  db.prepare(`UPDATE official_updates SET status = 'archived',
+              updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`).run(String(req.params.id));
+  audit(req.admin.username, 'official_update_archived', String(req.params.id), null, clientIp(req));
+  res.json({ ok: true });
 });
 
 adminRouter.post('/logout', requireAdmin(), (req, res) => {

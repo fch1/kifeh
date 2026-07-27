@@ -401,6 +401,64 @@ db.transaction(() => {
       UNIQUE(event_id, contributor_hash, kind)
     );
 
+    -- « Situation incendie » — informations officielles locales (France).
+    -- LISTE BLANCHE d'autorités vérifiées : commune, intercommunalité,
+    -- préfecture, SDIS, ministère, FR-Alert… Jamais de source non vérifiée.
+    CREATE TABLE IF NOT EXISTS official_authorities (
+      id TEXT PRIMARY KEY,
+      country_code TEXT NOT NULL DEFAULT 'FR',
+      name TEXT NOT NULL,                  -- ex. « Préfecture de la Gironde »
+      authority_type TEXT NOT NULL CHECK (authority_type IN
+        ('commune','intercommunalite','prefecture','departement','sdis','ministere','fr_alert','autre_autorite')),
+      official_domain TEXT,                -- domaine officiel (vérification)
+      coverage_level TEXT NOT NULL DEFAULT 'commune' CHECK (coverage_level IN
+        ('commune','intercommunalite','departement','region','national')),
+      coverage_codes TEXT,                 -- csv codes INSEE commune / département
+      source_url TEXT,
+      retrieval_method TEXT NOT NULL DEFAULT 'admin_import' CHECK (retrieval_method IN
+        ('api','rss','structured_page','fr_alert_public','admin_import','page_extraction')),
+      verified_at TEXT,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
+
+    -- Messages officiels importés : texte original PRÉSERVÉ, jamais réécrit
+    -- d'une façon qui change le sens ; historique conservé (supersedes).
+    CREATE TABLE IF NOT EXISTS official_updates (
+      id TEXT PRIMARY KEY,
+      country_code TEXT NOT NULL DEFAULT 'FR',
+      authority_id TEXT NOT NULL REFERENCES official_authorities(id),
+      source_url TEXT,
+      source_title TEXT,
+      raw_content TEXT,                    -- texte original (jamais altéré)
+      summary_fr TEXT,                     -- résumé factuel court
+      summary_ar TEXT,                     -- résumé Kifeh (étiqueté comme tel)
+      info_type TEXT NOT NULL DEFAULT 'situation_update' CHECK (info_type IN
+        ('situation_update','safety_instruction','evacuation','shelter_in_place','road_closure',
+         'access_restriction','fire_status','end_of_alert','prevention','other')),
+      severity TEXT NOT NULL DEFAULT 'info' CHECK (severity IN ('info','important','urgent')),
+      status TEXT NOT NULL DEFAULT 'current' CHECK (status IN ('current','superseded','archived')),
+      affected_dept_codes TEXT,            -- csv (ex. « 33 »)
+      affected_commune_codes TEXT,         -- csv codes INSEE
+      centroid_lat REAL, centroid_lng REAL,
+      radius_km REAL,                      -- zone approximative concernée
+      geometry_json TEXT,                  -- GeoJSON éventuel (périmètre attribué)
+      geometry_source TEXT,                -- fournisseur du périmètre le cas échéant
+      valid_from TEXT, valid_until TEXT,
+      published_at TEXT NOT NULL,
+      updated_at_source TEXT,
+      imported_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      source_hash TEXT,
+      parser_confidence REAL,
+      requires_review INTEGER NOT NULL DEFAULT 0,
+      is_published INTEGER NOT NULL DEFAULT 1,
+      supersedes_id TEXT REFERENCES official_updates(id),
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_official_updates_pub
+      ON official_updates(country_code, is_published, status, published_at);
+
     -- Sources thermiques persistantes connues (industries, torchères…) :
     -- masquées de la publication automatique pour éviter les faux incendies.
     -- Abonnements « M'alerter dans cette zone » (Web Push, gratuit et sans
@@ -434,6 +492,24 @@ db.transaction(() => {
       created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
     );
   `);
+
+  // Anti-abus des confirmations : chaque contribution mémorise TOUS ses
+  // dénominateurs (appareil ET adresse IP) — un dénominateur déjà utilisé ne
+  // peut jamais resservir sur le même incident. Colonnes additives.
+  for (const t of ['confirmations', 'resolution_reports', 'satellite_event_feedback']) {
+    const cols = db.prepare(`PRAGMA table_info(${t})`).all().map((c) => c.name);
+    if (cols.length && !cols.includes('secondary_hash')) {
+      db.exec(`ALTER TABLE ${t} ADD COLUMN secondary_hash TEXT`);
+    }
+  }
+
+  // Rayon d'activité satellite (distance max. détection↔centroïde + marge) :
+  // matérialise la « zone d'activité observée par satellite » — approximative,
+  // jamais présentée comme un périmètre d'incendie. Colonne additive.
+  const satEvCols = db.prepare(`PRAGMA table_info(satellite_events)`).all().map((c) => c.name);
+  if (satEvCols.length && !satEvCols.includes('activity_radius_m')) {
+    db.exec(`ALTER TABLE satellite_events ADD COLUMN activity_radius_m INTEGER`);
+  }
 
   // Plafond quotidien des notifications satellite (colonnes additives — la
   // table push_subscriptions peut déjà exister en production sans elles).

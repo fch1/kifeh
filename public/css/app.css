@@ -454,3 +454,7 @@ html, body { overscroll-behavior: none; }
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
+
+/* « Situation incendie » : la présence d'une consigne de sécurité officielle
+   est signalée par le poids typographique, jamais par la couleur seule. */
+.summary-official-active { font-weight: 700; }

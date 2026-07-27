@@ -167,13 +167,18 @@ function attachToEvent(d, country) {
   const first = d.acquiredAt < ev.first_detected_at ? d.acquiredAt : ev.first_detected_at;
   const last = d.acquiredAt > ev.last_detected_at ? d.acquiredAt : ev.last_detected_at;
 
+  // Rayon de la « zone d'activité observée par satellite » : distance max.
+  // détection↔centroïde + marge — visiblement APPROXIMATIF, jamais un périmètre.
+  const spreadM = Math.round(distanceKm(newLat, newLng, d.lat, d.lng) * 1000);
+  const activity = Math.max(ev.activity_radius_m || ev.uncertainty_radius_m || 750, spreadM + 500);
   db.prepare(`UPDATE satellite_events SET centroid_lat = ?, centroid_lng = ?,
       first_detected_at = ?, last_detected_at = ?, max_confidence = ?,
       max_frp = MAX(COALESCE(max_frp, 0), COALESCE(?, 0)),
       detection_count = detection_count + 1, satellite_count = ?, satellites = ?,
+      activity_radius_m = ?,
       status = CASE WHEN status = 'no_new_detection' THEN 'active' ELSE status END,
       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`)
-    .run(newLat, newLng, first, last, maxConf, d.frp, sats.size, [...sats].join(','), ev.id);
+    .run(newLat, newLng, first, last, maxConf, d.frp, sats.size, [...sats].join(','), activity, ev.id);
   return ev.id;
 }
 

@@ -176,6 +176,16 @@ export const defaultSettings = {
   // aussi (libellé honnête), plafonnées STRICTEMENT par abonné et par jour.
   push_satellite_enabled: '1',
   push_satellite_daily_max: '2',
+  // « Situation incendie » (France) : vent contextuel + informations officielles.
+  fire_situation_enabled_fr: '1',
+  // Vent : modèle Météo-France (AROME/ARPEGE) servi par Open-Meteo — libre,
+  // sans clé. Fournisseur configurable (WIND_URL pour les tests/alternatives).
+  wind_provider: 'open_meteo_meteofrance',
+  wind_cache_min: '15',                 // cadence réelle du modèle : inutile plus souvent
+  wind_stale_min: '90',                 // au-delà : « données plus assez récentes »
+  // Contexte « sous le vent » — calcul CONSERVATEUR, jamais une prévision :
+  downwind_angle_deg: '45',             // demi-angle du cône sous le vent
+  downwind_max_km: '30',                // au-delà : hors de portée du contexte
 };
 
 function devSecret(label) {

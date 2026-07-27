@@ -118,6 +118,14 @@ class GridCluster {
       icon: typeIcon(it.type, it.status), keyboard: true,
       title: `${TYPE_LABELS[it.type]} — ${STATUS_LABELS[it.status] || it.status}`,
     });
+    // « Zone d'activité observée par satellite » : cercle doux, VISIBLEMENT
+    // approximatif, uniquement à un zoom local — jamais un « périmètre ».
+    if (it.satellite && it.activityRadiusM && this.map.getZoom() >= 10) {
+      this.layer.addLayer(L.circle([it.lat, it.lng], {
+        radius: it.activityRadiusM, color: '#C4622D', weight: 1, dashArray: '4 6',
+        fillColor: '#C4622D', fillOpacity: 0.10, interactive: false,
+      }));
+    }
     m.on('click', () => this.onMarkerClick?.(it));
     this.layer.addLayer(m);
   }
