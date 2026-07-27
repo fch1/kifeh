@@ -3,6 +3,7 @@
 User-agent: *
 Allow: /
 Disallow: /manage.html
+Disallow: /safety.html
 Disallow: /verify.html
 Disallow: /admin.html
 Disallow: /sandbox/

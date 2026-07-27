@@ -491,6 +491,34 @@ db.transaction(() => {
       is_active INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
     );
+
+    -- « Mon statut de sécurité » : check-in PERSONNEL et TEMPORAIRE, jamais
+    -- confondu avec l'état de l'incident. Vie privée d'abord : aucune
+    -- coordonnée exacte, aucun nom obligatoire, jetons stockés HACHÉS,
+    -- expiration automatique (6 h « en sécurité », 12 h « a quitté la zone »).
+    -- Le statut n'apparaît JAMAIS sur la carte publique : il n'est visible
+    -- que par son auteur et par les personnes recevant son lien sécurisé.
+    CREATE TABLE IF NOT EXISTS safety_checkins (
+      id TEXT PRIMARY KEY,
+      country_code TEXT NOT NULL DEFAULT 'TN',
+      incident_id TEXT REFERENCES incidents(id),
+      satellite_event_id TEXT,
+      status TEXT NOT NULL CHECK (status IN ('safe','left_area')),
+      display_name TEXT,                -- prénom choisi, uniquement si saisi
+      personal_message TEXT,            -- court message facultatif
+      area_label TEXT,                  -- zone approximative (texte, jamais GPS)
+      device_hash TEXT,                 -- idempotence : 1 statut actif par appareil+incident
+      ip_hash TEXT,
+      management_token_hash TEXT NOT NULL,
+      sharing_token_hash TEXT,          -- créé seulement si l'utilisateur partage
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      expires_at TEXT NOT NULL,
+      revoked_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_safety_device
+      ON safety_checkins(device_hash, incident_id, satellite_event_id);
+    CREATE INDEX IF NOT EXISTS idx_safety_share ON safety_checkins(sharing_token_hash);
   `);
 
   // Anti-abus des confirmations : chaque contribution mémorise TOUS ses

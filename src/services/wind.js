@@ -50,6 +50,52 @@ export async function getWind(lat, lng) {
   }
 }
 
+// ── Chaleur locale (« Autour de moi », France) ───────────────────────────────
+// Température actuelle, ressenti et maximum attendu aujourd'hui — même modèle
+// Météo-France servi par Open-Meteo, même surcharge WIND_URL pour les tests.
+// La chaleur est une INFORMATION LOCALE : jamais un niveau officiel de danger,
+// jamais fusionnée avec la vigilance ni avec les feux.
+const heatCache = new Map();
+
+export async function getHeat(lat, lng) {
+  const key = cacheKey(lat, lng);
+  const cfgMin = getSettingNum('wind_cache_min');
+  const ttlMs = (Number.isFinite(cfgMin) && cfgMin >= 0 ? cfgMin : 15) * 60_000;
+  const hit = heatCache.get(key);
+  if (hit && Date.now() - hit.at < ttlMs) return hit.data;
+  try {
+    const url = `${BASE()}/v1/meteofrance?latitude=${lat.toFixed(3)}&longitude=${lng.toFixed(3)}`
+      + `&current=temperature_2m,apparent_temperature&hourly=temperature_2m`
+      + `&forecast_days=1&timezone=UTC`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    if (!res.ok) throw new Error(`meteo ${res.status}`);
+    const j = await res.json();
+    const c = j.current || {};
+    if (!Number.isFinite(c.temperature_2m)) return null;
+    // Maximum du jour et son heure (UTC → le client affiche en heure locale).
+    let maxC = null, maxAt = null;
+    const hours = j.hourly?.time || [], temps = j.hourly?.temperature_2m || [];
+    for (let k = 0; k < hours.length; k++) {
+      if (Number.isFinite(temps[k]) && (maxC === null || temps[k] > maxC)) {
+        maxC = temps[k]; maxAt = hours[k];
+      }
+    }
+    const data = {
+      tempC: Math.round(c.temperature_2m),
+      feelsC: Number.isFinite(c.apparent_temperature) ? Math.round(c.apparent_temperature) : null,
+      maxC: maxC !== null ? Math.round(maxC) : null,
+      maxAt: maxAt ? (/Z$/.test(maxAt) ? maxAt : `${maxAt}:00Z`) : null,
+      observedAt: c.time ? (/Z$/.test(c.time) ? c.time : `${c.time}:00Z`) : new Date().toISOString(),
+      provider: getSetting('wind_provider') || 'open_meteo_meteofrance',
+    };
+    heatCache.set(key, { at: Date.now(), data });
+    if (heatCache.size > 500) heatCache.delete(heatCache.keys().next().value);
+    return data;
+  } catch {
+    return null; // panne indépendante : la chaleur manquante ne bloque rien
+  }
+}
+
 export function windIsStale(wind) {
   const staleMin = getSettingNum('wind_stale_min') || 90;
   return !wind || Date.now() - Date.parse(wind.observedAt) > staleMin * 60_000;

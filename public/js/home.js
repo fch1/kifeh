@@ -336,6 +336,7 @@ function renderSummary(degraded, snapshotAt) {
     ${active.length > 0 && typeParts.length ? `<span class="summary-types">${typeParts.join(' · ')}</span>` : ''}
     ${ended > 0 ? `<span class="summary-types">✓ ${ended === 1 ? t('summary_ended_one') : t('summary_ended_n', { n: ended })}</span>` : ''}
     ${active.length > 0 && satsShown.length ? `<span class="summary-sat">🛰️ ${t('summary_sat_n', { n: satsShown.length })} · ${satWindowH()} h</span>` : ''}
+    ${fireSit?.heat ? `<span class="summary-types">🌡️ ${esc(t('heat_now', { c: fireSit.heat.tempC }))}${fireSit.heat.feelsC != null && fireSit.heat.feelsC !== fireSit.heat.tempC ? ` · ${esc(t('heat_feels', { c: fireSit.heat.feelsC }))}` : ''}${fireSit.heat.maxC != null && fireSit.heat.maxC > fireSit.heat.tempC ? ` · ${esc(t('heat_max', { c: fireSit.heat.maxC, h: heatHourLabel(fireSit.heat.maxAt) }))}` : ''}</span>` : ''}
     ${fireSit?.wind && !fireSit.wind.stale ? `<span class="summary-types">💨 ${esc(t('fs_wind_line', { v: fireSit.wind.speedKmh, dir: windDirName(fireSit.wind.directionToDeg) }))}${fireSit.wind.gustsKmh ? ` · ${esc(t('fs_wind_gusts', { g: fireSit.wind.gustsKmh }))}` : ''}</span>` : ''}
     ${fireSit?.latestOfficialAt ? `<span class="summary-types${fireSit.safetyActive ? ' summary-official-active' : ''}">🏛️ ${esc(t('fs_latest_official', { t: timeAgo(fireSit.latestOfficialAt) }))}</span>` : ''}
     ${fireSit?.vigilance ? `<span id="vigStatusLine" class="summary-types vig-line${fireSit.vigilance.activeDepartments > 0 ? ' summary-official-active vig-active' : ''}" role="button" tabindex="0" aria-haspopup="dialog">${fireSit.vigilance.activeDepartments > 0 ? `🟠 ${esc(t('fs_vigilance_active', { n: fireSit.vigilance.activeDepartments }))}` : `🟢 ${esc(t('fs_vigilance_none'))}`} ›</span>` : ''}
@@ -352,6 +353,17 @@ document.getElementById('counter').addEventListener('keydown', (e) => {
     e.preventDefault(); openVigilanceSheet();
   }
 });
+
+// Heure locale (fuseau du pays consulté) d'un horodatage — ex. « 16 h ».
+function heatHourLabel(iso) {
+  if (!iso) return '';
+  try {
+    const p = COUNTRY_PROFILES[currentCountry()];
+    const h = new Date(iso).toLocaleTimeString(LANG === 'ar' ? 'ar-TN' : 'fr-FR',
+      { hour: 'numeric', timeZone: p.timezone });
+    return h.replace(':00', '').trim();
+  } catch { return ''; }
+}
 
 // ── Vigilance Météo-France : fiche dédiée + marqueurs départementaux ─────────
 // Flow : ligne d'état (toujours visible côté France) → 1 tap → fiche complète.
@@ -731,6 +743,8 @@ async function openDetail(publicId) {
     ${i.description ? `<p>${esc(i.description)}</p>` : ''}
     ${i.confirmations_count > 0 ? `<p class="notice ok" id="affectedCount">${i.confirmations_count > 1 ? t('affected_n', { n: i.confirmations_count }) : t('affected_one')}</p>` : '<p hidden id="affectedCount"></p>'}
     ${i.resolutionReports > 0 && i.status === 'active' ? `<p class="notice warn" id="endedCount"><strong>${t('ended_pending')}</strong><br>${i.resolutionReports > 1 ? t('ended_reports_n', { n: i.resolutionReports }) : t('ended_reports_one')}</p>` : ''}
+    ${isFire ? '<div id="fsSections"></div>' : ''}
+    <div id="safetyZone"></div>
     <div id="confirmZone">
       ${i.status === 'active' ? (confirmed
         ? `<p class="notice ok">${t('you_confirmed')}</p>`
@@ -751,6 +765,10 @@ async function openDetail(publicId) {
 
   // « Situation incendie » (France) : vent + consignes officielles sur les feux.
   if (i.type === 'fire') renderFireSituationSections(el, i.lat, i.lng);
+  // « Comment allez-vous ? » : statut PERSONNEL (feux et incidents graves) —
+  // jamais mêlé aux actions sur l'incident lui-même.
+  renderSafetyCard({ incidentId: i.public_id, active: i.status === 'active',
+    show: isFire || i.severity === 'critical' });
 
   document.getElementById('btnConfirm')?.addEventListener('click', (e) => {
     if (!verificationRequired) return withButton(e.currentTarget, () => directConfirm(i));
@@ -807,8 +825,11 @@ async function openDetail(publicId) {
 // « périmé » sont toujours affichés honnêtement, jamais tus.
 async function renderFireSituationSections(host, fireLat, fireLng) {
   if (currentCountry() !== 'FR' || !host) return;
-  const zone = document.createElement('div');
-  host.appendChild(zone);
+  // Hiérarchie de la fiche : les consignes officielles s'affichent AVANT la
+  // carte « Comment allez-vous ? » et les actions communautaires quand un
+  // emplacement dédié existe (sinon, comportement historique : à la fin).
+  const zone = document.getElementById('fsSections')
+    || (() => { const d = document.createElement('div'); host.appendChild(d); return d; })();
   // A. Ce que le vent indique
   try {
     const params = new URLSearchParams({ fireLat: fireLat.toFixed(3), fireLng: fireLng.toFixed(3) });
@@ -888,6 +909,8 @@ async function openSatDetail(id) {
     ${ev.confirmations_count > 0 ? `<p class="notice ok">${ev.confirmations_count > 1 ? t('affected_n', { n: ev.confirmations_count }) : t('affected_one')}</p>` : ''}
     <p class="notice warn small">${t('sat_disclaimer')}</p>
     <p class="notice danger small">${t(currentCountry() === 'FR' ? 'sat_danger_fr' : 'sat_danger')}</p>
+    <div id="fsSections"></div>
+    <div id="safetyZone"></div>
     <div id="satConfirmZone">
       ${confirmed ? `<p class="notice ok">${t('sat_you_confirmed')}</p>` : `<button class="btn" id="btnSatSee">${t('sat_i_see')}</button>`}
     </div>
@@ -901,6 +924,7 @@ async function openSatDetail(id) {
       `<p class="notice sat small"><strong>${esc(t('fs_sat_zone'))}</strong> · ~${esc(String(Math.round(ev.activityRadiusM / 100) / 10))} km<br>${esc(t('fs_sat_zone_note'))}</p>`);
   }
   renderFireSituationSections(el, ev.lat, ev.lng);
+  renderSafetyCard({ satelliteEventId: ev.id, active: ev.status !== 'ended', show: true });
 
   const feedback = async (kind, btn) => {
     try {
@@ -1254,4 +1278,159 @@ function renderReportForm(i) {
       zone.innerHTML = `<p class="notice ok">${esc(r.message)}</p>`;
     } catch (ex) { document.getElementById('rError').textContent = ex.message; }
   }));
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// « Mon statut de sécurité » / « حالتي الآن » — statut PERSONNEL et temporaire.
+// Règles produit : jamais confondu avec l'état de l'incident (ne confirme
+// rien, ne clôt rien, ne compte dans aucun compteur) ; rien de public ;
+// « J'ai besoin d'aide » affiche IMMÉDIATEMENT les numéros d'urgence du bon
+// pays, sans formulaire ; le partage vers un proche est facultatif.
+// ═════════════════════════════════════════════════════════════════════════════
+function safetyCtxKey(ctx) { return ctx.incidentId || `sat:${ctx.satelliteEventId}`; }
+function safetyStore() {
+  try { return JSON.parse(localStorage.getItem('kifeh_safety') || '{}'); } catch { return {}; }
+}
+function safetySave(ctx, entry) {
+  try {
+    const s = safetyStore();
+    if (entry) s[safetyCtxKey(ctx)] = entry; else delete s[safetyCtxKey(ctx)];
+    localStorage.setItem('kifeh_safety', JSON.stringify(s));
+  } catch { /* stockage indisponible : le statut serveur reste valable */ }
+}
+
+function renderSafetyCard(ctx) {
+  const zone = document.getElementById('safetyZone');
+  if (!zone || !ctx.show || !ctx.active) return;
+  zone.innerHTML = `
+    <div class="card safety-card">
+      <h2 id="safetyTitle">${esc(t('safety_q'))}</h2>
+      <p class="muted small">${esc(t('safety_intro'))}</p>
+      <div id="safetyBody"></div>
+    </div>`;
+  window.track?.('safety_card_displayed', {});
+  const saved = safetyStore()[safetyCtxKey(ctx)];
+  if (saved && Date.parse(saved.expiresAt) > Date.now()) renderSafetyDone(ctx, saved);
+  else if (saved) renderSafetyExpired(ctx, saved);
+  else renderSafetyChoices(ctx);
+}
+
+// État 1 — choix initial : trois actions distinctes, grandes et claires.
+function renderSafetyChoices(ctx) {
+  const body = document.getElementById('safetyBody');
+  body.innerHTML = `
+    <button class="btn safety-btn" id="sfSafe">🤍 ${esc(t('safety_safe_btn'))}</button>
+    <button class="btn secondary safety-btn" id="sfLeft">🚶 ${esc(t('safety_left_btn'))}</button>
+    <button class="btn safety-btn safety-help" id="sfHelp">🆘 ${esc(t('safety_help_btn'))}</button>
+    <div id="safetyErr" class="field-error" role="alert"></div>`;
+  document.getElementById('sfSafe').addEventListener('click', (e) =>
+    withButton(e.currentTarget, () => submitSafety(ctx, 'safe')));
+  document.getElementById('sfLeft').addEventListener('click', (e) =>
+    withButton(e.currentTarget, () => submitSafety(ctx, 'left_area')));
+  document.getElementById('sfHelp').addEventListener('click', () => renderSafetyHelp(ctx));
+}
+
+async function submitSafety(ctx, status) {
+  try {
+    const r = await API.post('/api/safety/checkins', {
+      status, deviceId: getDeviceId(), country: currentCountry(),
+      incidentId: ctx.incidentId || undefined,
+      satelliteEventId: ctx.satelliteEventId || undefined,
+    });
+    const prev = safetyStore()[safetyCtxKey(ctx)];
+    const entry = {
+      token: r.managementToken || prev?.token || null,
+      status: r.status, expiresAt: r.expiresAt, areaLabel: r.areaLabel || null,
+    };
+    safetySave(ctx, entry);
+    window.track?.(status === 'safe' ? 'safety_safe_selected' : 'safety_left_selected', {});
+    renderSafetyDone(ctx, entry, true);
+  } catch (ex) {
+    const el = document.getElementById('safetyErr');
+    if (el) el.textContent = ex.message;
+  }
+}
+
+// État 2 — statut enregistré : partage facultatif, modification, suppression.
+function renderSafetyDone(ctx, entry, justSaved) {
+  const body = document.getElementById('safetyBody');
+  if (!body) return;
+  const label = entry.status === 'left_area' ? t('safety_status_left') : t('safety_status_safe');
+  body.innerHTML = `
+    ${justSaved ? `<p class="notice ok">${esc(t('safety_saved'))}</p>` : ''}
+    <p><strong>${entry.status === 'left_area' ? '🚶' : '🤍'} ${esc(label)}</strong><br>
+    <span class="muted small">${esc(t('safety_valid_until', { t: fmtDate(entry.expiresAt) }))}</span></p>
+    <p class="muted small">${esc(t('safety_keep_following'))}</p>
+    <button class="btn secondary safety-btn" id="sfShare">📤 ${esc(t('safety_share_btn'))}</button>
+    <button class="btn ghost small-btn" id="sfEdit">${esc(t('safety_update_btn'))}</button>
+    <button class="btn ghost small-btn" id="sfDelete">${esc(t('safety_delete_btn'))}</button>
+    <button class="btn ghost small-btn" id="sfHelp2">🆘 ${esc(t('safety_help_btn'))}</button>
+    <div id="safetyErr" class="field-error" role="alert"></div>`;
+  document.getElementById('sfShare').addEventListener('click', (e) =>
+    withButton(e.currentTarget, () => shareSafety(ctx, entry, e.currentTarget)));
+  document.getElementById('sfEdit').addEventListener('click', () => renderSafetyChoices(ctx));
+  document.getElementById('sfHelp2').addEventListener('click', () => renderSafetyHelp(ctx));
+  document.getElementById('sfDelete').addEventListener('click', (e) => withButton(e.currentTarget, async () => {
+    try {
+      if (entry.token) await API.post('/api/safety/checkins/delete', { managementToken: entry.token });
+      safetySave(ctx, null);
+      window.track?.('safety_removed', {});
+      document.getElementById('safetyBody').innerHTML = `<p class="notice ok">${esc(t('safety_deleted'))}</p>`;
+      setTimeout(() => renderSafetyChoices(ctx), 1500);
+    } catch (ex) { document.getElementById('safetyErr').textContent = ex.message; }
+  }));
+}
+
+// État 2b — statut expiré : proposer une mise à jour, jamais « en danger ».
+function renderSafetyExpired(ctx, entry) {
+  const body = document.getElementById('safetyBody');
+  body.innerHTML = `
+    <p class="notice warn small">${esc(t('safety_expired_q'))}</p>
+    <div id="safetyChoicesSlot"></div>`;
+  const slot = document.getElementById('safetyChoicesSlot');
+  slot.id = 'safetyBody'; body.removeAttribute('id'); // réutilise le rendu des choix
+  renderSafetyChoices(ctx);
+}
+
+// Partage « Prévenir un proche » : message + lien sécurisé, temporaire et
+// révocable. Web Share natif si disponible, sinon copie dans le presse-papiers.
+async function shareSafety(ctx, entry, btn) {
+  try {
+    if (!entry.token) throw new Error(t('search_error'));
+    const r = await API.post('/api/safety/checkins/share', { managementToken: entry.token });
+    const url = `${location.origin}${API_BASE}/safety.html?s=${encodeURIComponent(r.shareToken)}`;
+    const at = fmtDate(new Date().toISOString());
+    const msgKey = entry.status === 'left_area' ? 'safety_share_msg_left' : 'safety_share_msg_safe';
+    const text = `${t(msgKey, { t: at })}\n${url}`;
+    window.track?.('safety_share_opened', {});
+    if (navigator.share) await navigator.share({ title: t('safety_title'), text });
+    else { await navigator.clipboard.writeText(text); if (btn) btn.textContent = t('safety_link_copied'); }
+  } catch (ex) {
+    if (ex?.name === 'AbortError') return; // partage annulé : sans conséquence
+    const el = document.getElementById('safetyErr');
+    if (el) el.textContent = ex.message || t('search_error');
+  }
+}
+
+// État 3 — « J'ai besoin d'aide » : numéros d'urgence IMMÉDIATS du bon pays.
+// Aucun enregistrement, aucun formulaire. Kifeh ne contacte jamais les secours.
+async function renderSafetyHelp(ctx) {
+  const body = document.getElementById('safetyBody');
+  body.innerHTML = `<div class="skeleton" style="height:80px"></div>`;
+  window.track?.('safety_help_opened', {});
+  let contacts = [];
+  try {
+    ({ contacts } = await API.get(`/api/public/contacts?type=fire&country=${currentCountry()}`));
+  } catch { /* les numéros de secours nationaux restent affichés via i18n */ }
+  const tel = (c) => (c.phone_tel || '').startsWith('sms:') ? c.phone_tel : `tel:${c.phone_tel}`;
+  const list = (contacts || []).map((c) => `
+    <a class="btn safety-btn safety-tel" href="${esc(tel(c))}">
+      📞 ${esc(LANG === 'ar' ? c.name_ar : c.name_fr)} — <strong>${esc(c.phone_display)}</strong>
+    </a>`).join('');
+  body.innerHTML = `
+    <p class="notice danger"><strong>${esc(t('safety_help_title'))}</strong><br>
+    <span class="small">${esc(t('safety_disclaimer'))}</span></p>
+    ${list || `<p class="muted small">${esc(t('contacts_unavailable'))}</p>`}
+    <button class="btn ghost small-btn" id="sfBack">${esc(t('back'))}</button>`;
+  document.getElementById('sfBack').addEventListener('click', () => renderSafetyCard(ctx));
 }

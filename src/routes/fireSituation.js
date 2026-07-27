@@ -9,7 +9,7 @@ import { Router } from 'express';
 import { db, getSetting, getSettingNum } from '../db.js';
 import { isFiniteNum, cleanText } from '../middleware/security.js';
 import { ipRateLimit } from '../middleware/rateLimit.js';
-import { getWind, windIsStale, downwindContext, distanceKm } from '../services/wind.js';
+import { getWind, getHeat, windIsStale, downwindContext, distanceKm } from '../services/wind.js';
 import { requestCountry } from '../countries/index.js';
 import { publicConfidenceList } from '../services/firms.js';
 import { msg } from '../i18n.js';
@@ -90,8 +90,9 @@ fireSituationRouter.get('/summary', ipRateLimit('firesit_ip', 60, 5), async (req
      AND last_detected_at > strftime('%Y-%m-%dT%H:%M:%fZ','now','-24 hours')`
   ).get(country, ...conf, b.minLat, b.maxLat, b.minLng, b.maxLng).n;
 
-  // Vent au centre de la zone visible — panne indépendante (null accepté).
-  const wind = await getWind(centerLat, centerLng);
+  // Vent et chaleur au centre de la zone visible — pannes indépendantes.
+  const [wind, heat] = await Promise.all([
+    getWind(centerLat, centerLng), getHeat(centerLat, centerLng)]);
   const official = officialUpdatesFor(country, centerLat, centerLng, 3);
   const safetyActive = official.some((u) =>
     ['safety_instruction', 'evacuation', 'shelter_in_place'].includes(u.infoType));
@@ -125,6 +126,7 @@ fireSituationRouter.get('/summary', ipRateLimit('firesit_ip', 60, 5), async (req
     safetyActive,
     official,
     vigilance, // null si la veille Météo-France n'est pas configurée
+    heat,      // chaleur locale (température ≠ danger ≠ feu) — null si indisponible
   });
 });
 

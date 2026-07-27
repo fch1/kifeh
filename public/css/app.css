@@ -459,6 +459,16 @@ html, body { overscroll-behavior: none; }
    est signalée par le poids typographique, jamais par la couleur seule. */
 .summary-official-active { font-weight: 700; }
 
+/* « Mon statut de sécurité » : carte personnelle, actions larges et claires */
+.safety-card { border: 1.5px solid var(--border, #e5e0d8); margin: 1rem 0; }
+.safety-btn {
+  display: flex; width: 100%; justify-content: center; align-items: center;
+  gap: .4rem; margin-top: .5rem; min-height: 48px; text-decoration: none;
+}
+.safety-help { background: var(--brand-red); color: #fff; }
+.safety-help:hover { background: var(--brand-red-dark, #C4331F); }
+.safety-tel { background: #fff; color: var(--text); border: 1.5px solid var(--brand-red); }
+
 /* Vigilance Météo-France : ligne d'état tappable + marqueurs départementaux */
 .vig-line { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
 .vig-line:hover, .vig-line:focus-visible { color: var(--brand-red); }

@@ -9,6 +9,7 @@ import { db, bootstrapAdmin } from './src/db.js';
 import { securityHeaders } from './src/middleware/security.js';
 import { publicRouter } from './src/routes/public.js';
 import { fireSituationRouter } from './src/routes/fireSituation.js';
+import { safetyRouter } from './src/routes/safety.js';
 import { declareRouter } from './src/routes/declare.js';
 import { manageRouter } from './src/routes/manage.js';
 import { adminRouter } from './src/routes/admin.js';
@@ -148,6 +149,7 @@ app.use(express.json({ limit: '100kb' }));
 
 app.use('/api/public', publicRouter);
 app.use('/api/fire-situation', fireSituationRouter); // « Situation incendie » (France)
+app.use('/api/safety', safetyRouter); // « Mon statut de sécurité » (personnel, privé)
 app.use('/api/declare', declareRouter);
 app.use('/api/manage', manageRouter);
 app.use('/api/admin', adminRouter);

@@ -38,6 +38,11 @@ const windSrv = http.createServer((req, res) => {
     current: {
       time: state.time(),
       wind_speed_10m: 30.2, wind_direction_10m: 225, wind_gusts_10m: 52.4,
+      temperature_2m: 34.6, apparent_temperature: 37.2, // chaleur locale
+    },
+    hourly: { // maximum du jour : 38,4 °C
+      time: ['2026-07-27T10:00', '2026-07-27T13:00', '2026-07-27T16:00', '2026-07-27T19:00'],
+      temperature_2m: [30.1, 34.6, 38.4, 33.0],
     },
   }));
 });
@@ -225,6 +230,10 @@ async function main() {
   ok(sum.data.enabled === true, 'résumé actif côté France');
   ok(sum.data.communityFires >= 1, `au moins 1 incendie citoyen dans la zone (${sum.data.communityFires})`);
   ok(sum.data.wind && sum.data.wind.speedKmh === 30, 'vent local inclus');
+  ok(sum.data.heat && sum.data.heat.tempC === 35 && sum.data.heat.feelsC === 37,
+    'chaleur locale : température actuelle et ressenti');
+  ok(sum.data.heat?.maxC === 38 && String(sum.data.heat?.maxAt).includes('16:00'),
+    'chaleur locale : maximum du jour et son heure');
   ok(Boolean(sum.data.latestOfficialAt), 'horodatage de la dernière info officielle');
   ok(JSON.stringify(sum.data).length < 20_000, 'charge utile < 20 Ko');
   const sumTn = await api('GET', '/api/fire-situation/summary?minLat=36&maxLat=37&minLng=10&maxLng=11');
@@ -302,6 +311,71 @@ async function main() {
   db.close();
   const evs = await api('GET', '/api/public/satellite/events?country=FR');
   ok(!JSON.stringify(evs.data).includes('"perimeter'), 'aucun champ « périmètre » inventé côté satellite');
+
+  // ── « Mon statut de sécurité » : personnel, privé, temporaire ──
+  section('Statut de sécurité : flow complet, vie privée, expiration');
+  const sInc = await publish({ lat: 44.87, lng: -0.58 });
+  const sBefore = await api('GET', `/api/public/incidents/${sInc.publicId}`);
+  const sDev = 'safety-device-abcdef123456';
+  const sc1 = await api('POST', '/api/safety/checkins', {
+    status: 'safe', deviceId: sDev, incidentId: sInc.publicId, country: 'FR',
+  });
+  ok(sc1.status === 200 && sc1.data.status === 'safe' && Boolean(sc1.data.managementToken),
+    'création « je suis en sécurité » : jeton de gestion renvoyé');
+  const sHoursLeft = (Date.parse(sc1.data.expiresAt) - Date.now()) / 3600_000;
+  ok(sHoursLeft > 5.5 && sHoursLeft < 6.5, `expiration automatique ~6 h (${sHoursLeft.toFixed(1)} h)`);
+  // Idempotence réseau mobile : re-soumission → mise à jour, jamais un doublon.
+  const sc2 = await api('POST', '/api/safety/checkins', {
+    status: 'safe', deviceId: sDev, incidentId: sInc.publicId, country: 'FR',
+  });
+  ok(sc2.status === 200 && sc2.data.updated === true, 're-soumission → mise à jour du même statut (idempotent)');
+  {
+    const sdb = new Database(DB, { readonly: true });
+    const n = sdb.prepare(`SELECT COUNT(*) n FROM safety_checkins WHERE revoked_at IS NULL`).get().n;
+    sdb.close();
+    ok(n === 1, 'un seul statut actif en base (pas de doublon)');
+  }
+  // JAMAIS confondu avec les actions sur l'incident.
+  const sAfter = await api('GET', `/api/public/incidents/${sInc.publicId}`);
+  ok(sAfter.data.confirmations_count === sBefore.data.confirmations_count,
+    'le statut ne compte PAS comme confirmation de l’incident');
+  ok(sAfter.data.status === 'active', 'le statut ne clôt PAS l’incident');
+  // Passage à « j'ai quitté la zone » via le jeton de gestion → ~12 h.
+  const sUp = await api('POST', '/api/safety/checkins/update', {
+    managementToken: sc1.data.managementToken, status: 'left_area',
+  });
+  ok(sUp.status === 200 && sUp.data.status === 'left_area', 'modification via jeton de gestion');
+  ok((Date.parse(sUp.data.expiresAt) - Date.now()) / 3600_000 > 11, '« a quitté la zone » : ~12 h');
+  // Lien sécurisé : contenu minimal, aucune donnée sensible.
+  const sSh = await api('POST', '/api/safety/checkins/share', { managementToken: sc1.data.managementToken });
+  ok(sSh.status === 200 && sSh.data.shareToken.length >= 24, 'lien sécurisé créé (jeton aléatoire)');
+  const sPage = await api('GET', `/api/safety/shared/${sSh.data.shareToken}`);
+  ok(sPage.status === 200 && sPage.data.status === 'left_area' && sPage.data.current === true,
+    'page partagée : statut visible et à jour');
+  const sRaw = JSON.stringify(sPage.data);
+  ok(!sRaw.includes('lat') && !sRaw.includes('token') && !sRaw.includes('"id"') && !sRaw.includes('hash'),
+    'page partagée : aucune coordonnée, aucun jeton, aucun identifiant interne');
+  ok(sPage.data.areaLabel === sBefore.data.area || sPage.data.areaLabel === null
+    || typeof sPage.data.areaLabel === 'string', 'zone approximative uniquement (texte)');
+  const sGuess = await api('GET', `/api/safety/shared/jeton-devine-000000000000000000`);
+  ok(sGuess.status === 404, 'jeton deviné → introuvable (aucune énumération possible)');
+  // Révocation du lien puis suppression du statut.
+  const sRv = await api('POST', '/api/safety/checkins/revoke-share', { managementToken: sc1.data.managementToken });
+  ok(sRv.status === 200, 'révocation du lien partagé');
+  const sGone = await api('GET', `/api/safety/shared/${sSh.data.shareToken}`);
+  ok(sGone.status === 404, 'lien révoqué → inaccessible');
+  // Statut expiré : présenté comme « plus à jour », jamais comme un danger.
+  {
+    const sdb = new Database(DB);
+    sdb.prepare(`UPDATE safety_checkins SET expires_at = strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 hour')`).run();
+    sdb.close();
+  }
+  const sSh2 = await api('POST', '/api/safety/checkins/share', { managementToken: sc1.data.managementToken });
+  ok(sSh2.status === 404, 'statut expiré → plus partageable');
+  const sDel = await api('POST', '/api/safety/checkins/delete', { managementToken: sc1.data.managementToken });
+  ok(sDel.status === 200, 'suppression du statut par son auteur');
+  const sDelAgain = await api('POST', '/api/safety/checkins/update', { managementToken: sc1.data.managementToken });
+  ok(sDelAgain.status === 404, 'statut supprimé → jeton de gestion inerte');
 
   console.log('\n────────────────────────────');
   console.log(`${passed} réussis · ${failed} échoués`);

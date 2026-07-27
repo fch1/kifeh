@@ -42,6 +42,17 @@ export async function tick() {
   }
   // Purge RGPD des abonnements d'alertes dormants (voir services/push.js).
   try { prunePushSubscriptions(); } catch { /* jamais bloquant */ }
+  // Purge RGPD des statuts de sécurité : contenu personnel effacé 24 h après
+  // expiration ; lignes supprimées après 30 jours (aucune conservation longue).
+  try {
+    db.prepare(`UPDATE safety_checkins SET display_name = NULL, personal_message = NULL,
+                sharing_token_hash = NULL
+                WHERE expires_at < strftime('%Y-%m-%dT%H:%M:%fZ','now','-24 hours')
+                  AND (display_name IS NOT NULL OR personal_message IS NOT NULL
+                       OR sharing_token_hash IS NOT NULL)`).run();
+    db.prepare(`DELETE FROM safety_checkins
+                WHERE expires_at < strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days')`).run();
+  } catch { /* jamais bloquant */ }
 }
 
 // Sauvegardes sur le disque persistant (dossier backups/) :

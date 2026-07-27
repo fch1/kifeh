@@ -190,6 +190,14 @@ export const defaultSettings = {
   // Inactive sans METEOFRANCE_API_KEY (Secret File Render).
   vigilance_enabled: '1',
   vigilance_sync_interval_min: '60',
+  // « Mon statut de sécurité » : check-in personnel temporaire (feux et
+  // situations dangereuses). Drapeaux par pays, expiration en heures.
+  safety_checkin_enabled: '1',
+  safety_checkin_tn_enabled: '1',
+  safety_checkin_fr_enabled: '1',
+  safety_safe_expiry_h: '6',            // « Je suis en sécurité »
+  safety_left_expiry_h: '12',           // « J'ai quitté la zone »
+  safety_share_expiry_h: '48',          // durée de vie du lien partagé
 };
 
 function devSecret(label) {
