@@ -17,7 +17,14 @@ jobs:
       - name: Vérifier /healthz
         run: |
           set -e
-          H=$(curl -sS -m 20 https://kifeh.app/healthz)
+          # Tolérant aux redémarrages de déploiement : 3 tentatives espacées
+          # de 30 s avant de déclarer une panne (l'alerte reste fiable).
+          for i in 1 2 3; do
+            H=$(curl -sS -m 20 --retry 2 https://kifeh.app/healthz) && \
+              echo "$H" | python3 -c "import json,sys; json.load(sys.stdin)" 2>/dev/null && break
+            echo "tentative $i indisponible — nouvel essai dans 30 s"
+            sleep 30
+          done
           echo "$H"
           echo "$H" | python3 -c "
           import json, sys
