@@ -96,6 +96,22 @@ fireSituationRouter.get('/summary', ipRateLimit('firesit_ip', 60, 5), async (req
   const safetyActive = official.some((u) =>
     ['safety_instruction', 'evacuation', 'shelter_in_place'].includes(u.infoType));
 
+  // État de la veille Vigilance Météo-France : rendu VISIBLE même quand tout
+  // est calme (« rien à signaler » est une information en soi). activeDepartments
+  // compte les bulletins orange/rouge en cours sur TOUTE la France — le détail
+  // localisé reste porté par la section « informations officielles ».
+  let vigilance = null;
+  const vigilanceMonitored = Boolean(process.env.METEOFRANCE_API_KEY)
+    && getSetting('vigilance_enabled') !== '0';
+  if (vigilanceMonitored) {
+    const activeDepartments = db.prepare(
+      `SELECT COUNT(*) n FROM official_updates
+       WHERE authority_id = 'mf_vigilance' AND status = 'current' AND is_published = 1
+         AND (valid_until IS NULL OR valid_until > strftime('%Y-%m-%dT%H:%M:%fZ','now'))`
+    ).get().n;
+    vigilance = { activeDepartments, checkedAt: getSetting('vigilance_last_success_at') || null };
+  }
+
   res.json({
     enabled: true,
     communityFires: fires,
@@ -108,6 +124,7 @@ fireSituationRouter.get('/summary', ipRateLimit('firesit_ip', 60, 5), async (req
     latestOfficialAt: official[0]?.publishedAt || null,
     safetyActive,
     official,
+    vigilance, // null si la veille Météo-France n'est pas configurée
   });
 });
 

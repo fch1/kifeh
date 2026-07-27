@@ -262,6 +262,11 @@ async function main() {
   const offVigiParis = await api('GET', '/api/fire-situation/official?lat=48.85&lng=2.35&country=FR');
   ok(!offVigiParis.data.updates.some((u) => u.authority === 'Météo-France — Vigilance'),
     'Paris (département vert) : aucune vigilance affichée');
+  // État de veille TOUJOURS visible dans le résumé (même hors de la zone en alerte).
+  const sumVigi = await api('GET', '/api/fire-situation/summary?minLat=48.5&maxLat=49.2&minLng=2.0&maxLng=2.9&country=FR');
+  ok(sumVigi.data.vigilance?.activeDepartments === 1,
+    'résumé : la veille Vigilance signale 1 département en alerte (échelle nationale)');
+  ok(Boolean(sumVigi.data.vigilance?.checkedAt), 'résumé : horodatage du dernier contrôle Vigilance');
   const vs1b = await adminPost('/api/admin/vigilance/sync');
   ok(vs1b.data.published === 0, 'bulletin inchangé → aucune republication (anti-doublon)');
   vigiState.warm = []; // retour au calme
@@ -270,6 +275,9 @@ async function main() {
   const offAfter = await api('GET', '/api/fire-situation/official?lat=44.85&lng=-0.60&country=FR');
   ok(!offAfter.data.updates.some((u) => u.authority === 'Météo-France — Vigilance'),
     'plus affichée après la levée');
+  const sumCalm = await api('GET', '/api/fire-situation/summary?minLat=44.5&maxLat=45.2&minLng=-1.2&maxLng=-0.2&country=FR');
+  ok(sumCalm.data.vigilance?.activeDepartments === 0,
+    'retour au calme : la veille affiche « rien à signaler » (0 département)');
 
   // ── Zone d'activité satellite ──
   section('Zone d’activité satellite (approximative, jamais « périmètre »)');
