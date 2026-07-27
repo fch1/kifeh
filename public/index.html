@@ -3,11 +3,52 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#17557E">
-<title>Kifeh كيفاه</title>
+<meta name="theme-color" content="#1E2A4D">
+<title>Kifeh كيفاه — incidents en temps réel : électricité, eau, incendie, internet</title>
+<meta name="description" content="Carte citoyenne en temps réel des coupures d'électricité, coupures d'eau, incendies et pannes internet en Tunisie et en France. Signalez, confirmez, informez votre quartier. Bilingue français-arabe, open source.">
+<link rel="canonical" href="https://kifeh.app/">
+<link rel="alternate" hreflang="fr" href="https://kifeh.app/?lang=fr">
+<link rel="alternate" hreflang="ar" href="https://kifeh.app/?lang=ar">
+<link rel="alternate" hreflang="x-default" href="https://kifeh.app/">
+<!-- Partage social (Open Graph / Twitter) -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Kifeh">
+<meta property="og:title" content="Kifeh كيفاه — ce qui se passe autour de vous, en temps réel">
+<meta property="og:description" content="Coupures d'électricité, coupures d'eau, incendies et pannes internet sur une seule carte citoyenne — Tunisie et France. Open source, bilingue FR/AR.">
+<meta property="og:url" content="https://kifeh.app/">
+<meta property="og:image" content="https://kifeh.app/img/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:locale:alternate" content="ar_TN">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Kifeh كيفاه — incidents en temps réel">
+<meta name="twitter:description" content="Électricité, eau, incendies, internet : la carte citoyenne des incidents en Tunisie et en France.">
+<meta name="twitter:image" content="https://kifeh.app/img/og-image.png">
+<link rel="manifest" href="site.webmanifest">
 <link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png?v=marque3">
 <link rel="icon" type="image/png" sizes="192x192" href="img/icon-192.png?v=marque3">
 <link rel="apple-touch-icon" href="img/apple-touch-icon.png?v=marque3">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Kifeh",
+  "alternateName": "كيفاه",
+  "url": "https://kifeh.app/",
+  "description": "Plateforme citoyenne open source de signalement en temps réel des incidents locaux (électricité, eau, incendie, internet) en Tunisie et en France.",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "Web",
+  "inLanguage": ["fr", "ar"],
+  "isAccessibleForFree": true,
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+  "areaServed": [
+    { "@type": "Country", "name": "Tunisie" },
+    { "@type": "Country", "name": "France" }
+  ],
+  "sameAs": ["https://github.com/fch1/kifeh"]
+}
+</script>
 <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
 <link rel="stylesheet" href="css/app.css">
 <script src="js/analytics.js"></script>
@@ -88,6 +129,8 @@
   <label class="checkbox-row" style="margin-top:.75rem"><input type="checkbox" id="liteToggle"> <span data-i18n="lite_toggle"></span></label>
   <p class="muted small" id="filterCount" aria-live="polite"></p>
   <p class="muted small" id="satSyncInfo" hidden></p>
+  <!-- Accès discret au code source (bien public, open source) -->
+  <p class="muted small"><a class="repo-link" href="https://github.com/fch1/kifeh" target="_blank" rel="noopener" data-i18n="open_source_link"></a></p>
   <div class="row sheet-actions">
     <button class="btn secondary" id="filterReset" data-i18n="reset"></button>
     <button class="btn" id="filterApply" data-i18n="apply"></button>

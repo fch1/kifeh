@@ -10,6 +10,8 @@ const startedFillingAt = Date.now();
 // qui consulte la France. Exécuté avant applyI18n (DOMContentLoaded).
 if (typeof currentCountry === 'function' && currentCountry() === 'FR') {
   document.querySelectorAll('[data-i18n="fire_warning"]').forEach((el) => { el.dataset.i18n = 'fire_warning_fr'; });
+  // Mention de bas de page : pas de référence STEG/SONEDE côté France.
+  document.querySelectorAll('[data-i18n="kifeh_disclaimer"]').forEach((el) => { el.dataset.i18n = 'kifeh_disclaimer_fr'; });
 }
 
 const state = Object.assign({

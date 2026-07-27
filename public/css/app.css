@@ -28,25 +28,30 @@
 }
 
 :root {
-  --bg: #FAF7F1;            /* sable clair */
+  /* Charte officielle Kifeh (identique au marketing) : encre marine, rouge
+     signal, fond crème. Le rouge de marque porte l'action principale ; les
+     couleurs sémantiques (danger, types d'incident) restent distinctes. */
+  --bg: #FAF7F1;            /* crème */
   --surface: #FFFFFF;
-  --text: #22303C;          /* encre */
+  --text: #1E2A4D;          /* marine (encre de la marque) */
   --muted: #5C6B79;
-  --border: #E5E0D6;
-  --primary: #17557E;       /* bleu Méditerranée */
-  --primary-dark: #0F3A57;  /* bleu nuit */
-  --secondary: #C4622D;     /* terracotta */
-  --danger: #C7392F;        /* corail — danger uniquement */
+  --border: #E7E1D6;
+  --primary: #1E2A4D;       /* marine — structure, textes forts, boutons secondaires */
+  --primary-dark: #141D38;
+  --brand-red: #E8262B;     /* rouge signal — action principale, marque */
+  --brand-red-dark: #C21E23;
+  --secondary: #C4622D;     /* terracotta (héritée) */
+  --danger: #C7392F;
   --ok: #1E7F52;
   --warn: #9A6A00;
-  --info-bg: #EAF2F8;
-  --elec: #B97F0A;
+  --info-bg: #EEF0F6;
+  --elec: #F0A400;
   --water: #1B76B4;
-  --fire: #C24A21;
-  --internet: #0E7C72;
+  --fire: #E8262B;
+  --internet: #33415C;
   --other: #5B7185;
   --radius: 14px;
-  --shadow: 0 2px 14px rgba(15, 58, 87, .14);
+  --shadow: 0 2px 14px rgba(30, 42, 77, .14);
   --tap: 48px;
   --font-latin: 'IBM Plex Sans', -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
   --font-ar: 'IBM Plex Sans Arabic', 'IBM Plex Sans', 'Segoe UI', Tahoma, Arial, sans-serif;
@@ -98,7 +103,7 @@ input[type=datetime-local], input[type=password], select, textarea {
 }
 textarea { min-height: 90px; resize: vertical; }
 input:focus, select:focus, textarea:focus, .btn:focus-visible {
-  outline: 3px solid rgba(23, 85, 126, .4); outline-offset: 1px;
+  outline: 3px solid rgba(30, 42, 77, .4); outline-offset: 1px;
 }
 .field-error { color: var(--danger); font-size: .875rem; margin-top: .25rem; }
 /* Numéros de téléphone et dates : toujours de gauche à droite, même en RTL */
@@ -194,7 +199,12 @@ html[dir="rtl"] .topbar .back .arrow { display: inline-block; transform: scaleX(
   align-self: center; background: var(--surface); border-radius: 20px; padding: .375rem .875rem;
   font-size: .8125rem; font-weight: 600; box-shadow: var(--shadow);
 }
-.btn-declare { box-shadow: var(--shadow); font-size: 1.0625rem; }
+/* Action principale de la marque : rouge signal (comme le marketing). */
+.btn-declare {
+  box-shadow: var(--shadow); font-size: 1.0625rem;
+  background: var(--brand-red); border-radius: 999px;
+}
+.btn-declare:hover, .btn-declare:active { background: var(--brand-red-dark); }
 .row { display: flex; gap: .5rem; }
 .row > * { flex: 1; }
 
@@ -330,9 +340,9 @@ html[dir="rtl"] .topbar .back .arrow { display: inline-block; transform: scaleX(
   margin-top: .5rem; text-decoration: none; text-align: center; line-height: 1.3;
 }
 .emergency-panel .call-primary {
-  background: #C0392B; color: #fff; font-size: 1.05rem; min-height: 56px; font-weight: 700;
+  background: var(--brand-red); color: #fff; font-size: 1.05rem; min-height: 56px; font-weight: 700;
 }
-.emergency-panel .call-primary:active { background: #A93226; }
+.emergency-panel .call-primary:active { background: var(--brand-red-dark); }
 .checkbox-row { display: flex; align-items: flex-start; gap: .625rem; margin: .875rem 0; }
 .checkbox-row input { width: 22px; height: 22px; margin-top: 2px; flex-shrink: 0; accent-color: var(--primary); }
 .checkbox-row label { margin: 0; font-weight: 400; font-size: .9rem; }

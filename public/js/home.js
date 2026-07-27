@@ -62,7 +62,10 @@ function renderCountryButton() {
   // française en France (« Kifeh »). Indépendant de la langue de l'interface.
   const ar = document.getElementById('brandArabic');
   if (ar) ar.hidden = currentCountry() === 'FR';
-  document.title = currentCountry() === 'FR' ? 'Kifeh' : 'Kifeh كيفاه';
+  // Titre descriptif (référencement) — marque bilingue seulement côté Tunisie.
+  document.title = currentCountry() === 'FR'
+    ? 'Kifeh — incidents en temps réel : électricité, eau, incendie, internet'
+    : 'Kifeh كيفاه — incidents en temps réel : électricité, eau, incendie, internet';
 }
 renderCountryButton();
 document.getElementById('countrySwitch').addEventListener('click', () => openSheet('countrySheet'));

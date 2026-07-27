@@ -1,0 +1,15 @@
+{
+  "name": "Kifeh كيفاه — incidents en temps réel",
+  "short_name": "Kifeh",
+  "description": "Plateforme citoyenne de signalement des incidents locaux (électricité, eau, incendie, internet) — Tunisie et France.",
+  "lang": "fr",
+  "dir": "ltr",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAF7F1",
+  "theme_color": "#1E2A4D",
+  "icons": [
+    { "src": "/img/icon-192.png?v=marque3", "sizes": "192x192", "type": "image/png" },
+    { "src": "/img/icon-512.png?v=marque3", "sizes": "512x512", "type": "image/png" }
+  ]
+}

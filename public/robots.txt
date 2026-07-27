@@ -1,0 +1,11 @@
+# Kifeh — les pages publiques sont indexables ; les pages privées
+# (gestion par lien signé, vérification, administration, bac à sable) non.
+User-agent: *
+Allow: /
+Disallow: /manage.html
+Disallow: /verify.html
+Disallow: /admin.html
+Disallow: /sandbox/
+Disallow: /api/
+
+Sitemap: https://kifeh.app/sitemap.xml
