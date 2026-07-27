@@ -79,7 +79,17 @@ app.get('/healthz', (req, res) => {
       hasError: Boolean(g('offsite_backup_error')),
     };
   } catch { /* idem */ }
-  res.json({ ok: true, backupAt, incidents, firms, offsite });
+  // Vigilance Météo-France : configurée ? dernier import ? (aucun secret).
+  let vigilance = null;
+  try {
+    const g = (k) => db.prepare(`SELECT value FROM settings WHERE key = ?`).get(k)?.value || null;
+    vigilance = {
+      configured: Boolean(process.env.METEOFRANCE_API_KEY),
+      lastSuccess: g('vigilance_last_success_at'),
+      hasError: Boolean(g('vigilance_last_error')),
+    };
+  } catch { /* idem */ }
+  res.json({ ok: true, backupAt, incidents, firms, offsite, vigilance });
 });
 
 // ── Sandbox (/sandbox) — environnement de test totalement cloisonné ─────────

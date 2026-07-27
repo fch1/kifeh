@@ -43,6 +43,35 @@ const windSrv = http.createServer((req, res) => {
 });
 await new Promise((r) => windSrv.listen(WIND_PORT, r));
 
+// ── Serveur Vigilance Météo-France SIMULÉ : state.vigi pilote le bulletin.
+const VIGI_PORT = 3971;
+const vigiState = { warm: [] }; // ex. [{ dept: '33', color: 4, phen: '6' }]
+const VIGI_END = new Date(Date.now() + 8 * 3600_000).toISOString(); // fenêtre FIXE (comme un vrai bulletin)
+const vigiSrv = http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({
+    product: {
+      update_time: new Date().toISOString(),
+      global_max_color_id: vigiState.warm.length ? Math.max(...vigiState.warm.map((w) => w.color)) : 1,
+      periods: [{
+        echeance: 'J',
+        begin_validity_time: new Date().toISOString(),
+        end_validity_time: VIGI_END,
+        timelaps: {
+          domain_ids: [
+            ...vigiState.warm.map((w) => ({
+              domain_id: w.dept, max_color_id: w.color,
+              phenomenon_items: [{ phenomenon_id: w.phen, phenomenon_max_color_id: w.color }],
+            })),
+            { domain_id: '75', max_color_id: 1, phenomenon_items: [] },
+          ],
+        },
+      }],
+    },
+  }));
+});
+await new Promise((r) => vigiSrv.listen(VIGI_PORT, r));
+
 for (const f of [DB, `${DB}-wal`, `${DB}-shm`]) fs.rmSync(f, { force: true });
 const server = spawn('node', ['server.js'], {
   env: {
@@ -51,11 +80,13 @@ const server = spawn('node', ['server.js'], {
     SANDBOX_ENABLED: '0', VERIFICATION_REQUIRED: '0', MIN_FORM_FILL_S: '2',
     TRUST_PUBLISH_THRESHOLD: '10', WEB_PUSH_DISABLED: '1',
     WIND_URL: `http://127.0.0.1:${WIND_PORT}`, WIND_CACHE_MIN: '0',
+    METEOFRANCE_API_KEY: 'cle-de-test-vigilance',
+    VIGILANCE_URL: `http://127.0.0.1:${VIGI_PORT}`,
   },
   stdio: ['ignore', 'pipe', 'inherit'],
 });
 server.stdout.on('data', () => {});
-process.on('exit', () => { try { server.kill(); windSrv.close(); } catch {} });
+process.on('exit', () => { try { server.kill(); windSrv.close(); vigiSrv.close(); } catch {} });
 // Attente de disponibilité réelle (le premier démarrage crée les tables).
 for (let i = 0; i < 30; i++) {
   try { await fetch(`${BASE}/healthz`); break; } catch { await new Promise((r) => setTimeout(r, 500)); }
@@ -213,6 +244,32 @@ async function main() {
   ok(c4.status === 400, 'sans identifiant d’appareil, même IP → refusée');
   const det = await api('GET', `/api/public/incidents/${inc.publicId}`);
   ok(det.data.confirmations_count === 1, 'compteur final : 1 seule confirmation retenue');
+
+  // ── Vigilance Météo-France (bulletin simulé) ──
+  section('Vigilance Météo-France : orange publiée, levée archivée');
+  const adminPost = (url) => fetch(`${BASE}${url}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...hdr },
+  }).then(async (r) => ({ status: r.status, data: await r.json().catch(() => ({})) }));
+  vigiState.warm = [{ dept: '33', color: 3, phen: '6' }]; // Gironde orange canicule
+  const vs1 = await adminPost('/api/admin/vigilance/sync');
+  ok(vs1.data.published === 1, 'vigilance orange Gironde → 1 information officielle publiée');
+  const offVigi = await api('GET', '/api/fire-situation/official?lat=44.85&lng=-0.60&country=FR');
+  const vigiMsg = offVigi.data.updates.find((u) => u.authority === 'Météo-France — Vigilance');
+  ok(Boolean(vigiMsg), 'visible dans les consignes officielles à Bordeaux');
+  ok(vigiMsg?.summaryFr.includes('orange') && vigiMsg?.summaryFr.includes('canicule'),
+    'résumé prudent : couleur + phénomène, renvoi au bulletin officiel');
+  ok(Boolean(vigiMsg?.summaryAr), 'résumé arabe présent (étiqueté Kifeh côté client)');
+  const offVigiParis = await api('GET', '/api/fire-situation/official?lat=48.85&lng=2.35&country=FR');
+  ok(!offVigiParis.data.updates.some((u) => u.authority === 'Météo-France — Vigilance'),
+    'Paris (département vert) : aucune vigilance affichée');
+  const vs1b = await adminPost('/api/admin/vigilance/sync');
+  ok(vs1b.data.published === 0, 'bulletin inchangé → aucune republication (anti-doublon)');
+  vigiState.warm = []; // retour au calme
+  const vs2 = await adminPost('/api/admin/vigilance/sync');
+  ok(vs2.data.archived === 1, 'vigilance levée → message archivé (historique conservé)');
+  const offAfter = await api('GET', '/api/fire-situation/official?lat=44.85&lng=-0.60&country=FR');
+  ok(!offAfter.data.updates.some((u) => u.authority === 'Météo-France — Vigilance'),
+    'plus affichée après la levée');
 
   // ── Zone d'activité satellite ──
   section('Zone d’activité satellite (approximative, jamais « périmètre »)');

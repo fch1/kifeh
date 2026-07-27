@@ -186,6 +186,10 @@ export const defaultSettings = {
   // Contexte « sous le vent » — calcul CONSERVATEUR, jamais une prévision :
   downwind_angle_deg: '45',             // demi-angle du cône sous le vent
   downwind_max_km: '30',                // au-delà : hors de portée du contexte
+  // Vigilance Météo-France (officielle) : orange/rouge du jour, par département.
+  // Inactive sans METEOFRANCE_API_KEY (Secret File Render).
+  vigilance_enabled: '1',
+  vigilance_sync_interval_min: '60',
 };
 
 function devSecret(label) {

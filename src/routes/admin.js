@@ -16,6 +16,7 @@ import { syncFirms } from '../services/firms.js';
 import { devOutbox } from '../services/notifier.js';
 import { generateTotpSecret, verifyTotp, otpauthUrl } from '../services/totp.js';
 import { offsiteBackup } from '../services/offsite.js';
+import { syncVigilance } from '../services/vigilance.js';
 
 export const adminRouter = Router();
 
@@ -70,6 +71,11 @@ adminRouter.post('/2fa/disable', requireAdmin(), (req, res) => {
   setSetting('admin_totp_secret', '');
   audit(req.admin.username, 'admin_2fa_disabled', null, null, clientIp(req));
   res.json({ ok: true });
+});
+
+// Vigilance Météo-France : synchronisation manuelle (supervision).
+adminRouter.post('/vigilance/sync', requireAdmin(), async (req, res) => {
+  res.json(await syncVigilance({ force: true }));
 });
 
 // Sauvegarde hors-site : état + déclenchement manuel.

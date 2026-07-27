@@ -12,6 +12,7 @@ import { config, getBaseUrl } from '../config.js';
 import { syncFirms } from './firms.js';
 import { offsiteBackup } from './offsite.js';
 import { prunePushSubscriptions } from './push.js';
+import { syncVigilance } from './vigilance.js';
 import { msg } from '../i18n.js';
 
 export function startScheduler() {
@@ -34,6 +35,10 @@ export async function tick() {
   // Sauvegarde HORS-SITE quotidienne chiffrée (inactif sans GITHUB_BACKUP_TOKEN).
   if (!config.isSandbox) {
     try { await offsiteBackup(); } catch (e) { console.error('[offsite]', e.message); }
+  }
+  // Vigilance Météo-France (inactif sans METEOFRANCE_API_KEY).
+  if (!config.isSandbox) {
+    try { await syncVigilance(); } catch (e) { console.error('[vigilance]', e.message); }
   }
   // Purge RGPD des abonnements d'alertes dormants (voir services/push.js).
   try { prunePushSubscriptions(); } catch { /* jamais bloquant */ }
