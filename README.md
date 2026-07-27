@@ -16,7 +16,7 @@ WebView, batterie faible, carte indisponible.
 > services d'urgence (**198** Protection civile · **190** SAMU · **197**
 > Police secours · **193** Garde nationale), ni la STEG, ni la SONEDE.
 
-Démo : **https://www.kifeh.org**
+Démo : **https://kifeh.app**
 
 ## Fonctionnalités
 

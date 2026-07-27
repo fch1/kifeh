@@ -21,5 +21,5 @@ l'accès non autorisé à l'administration ou aux liens de gestion, et toute
 fuite de clé côté client.
 
 Merci de ne pas tester sur les données réelles des utilisateurs : utilisez
-l'environnement de test `kifeh.org/sandbox` (données fictives, purge
+l'environnement de test `kifeh.app/sandbox` (données fictives, purge
 automatique) ou une instance locale.
