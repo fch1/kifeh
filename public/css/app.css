@@ -471,7 +471,12 @@ html, body { overscroll-behavior: none; }
 @media (min-width: 700px) {
   .sheet { max-width: 480px; left: auto; right: 1rem; border-radius: 18px; bottom: 1rem; }
   html[dir="rtl"] .sheet { right: auto; left: 1rem; }
-  .home-bottom { max-width: 480px; left: 50%; transform: translateX(-50%); }
+  /* Grand écran : le bloc d'information vit SUR LE CÔTÉ — la carte garde son
+     centre dégagé (l'information ne masque plus jamais les foyers). */
+  .home-bottom { max-width: 380px; left: 1rem; right: auto; transform: none; align-items: flex-start; }
+  html[dir="rtl"] .home-bottom { left: auto; right: 1rem; }
+  .home-bottom .counter { align-self: stretch; text-align: start; }
+  .home-bottom .btn-declare { width: 100%; }
   /* Barre du bas centrée sur grand écran : le coin de la carte redevient libre. */
   #map .leaflet-bottom.leaflet-right { margin-bottom: .5rem; margin-right: .5rem; }
 }

@@ -1425,6 +1425,8 @@ async function renderFireSituationSections(host, fireLat, fireLng) {
           : w.downwind === 'unknown' ? t('fs_downwind_unknown') : '';
         inner = `
           ${weatherTilesHtml(w.heat || fireSit?.heat, w.wind)}
+          ${(w.wind.forecast || []).length ? `<p class="small">🕒 ${w.wind.forecast.map((f) =>
+            esc(t('wind_fc_line', { h: f.inHours, v: f.speedKmh, dir: windDirName(f.directionToDeg) }))).join(' · ')}</p>` : ''}
           ${ctx ? `<p>${esc(ctx)}</p>` : ''}
           <p class="muted small">${esc(t('fs_wind_note'))}<br>${esc(t('fs_wind_at', { t: fmtDate(w.wind.observedAt) }))}</p>`;
       }
@@ -2189,13 +2191,15 @@ async function drawWeatherLayer() {
   }
   const g = r.grid;
   for (const c of g.cells) {
-    // Voile de température : rectangle doux, sans bordure — un « nuage de
-    // couleur », pas une donnée de précision (la légende l'assume).
-    L.rectangle([
-      [c.lat - g.stepLat / 2, c.lng - g.stepLng / 2],
-      [c.lat + g.stepLat / 2, c.lng + g.stepLng / 2],
-    ], { stroke: false, fillColor: tempFill(c.tempC), fillOpacity: 0.28, interactive: false })
-      .addTo(weatherLayer);
+    // Voile de température : cercles LARGES qui se chevauchent et se fondent —
+    // un vrai nuage de couleur, sans coutures ni damier (les rectangles à
+    // bords durs créaient des croix blanches entre cellules).
+    const radiusM = map.distance([c.lat, c.lng],
+      [c.lat + g.stepLat / 2, c.lng + g.stepLng / 2]) * 1.45;
+    L.circle([c.lat, c.lng], {
+      radius: radiusM, stroke: false, fillColor: tempFill(c.tempC),
+      fillOpacity: 0.16, interactive: false,
+    }).addTo(weatherLayer);
     // Flèche de vent au centre de la cellule (16 max — jamais une forêt de
     // flèches) : orientée VERS où souffle le vent, taille selon la force.
     if (c.windToDeg != null && c.windKmh != null) {

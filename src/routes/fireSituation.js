@@ -10,7 +10,7 @@ import { db, getSetting, getSettingNum } from '../db.js';
 import { isFiniteNum, cleanText } from '../middleware/security.js';
 import { ipRateLimit } from '../middleware/rateLimit.js';
 import { getWind, getHeat, getWeatherGrid, windIsStale, downwindContext, distanceKm } from '../services/wind.js';
-import { requestCountry } from '../countries/index.js';
+import { requestCountry, inCountry } from '../countries/index.js';
 import { publicConfidenceList } from '../services/firms.js';
 import { msg } from '../i18n.js';
 
@@ -177,6 +177,10 @@ fireSituationRouter.get('/weather-grid', ipRateLimit('firesit_ip', 60, 5), async
   const hasBbox = ['minLat', 'maxLat', 'minLng', 'maxLng'].every((k) => isFiniteNum(q[k], -180, 180));
   if (!hasBbox) return res.status(400).json({ error: msg(req, 'invalid_params') });
   const grid = await getWeatherGrid(+q.minLat, +q.maxLat, +q.minLng, +q.maxLng, 4);
+  // Le voile météo ne se peint QUE sur la France : les cellules hors des
+  // frontières du pays consulté sont écartées (jamais de météo « française »
+  // affichée sur l'Algérie ou l'Italie).
+  if (grid?.cells) grid.cells = grid.cells.filter((c) => inCountry(c.lat, c.lng, country));
   res.json({ enabled: true, grid }); // grid null = météo indisponible (honnête)
 });
 

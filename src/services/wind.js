@@ -25,12 +25,32 @@ export async function getWind(lat, lng) {
   if (hit && Date.now() - hit.at < ttlMs) return hit.data;
   try {
     const url = `${BASE()}/v1/meteofrance?latitude=${lat.toFixed(3)}&longitude=${lng.toFixed(3)}`
-      + `&current=wind_speed_10m,wind_direction_10m,wind_gusts_10m&timezone=UTC`;
+      + `&current=wind_speed_10m,wind_direction_10m,wind_gusts_10m`
+      + `&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m&forecast_days=1&timezone=UTC`;
     const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
     if (!res.ok) throw new Error(`meteo ${res.status}`);
     const j = await res.json();
     const c = j.current || {};
     if (!Number.isFinite(c.wind_speed_10m) || !Number.isFinite(c.wind_direction_10m)) return null;
+    // Vent À VENIR (+3 h, +6 h) : prévision météo honnête — jamais un cône de
+    // « trajectoire du feu » (le vent prévu n'est pas une propagation prédite).
+    const forecast = [];
+    try {
+      const hrs = j.hourly?.time || [];
+      const now = Date.parse(`${c.time}:00Z`);
+      for (const offsetH of [3, 6]) {
+        const target = now + offsetH * 3600_000;
+        const k = hrs.findIndex((h) => Date.parse(`${h}:00Z`) >= target);
+        if (k >= 0 && Number.isFinite(j.hourly.wind_speed_10m?.[k])) {
+          forecast.push({
+            inHours: offsetH,
+            speedKmh: Math.round(j.hourly.wind_speed_10m[k]),
+            directionToDeg: (Math.round(j.hourly.wind_direction_10m?.[k] ?? 0) + 180) % 360,
+            gustsKmh: Number.isFinite(j.hourly.wind_gusts_10m?.[k]) ? Math.round(j.hourly.wind_gusts_10m[k]) : null,
+          });
+        }
+      }
+    } catch { /* prévision absente : le vent actuel reste servi */ }
     const data = {
       speedKmh: Math.round(c.wind_speed_10m),
       gustsKmh: Number.isFinite(c.wind_gusts_10m) ? Math.round(c.wind_gusts_10m) : null,
@@ -39,6 +59,7 @@ export async function getWind(lat, lng) {
       observedAt: c.time ? `${c.time}:00Z`.replace(/:00Z$/, ':00Z').replace('::', ':') : new Date().toISOString(),
       provider: getSetting('wind_provider') || 'open_meteo_meteofrance',
       fetchedAt: new Date().toISOString(),
+      forecast, // [{inHours, speedKmh, directionToDeg, gustsKmh}] — +3 h / +6 h
     };
     // Normalise l'horodatage Open-Meteo (« 2026-07-27T16:00 » → ISO complet).
     if (c.time && !/Z$/.test(c.time)) data.observedAt = `${c.time}:00Z`;
