@@ -683,16 +683,42 @@ function renderSummary(degraded, snapshotAt) {
   else mainLine = `🛰️ ${t('summary_sat_n', { n: satsShown.length })}`;
 
   const fz = currentFollowedZone?.() || null;
+  // ── Carte « campagne » : pastille + titre + flèche, puis détails, puis la
+  // rangée Vent · Température · Humidité (le langage exact du marketing).
+  const nearest = currentCountry() === 'FR' ? nearestFire(active, satsShown) : null;
+  const heroFire = nearest && nearest.d < 50_000 ? nearest : null;
+  const heroTitle = heroFire
+    ? t(heroFire.d < 10_000 ? 'hero_fire_near' : 'hero_fire_nearest')
+    : mainLine;
+  const heroSub = heroFire
+    ? t('hero_km_dir', { km: Math.max(1, Math.round(heroFire.d / 1000)), dir: heroFire.dir })
+    : `📍 ${where}`;
+  const flameSvg = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c1 3-1 4.5-2.2 6C8.4 10.8 8 12.2 8 13.5a4.5 4.5 0 0 0 9 0c0-1.1-.3-2.1-1-3.2-.5 1-1.2 1.6-2 1.9.6-2.4-.2-5.6-2-9.2Z" fill="currentColor"/></svg>';
+  const pinSvg = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-5.4-6.5-10a6.5 6.5 0 1 1 13 0C18.5 15.6 12 21 12 21Z" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="12" cy="10.6" r="2.3" fill="currentColor"/></svg>';
+  // Statistiques locales (France) : mêmes données que la fiche conditions.
+  const h = fireSit?.heat, w = fireSit?.wind && !fireSit.wind.stale ? fireSit.wind : null;
+  const stats = [];
+  if (w) stats.push({ l: t('stat_wind'), v: `${w.speedKmh} km/h` });
+  if (h) stats.push({ l: t('stat_temp'), v: `${h.tempC} °C` });
+  if (h?.humidityPct != null) stats.push({ l: t('stat_hum'), v: `${h.humidityPct} %` });
   counter.innerHTML = `
-    <span class="summary-where">📍 ${esc(where)}</span>
-    <strong>${mainLine}</strong>
+    <span class="hero-head" id="heroHead" role="button" tabindex="0" aria-haspopup="dialog">
+      <span class="hero-badge${heroFire ? ' hero-badge-fire' : ''}" aria-hidden="true">${heroFire ? flameSvg : pinSvg}</span>
+      <span class="hero-txt">
+        <strong>${heroTitle}</strong>
+        <span class="muted small">${esc(heroSub)}</span>
+      </span>
+      <span class="hero-arrow" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h13m-5.5-5.5L18 12l-5.5 5.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>
+    </span>
+    ${heroFire ? `<span class="summary-where muted small">📍 ${esc(where)}</span>` : ''}
     ${active.length > 0 && typeParts.length ? `<span class="summary-types">${typeParts.join(' · ')}</span>` : ''}
     ${ended > 0 ? `<span class="summary-types">✓ ${ended === 1 ? t('summary_ended_one') : t('summary_ended_n', { n: ended })}</span>` : ''}
     ${satsShown.length && active.some((i) => i.type === 'fire') ? `<span class="summary-sat muted small">${t('fire_sat_part', { n: satsShown.length })}</span>` : ''}
     ${fireSit?.latestOfficialAt && fireSit.safetyActive ? `<span class="summary-types summary-official-active">🏛️ ${esc(t('fs_latest_official', { t: timeAgo(fireSit.latestOfficialAt) }))}</span>` : ''}
     ${fireEmptyMode ? `<span class="summary-types muted">${esc(t('fire_none_note'))}</span>` : ''}
-    ${nearestFireLineHtml(active, satsShown)}
     <span class="summary-actions">${condLineHtml()}<span id="followZoneCta" class="summary-types vig-line${fz ? ' followed' : ''}" role="button" tabindex="0" aria-haspopup="dialog">${fz ? `★ ${esc(t('zone_followed_short'))}` : `☆ ${esc(t('follow_zone_btn'))}`} ›</span></span>
+    ${stats.length >= 2 ? `<span class="hero-stats" id="heroStats" role="button" tabindex="0">${stats.map((s) =>
+    `<span class="stat"><span class="stat-l">${esc(s.l)}</span><span class="stat-v">${esc(s.v)}</span></span>`).join('')}</span>` : ''}
     ${degraded ? `<span class="summary-degraded">${t('api_degraded')}<br>${t('offline_snapshot', { t: timeAgo(new Date(snapshotAt).toISOString()) })}</span>` : ''}`;
 }
 // « Plus proche : ~N km » — distance du feu le plus proche (signalement citoyen
@@ -785,28 +811,32 @@ function condLineHtml() {
 function renderWxStrip() {
   const el = document.getElementById('wxStrip');
   if (!el) return;
-  if (currentCountry() !== 'FR' || (!fireSit?.heat && !fireSit?.wind)) { el.hidden = true; return; }
-  const h = fireSit.heat, w = fireSit.wind && !fireSit.wind.stale ? fireSit.wind : null;
-  const sky = skyInfo(h?.cloudPct);
-  el.hidden = false;
-  el.innerHTML = `
-    ${h ? `<span class="wx-s-item"><strong>${esc(String(h.tempC))}°</strong>${h.feelsC != null && h.feelsC !== h.tempC ? ` <span class="muted">${esc(t('wx_feels_short', { c: h.feelsC }))}</span>` : ''}</span>` : ''}
-    ${w ? `<span class="wx-s-item"><span class="wx-s-arrow" style="transform:rotate(${((Number(w.directionToDeg) || 0) - 90 + 360) % 360}deg)">➤</span> ${esc(String(w.speedKmh))} km/h${w.gustsKmh ? ` <span class="muted">(${esc(String(w.gustsKmh))})</span>` : ''}</span>` : ''}
-    ${sky ? `<span class="wx-s-item">${sky.icon} ${esc(sky.label)}</span>` : ''}
-    <span class="wx-s-more" aria-hidden="true">›</span>`;
+  // Design « campagne » (28/07) : la météo vit dans la carte-résumé du bas
+  // (rangée Vent · Température · Humidité) — le bandeau du haut disparaît,
+  // l'écran respire. La fiche complète reste à un tap (rangée ou vigilance).
+  el.hidden = true;
 }
 
 // Le résumé ouvre la liste correspondante (même jeu de données) ; la ligne
 // « conditions » ouvre sa fiche dédiée (clavier : Entrée ou Espace).
 document.getElementById('counter').addEventListener('click', (e) => {
-  if (e.target.closest('#condLine')) { openVigilanceSheet(); return; }
+  if (e.target.closest('#condLine') || e.target.closest('#heroStats')) { openVigilanceSheet(); return; }
   if (e.target.closest('#followZoneCta')) { openFollowSheet(); return; }
+  if (e.target.closest('#heroHead')) {
+    // La flèche de la carte « campagne » ouvre le panneau Situation.
+    renderSituationHub(); openSheet('situationSheet'); setNavCurrent('navSituation');
+    return;
+  }
   renderList(); openSheet('listSheet');
 });
 document.getElementById('counter').addEventListener('keydown', (e) => {
   if (e.key !== 'Enter' && e.key !== ' ') return;
-  if (e.target.closest('#condLine')) { e.preventDefault(); openVigilanceSheet(); }
+  if (e.target.closest('#condLine') || e.target.closest('#heroStats')) { e.preventDefault(); openVigilanceSheet(); }
   else if (e.target.closest('#followZoneCta')) { e.preventDefault(); openFollowSheet(); }
+  else if (e.target.closest('#heroHead')) {
+    e.preventDefault();
+    renderSituationHub(); openSheet('situationSheet'); setNavCurrent('navSituation');
+  }
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
