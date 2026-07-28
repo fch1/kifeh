@@ -54,6 +54,10 @@ export async function tick() {
   try { prunePushSubscriptions(); } catch { /* jamais bloquant */ }
   // Purge des abonnements e-mail jamais confirmés (double consentement, 48 h).
   try { (await import('./emailAlerts.js')).pruneEmailSubscriptions(); } catch { /* idem */ }
+  // Brief quotidien de zone (opt-in) : 1 e-mail/jour max, jamais si rien à dire.
+  if (!config.isSandbox) {
+    try { await (await import('./emailAlerts.js')).sendDailyDigests(); } catch { /* jamais bloquant */ }
+  }
   // Purge RGPD des statuts de sécurité : contenu personnel effacé 24 h après
   // expiration ; lignes supprimées après 30 jours (aucune conservation longue).
   try {

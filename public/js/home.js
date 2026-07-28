@@ -176,6 +176,8 @@ function renderFollowSheet() {
              placeholder="${esc(t('email_alerts_ph'))}" style="flex:1;min-height:44px" aria-label="${esc(t('alerts_email_title'))}">
       <button class="btn secondary small-btn" id="followEmailBtn" type="button" style="flex:0 0 auto">✉️ ${esc(t('email_alerts_btn'))}</button>
     </div>
+    <label class="checkbox-row small"><input type="checkbox" id="followDigest">
+      ${esc(t('email_digest_optin'))}</label>
     <p class="muted small" id="followMsg" role="status" aria-live="polite"></p>
     <button class="btn ghost small-btn" id="followLater" type="button">${esc(t('follow_later'))}</button>
     <p class="muted small" style="margin-top:.25rem">${esc(t('follow_can_change'))}</p>
@@ -234,6 +236,7 @@ function renderFollowSheet() {
       const c = map.getCenter();
       const r = await API.post('/api/public/email-alerts/subscribe', {
         email, lat: c.lat, lng: c.lng, radiusKm: followRadius, country: currentCountry(), lang: LANG,
+        digest: Boolean(document.getElementById('followDigest')?.checked),
       });
       saveFollowZoneAtCenter({ email: true });
       msgEl.textContent = r.message;

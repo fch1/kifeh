@@ -99,21 +99,24 @@
 <!-- Boutons flottants sur la carte : position + couches d'information.
      Des ACTIONS DE CARTE, pas des destinations — elles vivent sur la carte. -->
 <div class="map-fabs">
-  <button class="fab fab-zoom" id="fabZoomIn" data-i18n-aria="zoom_in">＋</button>
-  <button class="fab fab-zoom" id="fabZoomOut" data-i18n-aria="zoom_out">−</button>
-  <button class="fab" id="btnLocate" data-i18n-aria="my_position_aria">📍</button>
-  <button class="fab" id="btnLayers" data-i18n-aria="layers_btn_aria">🗺️</button>
+  <!-- Icônes SVG LOCALES (trait 2 px, currentColor) — cohérentes FR/AR,
+       identiques sur tous les systèmes (les emojis d'interface variaient
+       d'un téléphone à l'autre) ; les emojis restent pour le CONTENU. -->
+  <button class="fab fab-zoom" id="fabZoomIn" data-i18n-aria="zoom_in"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg></button>
+  <button class="fab fab-zoom" id="fabZoomOut" data-i18n-aria="zoom_out"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg></button>
+  <button class="fab" id="btnLocate" data-i18n-aria="my_position_aria"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="2" fill="none"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="7.5" stroke="currentColor" stroke-width="2" fill="none"/></svg></button>
+  <button class="fab" id="btnLayers" data-i18n-aria="layers_btn_aria"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3.5 8.5 4.5-8.5 4.5L3.5 8Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" fill="none"/><path d="m4.5 12.5 7.5 4 7.5-4M4.5 16.5l7.5 4 7.5-4" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" fill="none"/></svg></button>
 </div>
 
 <!-- Navigation principale FIXE : cinq destinations, toujours visibles, jamais
      de défilement horizontal (revue UX : une rangée défilante cache ce qu'on
      ne fait pas glisser). « Signaler » au centre = l'action de la marque. -->
 <nav class="bottom-nav" id="bottomNav" data-i18n-aria="nav_main_aria">
-  <button class="nav-item" id="navMap" aria-current="page"><span class="nav-ico" aria-hidden="true">🗺️</span><span data-i18n="nav_map"></span></button>
-  <button class="nav-item" id="navSituation"><span class="nav-ico" aria-hidden="true">🧭</span><span data-i18n="nav_situation"></span></button>
+  <button class="nav-item" id="navMap" aria-current="page"><span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 4 3.5 6v14L9 18l6 2 5.5-2V4L15 6 9 4Zm0 0v14m6-12v14" stroke="currentColor" stroke-width="2" stroke-linejoin="round" fill="none"/></svg></span><span data-i18n="nav_map"></span></button>
+  <button class="nav-item" id="navSituation"><span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" fill="none"/><path d="m15.5 8.5-2 5-5 2 2-5 5-2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" fill="none"/></svg></span><span data-i18n="nav_situation"></span></button>
   <a class="nav-declare" id="navDeclare" href="declare.html" data-i18n-aria="declare_btn"><span class="nav-declare-plus" aria-hidden="true">＋</span><span data-i18n="nav_declare"></span></a>
-  <button class="nav-item" id="btnAlerts" aria-pressed="false" data-i18n-aria="suivis_title"><span class="nav-ico" aria-hidden="true">⭐</span><span data-i18n="nav_suivis"></span></button>
-  <button class="nav-item" id="navAide"><span class="nav-ico" aria-hidden="true">❓</span><span data-i18n="nav_aide"></span></button>
+  <button class="nav-item" id="btnAlerts" aria-pressed="false" data-i18n-aria="suivis_title"><span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9L12 3.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" fill="none"/></svg></span><span data-i18n="nav_suivis"></span></button>
+  <button class="nav-item" id="navAide"><span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" fill="none"/><path d="M9.6 9.2a2.5 2.5 0 1 1 3.4 2.9c-.8.4-1 .9-1 1.9" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/><circle cx="12" cy="17" r="1.15" fill="currentColor"/></svg></span><span data-i18n="nav_aide"></span></button>
 </nav>
 
 <!-- Feuille : filtres avancés -->

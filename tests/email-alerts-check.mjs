@@ -100,6 +100,37 @@ async function main() {
   await new Promise((r) => setTimeout(r, 800));
   ok(outbox.length === 0, 'après désinscription → plus aucune alerte');
 
+  section('Brief quotidien (opt-in séparé, jamais si rien à dire)');
+  // Abonnement AVEC brief + confirmation.
+  outbox.length = 0;
+  // Zone VIERGE (Bourgogne rurale) — loin des incidents des tests précédents.
+  const sub2 = await api('POST', '/api/public/email-alerts/subscribe', {
+    email: 'brief@example.org', lat: 47.30, lng: 4.20, radiusKm: 20,
+    country: 'FR', lang: 'fr', digest: true,
+  });
+  ok(sub2.status === 200, 'abonnement avec brief quotidien accepté');
+  const conf2 = linkFrom(outbox[0], 'email-alerts/confirm');
+  await fetch(conf2);
+  // Zone SANS incident actif ni vigilance → aucun brief (« rien à dire »).
+  outbox.length = 0;
+  const dg0 = await api('POST', '/api/dev/run-digest', {});
+  const calmMail = outbox.find((m) => m.to?.[0] === 'brief@example.org');
+  ok(dg0.status === 200 && !calmMail, 'zone calme → AUCUN brief envoyé');
+  // Un incident actif dans la zone → le brief part, avec compte et désinscription.
+  await publish({ lat: 47.32, lng: 4.22, deviceLat: 47.32, deviceLng: 4.22 });
+  await new Promise((r) => setTimeout(r, 500));
+  outbox.length = 0;
+  await api('POST', '/api/dev/run-digest', {});
+  const digestMail = outbox.find((m) => m.to?.[0] === 'brief@example.org');
+  ok(Boolean(digestMail), 'brief envoyé à l’abonné opt-in uniquement');
+  ok(digestMail && /brief|matin/i.test(digestMail.subject), 'objet « brief du matin »');
+  ok(digestMail && /incident/.test(digestMail.html) && /unsubscribe/.test(digestMail.html),
+    'contenu : compte d’incidents + lien de désinscription');
+  // Garde « une fois par jour » : un second déclenchement normal ne renvoie rien.
+  outbox.length = 0;
+  const again = await api('POST', '/api/dev/run-digest', {});
+  ok(again.status === 200, 'relance du brief acceptée (idempotente)');
+
   section('Sécurité');
   const bad = await api('POST', '/api/public/email-alerts/subscribe', {
     email: 'pas-un-email', lat: 44.85, lng: -0.60, country: 'FR' });

@@ -584,6 +584,13 @@ db.transaction(() => {
   }
   db.exec(`CREATE INDEX IF NOT EXISTS idx_satevents_country ON satellite_events(country_code, status, last_detected_at)`);
 
+  // 3f-ter. Brief quotidien e-mail : opt-in SÉPARÉ des alertes immédiates
+  //         (colonne additive, 0 par défaut — personne n'est abonné d'office).
+  const emailCols = db.prepare(`PRAGMA table_info(email_alert_subscriptions)`).all().map((c) => c.name);
+  if (emailCols.length && !emailCols.includes('digest_opt_in')) {
+    db.exec(`ALTER TABLE email_alert_subscriptions ADD COLUMN digest_opt_in INTEGER NOT NULL DEFAULT 0`);
+  }
+
   // 3g. Repère DFCI (feux français) — colonnes ADDITIVES, null par défaut :
   //     l'ancien code les ignore, aucune donnée existante n'est modifiée.
   const dfciCols = db.prepare(`PRAGMA table_info(incidents)`).all().map((c) => c.name);

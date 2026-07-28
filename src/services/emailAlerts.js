@@ -5,7 +5,7 @@
 // publiés dans la zone choisie — jamais de message générique « revenez ».
 // Vie privée : adresse CHIFFRÉE au repos, hachée pour la déduplication ;
 // centre de zone arrondi (~1 km) ; purge des abonnements jamais confirmés.
-import { db, getSetting, getSettingNum } from '../db.js';
+import { db, getSetting, setSetting, getSettingNum } from '../db.js';
 import { encrypt, decrypt, hmac, sha256, uuid, randomToken } from './crypto.js';
 import { getBaseUrl } from '../config.js';
 import { msg } from '../i18n.js';
@@ -73,7 +73,7 @@ async function sendEmailViaResend(to, subject, html) {
 }
 
 // ── Abonnement (double consentement) ─────────────────────────────────────────
-export async function subscribeEmail({ email, lat, lng, radiusKm, country, types, lang }) {
+export async function subscribeEmail({ email, lat, lng, radiusKm, country, types, lang, digest = false }) {
   const emailHash = hmac(`emailalert:${email.toLowerCase()}`);
   const existing = db.prepare(
     `SELECT id, confirmed_at FROM email_alert_subscriptions WHERE email_hash = ?`).get(emailHash);
@@ -82,22 +82,22 @@ export async function subscribeEmail({ email, lat, lng, radiusKm, country, types
   if (existing) {
     // Ré-abonnement : met à jour la zone, renvoie une confirmation si besoin.
     db.prepare(`UPDATE email_alert_subscriptions SET center_lat = ?, center_lng = ?,
-                radius_km = ?, country_code = ?, types = ?, lang = ?,
+                radius_km = ?, country_code = ?, types = ?, lang = ?, digest_opt_in = ?,
                 confirm_token_hash = CASE WHEN confirmed_at IS NULL THEN ? ELSE confirm_token_hash END
                 WHERE id = ?`)
       .run(Math.round(lat * 100) / 100, Math.round(lng * 100) / 100, radiusKm, country,
-        types || '', lang, sha256(confirmToken), existing.id);
+        types || '', lang, digest ? 1 : 0, sha256(confirmToken), existing.id);
     if (existing.confirmed_at) return { status: 'already_confirmed' };
     await sendConfirmation(email, lang, confirmToken);
     return { status: 'confirmation_sent' };
   }
   db.prepare(`INSERT INTO email_alert_subscriptions
       (id, email_hash, email_encrypted, country_code, center_lat, center_lng,
-       radius_km, types, lang, confirm_token_hash, unsub_token)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+       radius_km, types, lang, digest_opt_in, confirm_token_hash, unsub_token)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .run(uuid(), emailHash, encrypt(email), country,
       Math.round(lat * 100) / 100, Math.round(lng * 100) / 100,
-      radiusKm, types || '', lang, sha256(confirmToken), unsubToken);
+      radiusKm, types || '', lang, digest ? 1 : 0, sha256(confirmToken), unsubToken);
   await sendConfirmation(email, lang, confirmToken);
   return { status: 'confirmation_sent' };
 }
@@ -193,4 +193,85 @@ export function pruneEmailSubscriptions() {
   db.prepare(`DELETE FROM email_alert_subscriptions
       WHERE confirmed_at IS NULL
         AND created_at < strftime('%Y-%m-%dT%H:%M:%fZ','now','-48 hours')`).run();
+}
+
+// ── Brief quotidien de zone (opt-in SÉPARÉ des alertes immédiates) ──────────
+// Un e-mail par jour MAXIMUM, envoyé le matin (~7 h, heure du pays), et
+// UNIQUEMENT s'il y a quelque chose à dire (incidents actifs dans le rayon,
+// ou vigilance en cours côté France). Zone calme = aucun e-mail — jamais de
+// bruit fabriqué pour « faire revenir ».
+export async function sendDailyDigests({ force = false } = {}) {
+  if (!emailAlertsConfigured()) return { sent: 0, skipped: 'not_configured' };
+  if (getSetting('email_alerts_enabled') === '0') return { sent: 0, skipped: 'disabled' };
+  const today = new Date().toISOString().slice(0, 10);
+  if (!force) {
+    if (getSetting('email_digest_last_date') === today) return { sent: 0, skipped: 'already_today' };
+    // Fenêtre d'envoi : à partir de 7 h, heure de Paris/Tunis (même bande).
+    const hourParis = Number(new Intl.DateTimeFormat('fr-FR',
+      { hour: 'numeric', hour12: false, timeZone: 'Europe/Paris' }).format(new Date()));
+    if (hourParis < 7) return { sent: 0, skipped: 'too_early' };
+  }
+  setSetting('email_digest_last_date', today);
+  const dailyMax = getSettingNum('email_alerts_daily_max') || 5;
+  const subs = db.prepare(
+    `SELECT * FROM email_alert_subscriptions
+     WHERE confirmed_at IS NOT NULL AND digest_opt_in = 1`).all();
+  let sent = 0;
+  for (const s of subs) {
+    try {
+      if (s.day === today && s.day_count >= dailyMax) continue;
+      // Contenu RÉEL de la zone : incidents actifs dans le rayon.
+      const dLat = s.radius_km / 111;
+      const dLng = s.radius_km / (111 * Math.max(.2, Math.cos((s.center_lat * Math.PI) / 180)));
+      const actives = db.prepare(
+        `SELECT type, public_area, public_lat, public_lng FROM incidents
+         WHERE status = 'active' AND COALESCE(country_code,'TN') = ?
+           AND public_lat BETWEEN ? AND ? AND public_lng BETWEEN ? AND ?`)
+        .all(s.country_code, s.center_lat - dLat, s.center_lat + dLat,
+          s.center_lng - dLng, s.center_lng + dLng)
+        .filter((i) => distanceKm(s.center_lat, s.center_lng, i.public_lat, i.public_lng) <= s.radius_km);
+      // Vigilance PERTINENTE pour la zone : départements en alerte dont le
+      // centre est à moins de ~100 km (jamais un brief pour l'autre bout du
+      // pays — le bruit détruit la confiance).
+      let vigilance = 0;
+      if (s.country_code === 'FR') {
+        vigilance = db.prepare(
+          `SELECT centroid_lat, centroid_lng FROM official_updates
+           WHERE authority_id = 'mf_vigilance' AND status = 'current' AND is_published = 1
+             AND (valid_until IS NULL OR valid_until > strftime('%Y-%m-%dT%H:%M:%fZ','now'))`).all()
+          .filter((v) => v.centroid_lat != null
+            && distanceKm(s.center_lat, s.center_lng, v.centroid_lat, v.centroid_lng) <= 100).length;
+      }
+      if (!actives.length && !vigilance) continue; // rien à dire → pas d'e-mail
+      const lang = s.lang === 'ar' ? 'ar' : 'fr';
+      const byType = {};
+      for (const i of actives) byType[i.type] = (byType[i.type] || 0) + 1;
+      const lines = Object.entries(byType).map(([tp, n]) =>
+        `<p style="margin:0 0 4px">• ${n} × ${msg(lang, `type_${tp}`) || tp}</p>`).join('');
+      const email = decrypt(s.email_encrypted);
+      const unsubUrl = `${getBaseUrl()}/api/public/email-alerts/unsubscribe?token=${encodeURIComponent(s.unsub_token)}`;
+      await sendEmailViaResend(email,
+        msg(lang, 'email_digest_subject'),
+        emailTemplate({
+          lang,
+          heading: msg(lang, 'email_digest_heading'),
+          bodyHtml: `${actives.length
+            ? `<p style="margin:0 0 6px"><strong>${msg(lang, 'email_digest_active', { n: actives.length })}</strong></p>${lines}`
+            : ''}
+            ${vigilance ? `<p style="margin:6px 0 0">⚠️ ${msg(lang, 'email_digest_vigilance', { n: vigilance })}</p>` : ''}`,
+          ctaLabel: msg(lang, 'email_view_link'),
+          ctaUrl: `${getBaseUrl()}/?src=digest`,
+          footHtml: `${msg(lang, 'email_footer_notice')}<br>
+            <a href="${unsubUrl}" style="color:#8a8578">${msg(lang, 'email_unsub_note')}</a>`,
+        }));
+      db.prepare(`UPDATE email_alert_subscriptions SET last_notified_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+                  day = ?, day_count = CASE WHEN day = ? THEN day_count + 1 ELSE 1 END, failures = 0
+                  WHERE id = ?`).run(today, today, s.id);
+      sent++;
+    } catch (e) {
+      db.prepare(`UPDATE email_alert_subscriptions SET failures = failures + 1 WHERE id = ?`).run(s.id);
+      console.error('[email-digest]', String(e?.message || '').replace(KEY(), '***').slice(0, 120));
+    }
+  }
+  return { sent };
 }

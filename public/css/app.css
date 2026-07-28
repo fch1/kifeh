@@ -28,6 +28,13 @@
 }
 
 :root {
+  /* Échelle typographique UNIQUE (audit design) : toute taille de texte de
+     l'interface vient d'ici — fini les valeurs dispersées au hasard. */
+  --fs-xs: .6875rem;   /* étiquettes de navigation, mentions */
+  --fs-sm: .8125rem;   /* texte secondaire, légendes */
+  --fs-md: .9375rem;   /* texte courant */
+  --fs-lg: 1.0625rem;  /* boutons principaux, sous-titres */
+  --fs-xl: 1.25rem;    /* titres de feuille */
   /* Charte officielle Kifeh (identique au marketing) : encre marine, rouge
      signal, fond crème. Le rouge de marque porte l'action principale ; les
      couleurs sémantiques (danger, types d'incident) restent distinctes. */
@@ -69,12 +76,12 @@ html[lang="ar"] body, html[lang="ar"] input, html[lang="ar"] select,
 html[lang="ar"] textarea, html[lang="ar"] button { font-family: var(--font-ar); }
 html[lang="ar"] p, html[lang="ar"] label { line-height: 1.6; }
 
-h1 { font-size: 1.25rem; font-weight: 700; margin: 0; }
+h1 { font-size: var(--fs-xl); font-weight: 700; margin: 0; }
 h2 { font-size: 1.09rem; font-weight: 600; margin: 0 0 .5rem; }
 p { margin: .4rem 0; }
 a { color: var(--primary); }
-.muted { color: var(--muted); font-size: .875rem; }
-.small { font-size: .8125rem; }
+.muted { color: var(--muted); font-size: var(--fs-sm); }
+.small { font-size: var(--fs-sm); }
 .brand-logo { height: 34px; width: auto; flex-shrink: 0; }
 
 /* Boutons — cibles tactiles ≥ 48px */
@@ -91,10 +98,10 @@ a { color: var(--primary); }
 .btn.secondary:hover { background: #F1EDE4; }
 .btn.danger { background: var(--danger); }
 .btn.ghost { background: transparent; color: var(--primary); width: auto; }
-.btn.small-btn { min-height: 40px; font-size: .875rem; width: auto; padding: 0 .875rem; }
+.btn.small-btn { min-height: 40px; font-size: var(--fs-sm); width: auto; padding: 0 .875rem; }
 
 /* Champs */
-label { display: block; font-weight: 600; font-size: .9375rem; margin: .875rem 0 .25rem; }
+label { display: block; font-weight: 600; font-size: var(--fs-md); margin: .875rem 0 .25rem; }
 input[type=text], input[type=tel], input[type=email], input[type=number],
 input[type=datetime-local], input[type=password], select, textarea {
   width: 100%; min-height: var(--tap); padding: .625rem .875rem; font-size: 1rem;
@@ -105,7 +112,7 @@ textarea { min-height: 90px; resize: vertical; }
 input:focus, select:focus, textarea:focus, .btn:focus-visible {
   outline: 3px solid rgba(30, 42, 77, .4); outline-offset: 1px;
 }
-.field-error { color: var(--danger); font-size: .875rem; margin-top: .25rem; }
+.field-error { color: var(--danger); font-size: var(--fs-sm); margin-top: .25rem; }
 /* Numéros de téléphone et dates : toujours de gauche à droite, même en RTL */
 input[type=tel], input[type=datetime-local], input[type=email], .otp-input { direction: ltr; }
 html[dir="rtl"] input[type=tel], html[dir="rtl"] input[type=email] { text-align: right; }
@@ -184,14 +191,14 @@ html[dir="rtl"] .topbar .back .arrow { display: inline-block; transform: scaleX(
 }
 .search-results button {
   display: block; width: 100%; text-align: start; padding: .75rem 1rem; min-height: var(--tap);
-  border: none; background: none; font-size: .9375rem; cursor: pointer;
+  border: none; background: none; font-size: var(--fs-md); cursor: pointer;
   border-bottom: 1px solid var(--border); font-family: inherit; color: var(--text);
 }
 .search-results button:hover { background: #F1EDE4; }
 .chips { display: flex; gap: .5rem; overflow-x: auto; padding-bottom: 2px; }
 .chip {
   min-height: 40px; padding: 0 .875rem; border-radius: 20px; border: 1px solid var(--border);
-  background: var(--surface); font-size: .875rem; font-weight: 600; cursor: pointer;
+  background: var(--surface); font-size: var(--fs-sm); font-weight: 600; cursor: pointer;
   display: inline-flex; align-items: center; gap: .375rem; white-space: nowrap;
   box-shadow: var(--shadow); font-family: inherit; color: var(--text);
 }
@@ -220,17 +227,19 @@ html[dir="rtl"] .topbar .back .arrow { display: inline-block; transform: scaleX(
 .nav-item {
   appearance: none; background: none; border: 0; font-family: inherit;
   display: flex; flex-direction: column; align-items: center; gap: .125rem;
-  padding: .375rem .25rem; color: var(--muted, #6b7280); font-size: .6875rem;
+  padding: .375rem .25rem; color: var(--muted, #6b7280); font-size: var(--fs-xs);
   font-weight: 600; cursor: pointer; border-radius: 10px; min-width: 0;
 }
-.nav-item .nav-ico { font-size: 1.25rem; line-height: 1; }
+.nav-item .nav-ico { font-size: var(--fs-xl); line-height: 1; display: inline-flex; }
+.nav-item .nav-ico svg { width: 1.375rem; height: 1.375rem; }
+.fab svg { width: 1.25rem; height: 1.25rem; }
 .nav-item[aria-current="page"], .nav-item[aria-pressed="true"] { color: var(--primary-dark); }
 .nav-item:active { background: rgba(0, 0, 0, .05); }
 /* « Signaler » : l'action centrale de la marque — cercle rouge surélevé. */
 .nav-declare {
   display: flex; flex-direction: column; align-items: center; gap: .125rem;
   padding: 0 .625rem .375rem; color: var(--brand-red); text-decoration: none;
-  font-size: .6875rem; font-weight: 700;
+  font-size: var(--fs-xs); font-weight: 700;
 }
 .nav-declare-plus {
   display: flex; align-items: center; justify-content: center;
@@ -251,7 +260,7 @@ html[dir="rtl"] .topbar .back .arrow { display: inline-block; transform: scaleX(
   appearance: none; border: 1px solid var(--border, #e5e0d8); cursor: pointer;
   width: 2.75rem; height: 2.75rem; border-radius: 50%;
   background: var(--surface); box-shadow: var(--shadow);
-  font-size: 1.25rem; display: flex; align-items: center; justify-content: center;
+  font-size: var(--fs-xl); display: flex; align-items: center; justify-content: center;
 }
 .fab:active { transform: scale(.96); }
 .fab-zoom { font-size: 1.375rem; font-weight: 600; color: var(--primary-dark); }
@@ -288,7 +297,7 @@ button.brand-name { appearance: none; border: 0; cursor: pointer; font: inherit;
   max-width: 380px; width: 100%; padding: 1.25rem;
   display: flex; flex-direction: column; gap: .625rem;
 }
-.onboard-brand { margin: 0; font-size: 1.25rem; }
+.onboard-brand { margin: 0; font-size: var(--fs-xl); }
 .onboard-tagline { margin: 0; color: var(--muted); font-style: italic; }
 .onboard-item { display: flex; gap: .625rem; align-items: flex-start; }
 .onboard-item > span:first-child { font-size: 1.375rem; }
@@ -301,7 +310,7 @@ button.brand-name { appearance: none; border: 0; cursor: pointer; font: inherit;
 }
 .dfci-code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 1.25rem; font-weight: 700; letter-spacing: .08em;
+  font-size: var(--fs-xl); font-weight: 700; letter-spacing: .08em;
   color: var(--primary-dark); unicode-bidi: isolate;
 }
 
@@ -309,7 +318,7 @@ button.brand-name { appearance: none; border: 0; cursor: pointer; font: inherit;
 .road-pin {
   width: 26px; height: 26px; border-radius: 8px; background: var(--surface);
   border: 1.5px solid #B98A1F; box-shadow: var(--shadow);
-  display: flex; align-items: center; justify-content: center; font-size: .875rem;
+  display: flex; align-items: center; justify-content: center; font-size: var(--fs-sm);
 }
 .road-pin.road-closed { border-color: var(--brand-red-dark); }
 
@@ -321,11 +330,11 @@ button.brand-name { appearance: none; border: 0; cursor: pointer; font: inherit;
 }
 .counter {
   align-self: center; background: var(--surface); border-radius: 20px; padding: .375rem .875rem;
-  font-size: .8125rem; font-weight: 600; box-shadow: var(--shadow);
+  font-size: var(--fs-sm); font-weight: 600; box-shadow: var(--shadow);
 }
 /* Action principale de la marque : rouge signal (comme le marketing). */
 .btn-declare {
-  box-shadow: var(--shadow); font-size: 1.0625rem;
+  box-shadow: var(--shadow); font-size: var(--fs-lg);
   background: var(--brand-red); border-radius: 999px;
 }
 .btn-declare:hover, .btn-declare:active { background: var(--brand-red-dark); }
@@ -359,7 +368,7 @@ button.brand-name { appearance: none; border: 0; cursor: pointer; font: inherit;
 /* Badges type / statut — couleur + icône + libellé, jamais la couleur seule */
 .badge {
   display: inline-flex; align-items: center; gap: .3rem; padding: .2rem .6rem;
-  border-radius: 14px; font-size: .8125rem; font-weight: 700; color: #fff;
+  border-radius: 14px; font-size: var(--fs-sm); font-weight: 700; color: #fff;
 }
 .badge.electricity { background: var(--elec); }
 .badge.water { background: var(--water); }
@@ -395,7 +404,7 @@ button.brand-name { appearance: none; border: 0; cursor: pointer; font: inherit;
 .type-card {
   min-height: 108px; border: 2px solid var(--border); border-radius: var(--radius);
   background: var(--surface); display: flex; flex-direction: column; align-items: center;
-  justify-content: center; gap: .4rem; font-size: .9375rem; font-weight: 700; cursor: pointer;
+  justify-content: center; gap: .4rem; font-size: var(--fs-md); font-weight: 700; cursor: pointer;
   color: var(--text); font-family: inherit;
 }
 .type-card .icon { font-size: 2rem; }
@@ -433,7 +442,7 @@ button.brand-name { appearance: none; border: 0; cursor: pointer; font: inherit;
 .map-banner {
   position: fixed; top: calc(148px + env(safe-area-inset-top)); left: .75rem; right: .75rem;
   z-index: 900; background: var(--surface); border-radius: var(--radius);
-  box-shadow: var(--shadow); padding: .6rem .75rem; font-size: .8125rem;
+  box-shadow: var(--shadow); padding: .6rem .75rem; font-size: var(--fs-sm);
   display: flex; align-items: center; gap: .5rem; justify-content: space-between;
 }
 .map-banner .btn { flex: 0 0 auto; min-height: 36px; }
@@ -442,7 +451,7 @@ button.brand-name { appearance: none; border: 0; cursor: pointer; font: inherit;
 /* Résumé d'information (compteur enrichi) */
 .counter { cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: .1rem; max-width: 92%; }
 .summary-where { font-weight: 400; font-size: .75rem; color: var(--muted); }
-.summary-types { font-weight: 600; font-size: .8125rem; }
+.summary-types { font-weight: 600; font-size: var(--fs-sm); }
 .summary-sat { font-weight: 600; font-size: .75rem; color: #8A4514; }
 .summary-degraded { font-weight: 400; font-size: .75rem; color: #8A4514; text-align: center; }
 
@@ -452,7 +461,7 @@ button.brand-name { appearance: none; border: 0; cursor: pointer; font: inherit;
   display: inline-block; background: var(--bg); border: 1px solid var(--border);
   border-radius: 999px; padding: .2rem .6rem; font-size: .75rem; margin: 0 .25rem .25rem 0;
 }
-.trust-capsule details { font-size: .8125rem; margin-top: .25rem; }
+.trust-capsule details { font-size: var(--fs-sm); margin-top: .25rem; }
 .trust-capsule summary { cursor: pointer; color: var(--primary); font-weight: 600; }
 
 /* Badge du bouton « Plus de filtres » (nombre de filtres actifs) */
@@ -489,7 +498,7 @@ button.brand-name { appearance: none; border: 0; cursor: pointer; font: inherit;
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 2900;
   background: var(--secondary); color: #fff; text-align: center;
   padding: .4rem .75rem calc(.4rem + env(safe-area-inset-bottom));
-  font-size: .8125rem; font-weight: 600;
+  font-size: var(--fs-sm); font-weight: 600;
 }
 .consent-banner {
   /* Sous les feuilles (z 1500) : la bannière ne bloque jamais Appliquer/Confirmer.
@@ -497,7 +506,7 @@ button.brand-name { appearance: none; border: 0; cursor: pointer; font: inherit;
   position: fixed; bottom: calc(3.75rem + env(safe-area-inset-bottom)); left: 0; right: 0; z-index: 1400;
   background: var(--primary); color: #fff;
   padding: .75rem 1rem calc(.75rem + env(safe-area-inset-bottom));
-  font-size: .8125rem; line-height: 1.45;
+  font-size: var(--fs-sm); line-height: 1.45;
   display: flex; flex-wrap: wrap; gap: .5rem .75rem; align-items: center; justify-content: center;
   box-shadow: 0 -2px 12px rgba(0,0,0,.18);
 }
@@ -505,14 +514,14 @@ button.brand-name { appearance: none; border: 0; cursor: pointer; font: inherit;
 .consent-banner a { color: #fff; text-decoration: underline; }
 .consent-actions { display: flex; gap: .5rem; flex-shrink: 0; }
 .consent-actions button {
-  border: 0; border-radius: 8px; padding: .5rem .9rem; font-size: .8125rem;
+  border: 0; border-radius: 8px; padding: .5rem .9rem; font-size: var(--fs-sm);
   font-weight: 600; cursor: pointer; font-family: inherit;
 }
 .consent-accept { background: var(--secondary); color: #fff; }
 .consent-refuse { background: rgba(255,255,255,.15); color: #fff; border: 1px solid rgba(255,255,255,.45) !important; }
 .offline-banner {
   position: fixed; top: 0; left: 0; right: 0; z-index: 3000; background: var(--warn); color: #fff;
-  text-align: center; padding: .5rem; font-size: .875rem; font-weight: 600; display: none;
+  text-align: center; padding: .5rem; font-size: var(--fs-sm); font-weight: 600; display: none;
 }
 .offline-banner.visible { display: block; }
 .spinner {
@@ -538,7 +547,7 @@ button.brand-name { appearance: none; border: 0; cursor: pointer; font: inherit;
   white-space: nowrap; font-family: inherit;
 }
 .admin-nav button[aria-selected="true"] { color: var(--primary); border-bottom-color: var(--primary); }
-table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
 th, td { text-align: start; padding: .5rem .4rem; border-bottom: 1px solid var(--border); vertical-align: top; }
 
 /* Marqueurs Leaflet */
@@ -624,7 +633,7 @@ html, body { overscroll-behavior: none; }
 /* Cartes d'incident : lieu lisible, terminés estompés, invitation à ouvrir */
 .list-place { font-weight: 600; }
 .list-ended { opacity: .62; }
-.list-chevron { align-self: center; color: var(--muted, #9a9a9a); font-size: 1.25rem; padding-inline-start: .25rem; }
+.list-chevron { align-self: center; color: var(--muted, #9a9a9a); font-size: var(--fs-xl); padding-inline-start: .25rem; }
 .follow-star { color: #C4622D; margin-inline-start: .25rem; }
 .empty-actions { display: flex; gap: .5rem; margin-top: .75rem; flex-wrap: wrap; }
 
@@ -643,7 +652,7 @@ html, body { overscroll-behavior: none; }
   box-shadow: 0 4px 18px rgb(30 42 77 / .18); max-width: min(92vw, 420px);
   cursor: pointer; border: 1px solid var(--border, #e5e0d8);
 }
-.since-banner .since-line { font-size: .875rem; margin-top: .25rem; }
+.since-banner .since-line { font-size: var(--fs-sm); margin-top: .25rem; }
 .since-close {
   position: absolute; top: .35rem; inset-inline-end: .4rem; border: none;
   background: none; font-size: 1rem; cursor: pointer; color: var(--muted, #777);
@@ -752,7 +761,7 @@ html, body { overscroll-behavior: none; }
   width: fit-content; max-width: 100%;
   border: none; cursor: pointer; margin-top: .5rem;
   background: rgb(255 255 255 / .92); border-radius: 999px;
-  padding: .45rem .9rem; min-height: 40px; font-size: .875rem;
+  padding: .45rem .9rem; min-height: 40px; font-size: var(--fs-sm);
   color: var(--text); box-shadow: 0 1px 6px rgb(30 42 77 / .12);
   font-family: inherit; overflow-x: auto; scrollbar-width: none; white-space: nowrap;
 }

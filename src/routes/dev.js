@@ -15,3 +15,10 @@ devRouter.post('/tick', async (req, res) => {
   await tick();
   res.json({ ok: true });
 });
+
+// Déclenche le brief quotidien SANS attendre 7 h (tests uniquement — ce
+// routeur n'est jamais monté en production).
+devRouter.post('/run-digest', async (req, res) => {
+  const { sendDailyDigests } = await import('../services/emailAlerts.js');
+  res.json(await sendDailyDigests({ force: true }));
+});

@@ -724,6 +724,7 @@ publicRouter.post('/email-alerts/subscribe', ipRateLimit('email_sub_ip', 6, 60),
     const r = await subscribeEmail({
       email, lat, lng, radiusKm, country: requestCountry(req),
       types: String(req.body?.types || '').slice(0, 60), lang,
+      digest: req.body?.digest === true, // brief quotidien : opt-in EXPLICITE
     });
     res.json({ ok: true, status: r.status, message: msg(req, r.status === 'already_confirmed'
       ? 'email_already_confirmed' : 'email_check_inbox') });
