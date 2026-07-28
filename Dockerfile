@@ -12,6 +12,14 @@ RUN npm ci --omit=dev
 COPY server.js ./
 COPY src ./src
 COPY public ./public
+COPY scripts ./scripts
+
+# Référentiel DFCI : donnée STATIQUE de l'application — construit DANS l'image,
+# HORS du volume /app/data (un volume vide monté ne peut pas l'effacer).
+RUN mkdir -p /app/reference \
+    && DFCI_REFERENCE_PATH=/app/reference/dfci-france.sqlite \
+       node scripts/build-dfci-reference.mjs --force
+ENV DFCI_REFERENCE_PATH=/app/reference/dfci-france.sqlite
 
 ENV NODE_ENV=production
 # Données persistantes (base SQLite + médias) : monter un volume sur /app/data et /app/uploads

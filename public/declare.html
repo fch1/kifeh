@@ -69,6 +69,9 @@
     <p class="muted small" style="margin-top:.75rem" data-i18n="move_marker"></p>
     <div id="miniMap" data-i18n-aria="minimap_aria"></div>
     <p id="addrDisplay" class="muted small" aria-live="polite"></p>
+    <!-- Repère DFCI (feux français) : calculé par le serveur pour la position
+         choisie — indicatif, jamais bloquant, invalidé à chaque déplacement. -->
+    <div class="dfci-block" id="dfciPreview" hidden aria-live="polite"></div>
     <button class="btn" id="btnLocationNext" disabled data-i18n="confirm_position"></button>
   </section>
 
@@ -103,6 +106,10 @@
     <div class="notice danger" id="fireWarning2" hidden role="alert">
       <strong data-i18n="fire_warning"></strong> <span data-i18n="fire_warning_suffix"></span>
     </div>
+    <!-- Parcours feu en 3 étapes : le moment est prérempli (« en cours,
+         depuis maintenant ») et reste MODIFIABLE d'un geste. -->
+    <p class="small" id="fireTimeLine" hidden>🕒 <span id="fireTimeText"></span>
+      <button type="button" class="btn ghost small-btn" id="fireTimeEdit" data-i18n="fire_time_edit"></button></p>
     <label for="descInput" data-i18n="desc_label"></label>
     <textarea id="descInput" maxlength="500" data-i18n-ph="desc_ph"></textarea>
     <label data-i18n="sev_q"></label>

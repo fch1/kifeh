@@ -15,6 +15,41 @@ function cacheKey(lat, lng) {
   return `${Math.round(lat * 10) / 10}:${Math.round(lng * 10) / 10}`;
 }
 
+// ── UN SEUL appel amont par point : vent + chaleur ensemble ─────────────────
+// Open-Meteo limite le débit par adresse IP : appeler séparément le vent puis
+// la chaleur pour chaque zone DOUBLAIT le volume (panne du 28/07 : limite
+// atteinte, couche météo indisponible). Protections :
+//   · fusion des champs en une requête ;
+//   · dédoublonnage des requêtes simultanées (une seule part) ;
+//   · anti-martèlement : après un échec, 5 min sans réessayer ce point.
+const pendingPoint = new Map();
+const pointFailAt = new Map();
+
+async function fetchPointJson(lat, lng, ttlMs) {
+  const key = cacheKey(lat, lng);
+  if (ttlMs > 0 && pointFailAt.has(key)
+      && Date.now() - pointFailAt.get(key) < 5 * 60_000) return null;
+  if (pendingPoint.has(key)) return pendingPoint.get(key);
+  const p = (async () => {
+    try {
+      const url = `${BASE()}/v1/meteofrance?latitude=${lat.toFixed(3)}&longitude=${lng.toFixed(3)}`
+        + `&current=wind_speed_10m,wind_direction_10m,wind_gusts_10m,temperature_2m,apparent_temperature,cloud_cover,relative_humidity_2m`
+        + `&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m,temperature_2m,visibility`
+        + `&forecast_days=1&timezone=UTC`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+      if (!res.ok) throw new Error(`meteo ${res.status}`);
+      const j = await res.json();
+      pointFailAt.delete(key);
+      return j;
+    } catch {
+      pointFailAt.set(key, Date.now());
+      return null;
+    } finally { pendingPoint.delete(key); }
+  })();
+  pendingPoint.set(key, p);
+  return p;
+}
+
 // Vent à un point (France) : { speedKmh, gustsKmh, directionFromDeg,
 // directionToDeg, observedAt, provider, fetchedAt } ou null si indisponible.
 export async function getWind(lat, lng) {
@@ -24,14 +59,11 @@ export async function getWind(lat, lng) {
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < ttlMs) return hit.data;
   try {
-    const url = `${BASE()}/v1/meteofrance?latitude=${lat.toFixed(3)}&longitude=${lng.toFixed(3)}`
-      + `&current=wind_speed_10m,wind_direction_10m,wind_gusts_10m`
-      + `&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m&forecast_days=1&timezone=UTC`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
-    if (!res.ok) throw new Error(`meteo ${res.status}`);
-    const j = await res.json();
+    const j = await fetchPointJson(lat, lng, ttlMs);
+    if (!j) return null;
     const c = j.current || {};
     if (!Number.isFinite(c.wind_speed_10m) || !Number.isFinite(c.wind_direction_10m)) return null;
+    fillHeatFromJson(lat, lng, j); // même réponse → chaleur remplie GRATUITEMENT
     // Vent À VENIR (+3 h, +6 h) : prévision météo honnête — jamais un cône de
     // « trajectoire du feu » (le vent prévu n'est pas une propagation prédite).
     const forecast = [];
@@ -85,13 +117,19 @@ export async function getHeat(lat, lng) {
   const hit = heatCache.get(key);
   if (hit && Date.now() - hit.at < ttlMs) return hit.data;
   try {
-    const url = `${BASE()}/v1/meteofrance?latitude=${lat.toFixed(3)}&longitude=${lng.toFixed(3)}`
-      + `&current=temperature_2m,apparent_temperature,cloud_cover,relative_humidity_2m`
-      + `&hourly=temperature_2m,visibility`
-      + `&forecast_days=1&timezone=UTC`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
-    if (!res.ok) throw new Error(`meteo ${res.status}`);
-    const j = await res.json();
+    const j = await fetchPointJson(lat, lng, ttlMs);
+    if (!j) return null;
+    return fillHeatFromJson(lat, lng, j);
+  } catch {
+    return null; // panne indépendante : la chaleur manquante ne bloque rien
+  }
+}
+
+// Construit et met en cache la chaleur depuis une réponse déjà obtenue
+// (appelée par getHeat ET par getWind — un seul appel amont pour les deux).
+function fillHeatFromJson(lat, lng, j) {
+  const key = cacheKey(lat, lng);
+  try {
     const c = j.current || {};
     if (!Number.isFinite(c.temperature_2m)) return null;
     // Maximum du jour et son heure (UTC → le client affiche en heure locale) ;
@@ -133,12 +171,23 @@ export async function getHeat(lat, lng) {
 // Le navigateur ne reçoit que des valeurs prêtes à dessiner — jamais de GRIB.
 const gridCache = new Map();
 
+const gridPending = new Map();
+const gridFailAt = new Map();
+
 export async function getWeatherGrid(minLat, maxLat, minLng, maxLng, n = 4) {
   const key = `${Math.round(minLat * 4) / 4}:${Math.round(maxLat * 4) / 4}:${Math.round(minLng * 4) / 4}:${Math.round(maxLng * 4) / 4}:${n}`;
   const cfgMin = getSettingNum('wind_cache_min');
-  const ttlMs = (Number.isFinite(cfgMin) && cfgMin >= 0 ? cfgMin : 15) * 60_000;
+  // La grille change lentement : cache 30 min par défaut (débit Open-Meteo
+  // limité par IP — panne du 28/07) ; 0 = sans cache (tests) comme partout.
+  const ttlMs = (Number.isFinite(cfgMin) && cfgMin >= 0
+    ? (cfgMin === 0 ? 0 : Math.max(cfgMin, 30)) : 30) * 60_000;
   const hit = gridCache.get(key);
   if (hit && Date.now() - hit.at < ttlMs) return hit.data;
+  // Anti-martèlement : zone en échec récent → pas de nouvel essai avant 5 min.
+  if (ttlMs > 0 && gridFailAt.has(key) && Date.now() - gridFailAt.get(key) < 5 * 60_000) return null;
+  // Dédoublonnage : plusieurs visiteurs sur la même zone = UNE requête amont.
+  if (gridPending.has(key)) return gridPending.get(key);
+  const inflight = (async () => {
   try {
     const lats = [], lngs = [];
     for (let i = 0; i < n; i++) {
@@ -172,10 +221,15 @@ export async function getWeatherGrid(minLat, maxLat, minLng, maxLng, n = 4) {
     };
     gridCache.set(key, { at: Date.now(), data });
     if (gridCache.size > 200) gridCache.delete(gridCache.keys().next().value);
+    gridFailAt.delete(key);
     return data;
   } catch {
+    gridFailAt.set(key, Date.now());
     return null; // panne indépendante
-  }
+  } finally { gridPending.delete(key); }
+  })();
+  gridPending.set(key, inflight);
+  return inflight;
 }
 
 export function windIsStale(wind) {

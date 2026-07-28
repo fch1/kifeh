@@ -121,10 +121,13 @@ async function declare(pg, type) {
   await pg.click('#miniMap', { position: { x: 150, y: 130 } });
   await pg.waitForTimeout(800);
   await pg.click('#btnLocationNext');
-  await pg.waitForTimeout(300);
-  await pg.click('#btnNow');
-  await pg.click('#btnTimeNext');
-  await pg.waitForTimeout(300);
+  await pg.waitForTimeout(400);
+  // Parcours feu en 3 étapes : le moment est prérempli, l'étape est sautée.
+  if (type !== 'fire') {
+    await pg.click('#btnNow');
+    await pg.click('#btnTimeNext');
+    await pg.waitForTimeout(300);
+  }
   await pg.fill('#descInput', `Test ${type} ${Math.random().toString(36).slice(2, 7)}`);
   await pg.waitForTimeout(1200); // délai minimal de remplissage
   await pg.click('#btnDetailsNext');
@@ -229,13 +232,21 @@ const applyVisible = await tiny.evaluate(() => {
   return r.top >= 0 && r.bottom <= window.innerHeight + 1 && r.height >= 40;
 });
 ok(applyVisible, '320px : « Appliquer » visible sans défiler (actions collantes)');
-// Déclaration : « Étape 1 sur 4 » quand la vérification est désactivée.
+// Déclaration : « Étape 1 sur 4 » quand la vérification est désactivée
+// (brouillon VIERGE — un brouillon feu repris affiche 3, c'est voulu).
 await tiny.goto(`${BASE}/declare.html`, { waitUntil: 'load' });
+await tiny.evaluate(() => localStorage.removeItem('incident_draft_v1'));
+await tiny.reload({ waitUntil: 'load' });
 await tiny.waitForTimeout(900);
 const hint = await tiny.evaluate(() => document.getElementById('stepHint').textContent);
 ok(/sur 4/.test(hint), `déclaration : compteur d'étapes réel (« ${hint} »)`);
 const visibleSegs = await tiny.evaluate(() => [...document.querySelectorAll('#progressBar span')].filter((s) => !s.hidden).length);
 ok(visibleSegs === 4, `barre de progression à 4 segments (${visibleSegs})`);
+// Parcours FEU : 3 étapes (le moment est prérempli et modifiable).
+await tiny.click('.type-card[data-type="fire"]');
+await tiny.waitForTimeout(1900);
+const hintFire = await tiny.evaluate(() => document.getElementById('stepHint').textContent);
+ok(/sur 3/.test(hintFire), `feu : parcours en 3 étapes (« ${hintFire} »)`);
 await tiny.close();
 
 // ── Multi-pays : première visite, persistance, indépendance pays/langue ─────

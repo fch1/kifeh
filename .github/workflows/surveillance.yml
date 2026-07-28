@@ -6,7 +6,8 @@ name: Surveillance production
 
 on:
   schedule:
-    - cron: '*/30 * * * *'
+    - cron: '*/30 * * * *'   # healthz : toutes les 30 min
+    - cron: '15 */6 * * *'   # parcours navigateur : toutes les 6 h
   workflow_dispatch:
 
 jobs:
@@ -31,7 +32,34 @@ jobs:
           h = json.load(sys.stdin)
           assert h.get('ok') is True, 'healthz ok:false'
           assert h.get('incidents', 0) >= 0, 'compteur incidents absent'
-          firms = h.get('firms', {})
-          assert firms.get('hasError') is not True, 'synchronisation NASA en erreur (stale >45min)'
-          print('Production saine —', h['incidents'], 'incidents,', firms.get('detections'), 'détections NASA')
+          # TOUTES les sources actives sont surveillées (audit 28/07) — une
+          # source non configurée/désactivée ne déclenche jamais de fausse panne.
+          for name in ('firms', 'vigilance', 'effis', 'roads'):
+              s = h.get(name) or {}
+              assert s.get('hasError') is not True, f'{name} en erreur persistante'
+          d = h.get('dfci') or {}
+          if d.get('enabled'):
+              assert d.get('referenceLoaded') is True, 'DFCI activé mais référentiel NON chargé'
+          print('Production saine —', h['incidents'], 'incidents ;',
+                'effis:', (h.get('effis') or {}).get('count'),
+                '· routes:', (h.get('roads') or {}).get('count'),
+                '· NASA:', (h.get('firms') or {}).get('detections'))
           "
+
+  # Smoke test des VRAIS parcours (lecture seule) : /healthz prouve que le
+  # serveur vit ; ce job prouve qu'une personne peut UTILISER Kifeh (carte,
+  # Situation, Couches, arabe, déclaration disponible, PWA). Toutes les 6 h.
+  parcours:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '15 */6 * * *'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Parcours réels en production (lecture seule)
+        run: PROD_URL=https://kifeh.app node tests/prod-smoke.mjs

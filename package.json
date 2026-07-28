@@ -1,7 +1,7 @@
 {
   "name": "kifeh",
   "version": "1.0.0",
-  "description": "Plateforme citoyenne tunisienne de signalement d’incidents en temps réel (électricité, eau, incendies, internet) — FR/AR, carte communautaire + détections satellite NASA FIRMS.",
+  "description": "Kifeh — l’information qui aide à agir. Carte citoyenne en temps réel des incidents (incendie, électricité, eau, internet) en Tunisie et en France — FR/AR RTL, signalements communautaires + NASA FIRMS, Copernicus EFFIS, Vigilance Météo-France, Bison Futé.",
   "main": "server.js",
   "directories": {
     "doc": "docs",
@@ -18,13 +18,18 @@
   },
   "keywords": [
     "tunisia",
+    "france",
     "civic-tech",
     "incidents",
+    "wildfire",
     "map",
     "nasa-firms",
+    "copernicus-effis",
     "community",
     "arabic",
-    "rtl"
+    "french",
+    "rtl",
+    "pwa"
   ],
   "author": "Farah Chabchoub",
   "license": "MIT",

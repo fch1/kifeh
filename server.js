@@ -107,16 +107,27 @@ app.get('/healthz', (req, res) => {
   // Bison Futé : routes barrées & entraves (indicateurs seuls).
   let roads = null;
   try { roads = roadsStatus(); } catch { /* idem */ }
-  // Repère DFCI : activé ? référence chargée ? version ? (jamais le chemin local)
+  // Repère DFCI : activé ? référence chargée ? version ? (jamais le chemin
+  // local). hasError = activé SANS référentiel (postinstall silencieusement
+  // raté) — condition d'alerte de la surveillance.
   let dfci = null;
   try {
     dfci = {
       enabled: dfciEnabled(),
       referenceLoaded: dfciReferenceLoaded(),
       version: dfciReferenceVersion(),
+      hasError: dfciEnabled() && !dfciReferenceLoaded(),
     };
   } catch { /* idem */ }
-  res.json({ ok: true, backupAt, incidents, firms, offsite, vigilance, emailAlerts, effis, roads, dfci });
+  // Fraîcheur LISIBLE de chaque source (audit : « ageSeconds » par intégration).
+  const withAge = (s) => (s && typeof s === 'object'
+    ? { ...s, ageSeconds: s.lastSuccess ? Math.max(0, Math.round((Date.now() - Date.parse(s.lastSuccess)) / 1000)) : null }
+    : s);
+  res.json({
+    ok: true, backupAt, incidents,
+    firms: withAge(firms), offsite, vigilance: withAge(vigilance),
+    emailAlerts, effis: withAge(effis), roads: withAge(roads), dfci,
+  });
 });
 
 // ── Sandbox (/sandbox) — environnement de test totalement cloisonné ─────────

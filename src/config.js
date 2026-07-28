@@ -106,6 +106,11 @@ export const config = {
 
 // Valeurs par défaut des réglages administrables (table settings).
 export const defaultSettings = {
+  // Repère DFCI (feux français) : le CALCUL est actif par défaut (interne,
+  // vérifiable via /healthz et le backfill --dry-run) ; l'AFFICHAGE public
+  // reste éteint jusqu'à validation opérationnelle (docs/DFCI.md).
+  dfci_enabled_fr: '1',
+  dfci_public_display_enabled: '0',
   verification_required: '1',   // 0 = publication directe sans OTP (temporaire, le temps de configurer SMS/e-mail)
   other_category_enabled: '0',        // catégorie « Autre » désactivée par défaut
   anonymize_radius_m: '250',          // rayon d'anonymisation public (100–300 m)

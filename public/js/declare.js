@@ -47,33 +47,59 @@ const TITLES = {
   stepDup: ['t_dup', null], step5: ['t_contact', 5], step6: ['t_verif', 6], stepDone: ['t_done', null],
 };
 const ORDER_FOR_BACK = { step2: 'step1', step3: 'step2', step4: 'step3', stepDup: 'step4', step5: 'step4', step6: 'step5' };
+// Feu : l'étape « moment » est sautée (préremplie) — le retour aussi.
+function backTarget(stepId) {
+  if (state.type === 'fire' && stepId === 'step4') return 'step2';
+  return ORDER_FOR_BACK[stepId];
+}
+// Numérotation AFFICHÉE : pour un feu, les étapes après la localisation
+// reculent d'un cran (3 étapes au lieu de 4 sans vérification de contact).
+function displayNum(stepId) {
+  const n = TITLES[stepId]?.[1];
+  if (!n) return null;
+  return state.type === 'fire' && n > 3 ? n - 1 : n;
+}
 
 // Nombre d'étapes RÉEL affiché à l'utilisateur : 4 quand la vérification de
 // contact est désactivée (le parcours saute contact + code), 6 sinon.
 let stepsTotal = 6;
 function applyStepsTotal() {
-  document.querySelectorAll('#progressBar span').forEach((s, idx) => { s.hidden = idx >= stepsTotal; });
-  if (TITLES[state.step]?.[1]) {
-    document.getElementById('stepHint').textContent = t('step_of', { n: TITLES[state.step][1], total: stepsTotal });
+  const total = stepsTotal - (state.type === 'fire' ? 1 : 0);
+  document.querySelectorAll('#progressBar span').forEach((s, idx) => { s.hidden = idx >= total; });
+  if (displayNum(state.step)) {
+    document.getElementById('stepHint').textContent = t('step_of', { n: displayNum(state.step), total });
   }
 }
 
 function show(stepId) {
   for (const id of STEPS) document.getElementById(id).hidden = id !== stepId;
-  const [titleKey, n] = TITLES[stepId];
+  const [titleKey] = TITLES[stepId];
+  const n = displayNum(stepId);
+  const total = stepsTotal - (state.type === 'fire' ? 1 : 0);
   document.getElementById('stepTitle').textContent = t(titleKey);
   document.getElementById('stepHint').textContent =
-    n ? t('step_of', { n, total: stepsTotal }) : t(stepId === 'stepDone' ? 'step_done_hint' : 'step_verif_hint');
-  const idx = ['step1', 'step2', 'step3', 'step4', 'step5', 'step6'].indexOf(stepId);
-  document.querySelectorAll('#progressBar span').forEach((s, i) => s.classList.toggle('done', idx >= 0 && i <= idx));
+    n ? t('step_of', { n, total }) : t(stepId === 'stepDone' ? 'step_done_hint' : 'step_verif_hint');
+  document.querySelectorAll('#progressBar span').forEach((s, i) => s.classList.toggle('done', n != null && i < n));
   state.step = stepId; save();
   window.scrollTo(0, 0);
   if (stepId === 'step2') setTimeout(initMiniMap, 50);
+  // Feu : rappel du moment prérempli, modifiable d'un geste.
+  const ftl = document.getElementById('fireTimeLine');
+  if (ftl) {
+    const showLine = stepId === 'step4' && state.type === 'fire' && state.temporalStatus === 'ongoing';
+    ftl.hidden = !showLine;
+    if (showLine) document.getElementById('fireTimeText').textContent = t('fire_time_now');
+  }
 }
 
 document.getElementById('btnBack').addEventListener('click', () => {
-  const prev = ORDER_FOR_BACK[state.step];
+  const prev = backTarget(state.step);
   if (prev) show(prev); else location.href = 'index.html';
+});
+document.getElementById('fireTimeEdit')?.addEventListener('click', () => {
+  // Repasser par l'étape « moment » complète (btnTimeNext ramène à l'étape 4).
+  document.getElementById('startInput').value = toLocalInput(state.startedAt || new Date());
+  show('step3');
 });
 
 // --- Étape 1 : type ---------------------------------------------------------
@@ -138,8 +164,56 @@ function initMiniMap() {
   }
 }
 
+// ── Repère DFCI (feux français) : prévisualisation NON bloquante ────────────
+// Invalidé dès que le marqueur bouge ; recalculé après 500 ms d'immobilité ;
+// l'indisponibilité n'empêche JAMAIS de continuer. Le serveur RECALCULE de
+// toute façon le code à la création (cette valeur n'est jamais renvoyée).
+let dfciTimer = null, dfciSeq = 0;
+function scheduleDfciPreview() {
+  const el = document.getElementById('dfciPreview');
+  if (!el) return;
+  state.dfciCodePreview = null;
+  if (state.type !== 'fire' || state.lat == null) { el.hidden = true; return; }
+  el.hidden = false;
+  el.innerHTML = `<span class="muted small">${esc(t('dfci_searching'))}</span>`;
+  clearTimeout(dfciTimer);
+  const seq = ++dfciSeq;
+  dfciTimer = setTimeout(async () => {
+    let r = null, failed = false;
+    try {
+      r = await API.post('/api/public/location/dfci', {
+        lat: state.lat, lng: state.lng, country: 'FR', type: 'fire',
+        gpsAccuracy: state.gpsAccuracy || null,
+      });
+    } catch { failed = true; }
+    if (seq !== dfciSeq) return; // le marqueur a bougé : résultat périmé
+    if (failed) {
+      el.innerHTML = `<span class="muted small">${esc(t('dfci_unavailable'))}</span>`;
+      return;
+    }
+    if (!r?.available) { el.hidden = true; return; } // hors France / désactivé
+    state.dfciCodePreview = r.dfci.code;
+    el.innerHTML = `
+      <span class="small"><strong>${esc(t('dfci_label'))}</strong> · ${esc(t('dfci_precision'))}${r.dfci.indicative ? ` · ${esc(t('dfci_indicative'))}` : ''}</span>
+      <span class="dfci-code" dir="ltr">${esc(r.dfci.code)}</span>
+      <button type="button" class="btn ghost small-btn" id="dfciPrevCopy">${esc(t('dfci_copy'))}</button>
+      <span class="muted small">${esc(t('dfci_help'))}</span>`;
+    document.getElementById('dfciPrevCopy')?.addEventListener('click', async (ev) => {
+      try {
+        await navigator.clipboard.writeText(r.dfci.code);
+        ev.currentTarget.textContent = t('dfci_copied');
+      } catch { /* le code reste sélectionnable */ }
+    });
+    if (state.gpsAccuracy > 500) {
+      el.insertAdjacentHTML('beforeend',
+        `<span class="muted small">${esc(t('dfci_accuracy_warning'))}</span>`);
+    }
+  }, 500);
+}
+
 async function setPoint(lat, lng, source, opts = {}) {
   state.lat = lat; state.lng = lng; state.locationSource = source;
+  scheduleDfciPreview(); // invalide l'ancien repère, relance après immobilité
   if (!marker) {
     marker = L.marker([lat, lng], { draggable: true, icon: typeIcon(state.type || 'other', 'active') }).addTo(miniMap);
     marker.on('dragend', () => {
@@ -242,6 +316,18 @@ document.getElementById('btnLocationNext').addEventListener('click', (e) => with
   } catch { state.country = state.country || currentCountry(); } // hors connexion : le serveur tranchera
   applyCountryToContactUI();
   save();
+  // Parcours FEU en 3 étapes : le moment est prérempli (« en cours, depuis
+  // maintenant, approximatif ») — modifiable d'un geste depuis l'étape
+  // suivante. Un feu se signale VITE ; les autres types gardent leur étape.
+  if (state.type === 'fire') {
+    state.temporalStatus = 'ongoing';
+    state.startedAt = new Date().toISOString();
+    state.endedAt = null;
+    state.timeApproximate = true;
+    save();
+    show('step4');
+    return;
+  }
   show('step3');
 }));
 
@@ -620,7 +706,24 @@ function finish(r) {
     <p><span class="badge ${esc(i.type)}">${TYPE_ICONS[i.type]} ${esc(TYPE_LABELS[i.type])}</span>
        <span class="badge status ${esc(r.status)}">${esc(STATUS_LABELS[r.status] || r.status)}</span></p>
     <p class="muted">${esc(i.area || t('area_approx'))}<br>${t('started')} ${esc(fmtDate(i.startedAt))}</p>
-    ${r.pendingReview ? `<p class="notice warn">${t('pending_review_note')}</p>` : `<p class="notice ok">${t('visible_note')}</p>`}`;
+    ${r.pendingReview ? `<p class="notice warn">${t('pending_review_note')}</p>` : `<p class="notice ok">${t('visible_note')}</p>`}
+    ${i.type === 'fire' && state.dfciCodePreview ? `
+    <p class="small"><strong>${esc(t('dfci_label'))}</strong> : <span class="dfci-code" dir="ltr">${esc(state.dfciCodePreview)}</span></p>
+    <button class="btn secondary" id="btnCopySecours" type="button">${esc(t('dfci_recap_copy'))}</button>
+    <p class="muted small">${esc(t('dfci_emergency_hint'))}</p>` : ''}`;
+  // « Copier les informations pour les secours » : référence + zone + repère
+  // DFCI + heure — JAMAIS l'adresse exacte ni les coordonnées privées.
+  document.getElementById('btnCopySecours')?.addEventListener('click', async (e) => {
+    const text = [
+      t('secours_copy_title'),
+      `${t('ref')} ${r.publicId}`,
+      `${t('secours_copy_zone')} ${i.area || t('area_approx')}`,
+      `${t('dfci_label')} : ${state.dfciCodePreview}`,
+      `${t('secours_copy_time')} ${fmtDate(new Date().toISOString())}`,
+    ].join('\n');
+    try { await navigator.clipboard.writeText(text); e.target.textContent = t('dfci_copied'); }
+    catch { prompt(t('copy_prompt'), text); }
+  });
   // Invitation aux alertes de zone (position de l'incident déclaré).
   if (i.lat != null) offerZoneAlertsAfterPublish(document.getElementById('doneSummary'), i.lat, i.lng);
   const link = document.getElementById('manageLink');

@@ -2692,11 +2692,6 @@ async function drawBurntAreas() {
     return;
   }
   const legend = document.getElementById('burntLegend');
-  if (map.getZoom() < 7) {
-    burntLayer.clearLayers();
-    if (legend) legend.hidden = true;
-    return;
-  }
   const b = map.getBounds();
   let r;
   try {
@@ -2714,12 +2709,21 @@ async function drawBurntAreas() {
       <span class="small">${esc(t('burnt_legend'))}</span>`;
   }
   if (!any) return;
+  // Aux petits zooms (vue nationale/régionale), un polygone de 2 km est
+  // INVISIBLE : on dessine un point brun tappable à sa place — le contour
+  // précis apparaît dès le zoom 8. Retour du 28/07 : « je ne vois pas EFFIS ».
+  const detailed = map.getZoom() >= 8;
   for (const a of r.areas) {
-    const poly = L.polygon(a.rings, {
-      color: '#6E4A33', weight: 1.5, fillColor: '#7A5238', fillOpacity: .3,
-      dashArray: '5 3',
-    }).addTo(burntLayer);
-    poly.on('click', (e) => {
+    const shape = detailed
+      ? L.polygon(a.rings, {
+        color: '#6E4A33', weight: 2, fillColor: '#7A5238', fillOpacity: .38,
+        dashArray: '5 3',
+      })
+      : L.circleMarker(a.centroid || a.rings?.[0]?.[0], {
+        radius: 5, color: '#6E4A33', weight: 1.5, fillColor: '#7A5238', fillOpacity: .8,
+      });
+    shape.addTo(burntLayer);
+    shape.on('click', (e) => {
       L.DomEvent.stopPropagation(e); // sinon le clic « carte » referme la fiche
       openBurntDetail(a, r.updatedAt);
     });

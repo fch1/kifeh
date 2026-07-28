@@ -542,7 +542,8 @@ adminRouter.get('/export', requireAdmin('export'), (req, res) => {
   audit(req.admin.username, 'export_incidents', null, null, clientIp(req));
   const rows = db.prepare(
     `SELECT public_id, type, status, severity, temporal_status, started_at, ended_at,
-            public_lat, public_lng, public_area, trust_score, confirmations_count, created_at, updated_at
+            public_lat, public_lng, public_area, trust_score, confirmations_count, created_at, updated_at,
+            dfci_code, dfci_precision, dfci_source_version, dfci_computed_at
      FROM incidents WHERE status != 'deleted' ORDER BY created_at DESC`
   ).all();
   const header = Object.keys(rows[0] || { public_id: '' }).join(';');
