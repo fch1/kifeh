@@ -246,8 +246,19 @@ await ctx2.addInitScript(() => { try { localStorage.setItem('ga_consent', 'denie
 const pc = await ctx2.newPage();
 await pc.route(/tile\.openstreetmap|cartocdn|googletagmanager|google-analytics/, (r) => r.abort());
 await pc.goto(`${BASE}/`, { waitUntil: 'load' });
+// Écran 1 : la proposition de valeur (2 écrans max, jamais bloquant).
+await okEventually(pc, () => Boolean(document.querySelector('.onboard-card')),
+  'première visite : écran d’accueil (carte en temps réel + suivre une zone)');
+ok(await pc.evaluate(() => /agir/.test(document.querySelector('.onboard-tagline')?.textContent || '')),
+  'l’écran porte la tagline de marque');
+await pc.click('#obGo');
+await pc.waitForTimeout(400);
+// Écran 2 : le choix du pays.
 await okEventually(pc, () => document.getElementById('countrySheet')?.classList.contains('open'),
   'première visite : la feuille « Dans quel pays… » s’ouvre');
+ok(await pc.evaluate(() => !document.querySelector('.onboard')
+  && localStorage.getItem('kifeh_onboarded') === '1'),
+'l’écran d’accueil ne sera jamais re-montré');
 ok(await pc.evaluate(() => !document.getElementById('countryFR').hidden), 'option France proposée');
 await pc.click('#countryFR'); // choisit la France → rechargement
 await pc.waitForTimeout(1500);

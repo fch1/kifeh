@@ -437,10 +437,42 @@ document.getElementById('countryGeo').addEventListener('click', (e) => withButto
     { enableHighAccuracy: false, timeout: 8000 }
   );
 })));
-// Première visite : proposer le choix (sans bloquer — la Tunisie s'affiche déjà).
+// Première visite : DEUX écrans maximum — 1) ce que Kifeh montre (jamais
+// bloquant, passable d'un geste, jamais re-montré) ; 2) le choix du pays
+// (la feuille existante). Aucun écran sur les liens profonds.
 if (typeof COUNTRY !== 'undefined' && COUNTRY === null
     && !location.search.includes('incident=') && !location.search.includes('confirm=')) {
-  setTimeout(() => openSheet('countrySheet'), 400);
+  let seen = false;
+  try { seen = localStorage.getItem('kifeh_onboarded') === '1'; } catch {}
+  if (seen) {
+    setTimeout(() => openSheet('countrySheet'), 400);
+  } else {
+    const ob = document.createElement('div');
+    ob.className = 'onboard';
+    ob.setAttribute('role', 'dialog');
+    ob.setAttribute('aria-modal', 'true');
+    ob.innerHTML = `
+      <div class="onboard-card">
+        <p class="onboard-brand">🔥 <strong>Kifeh</strong> <bdi>كيفاه</bdi></p>
+        <p class="onboard-tagline">${esc(t('brand_tagline'))}</p>
+        <div class="onboard-item"><span aria-hidden="true">🗺️</span>
+          <span><strong>${esc(t('ob_map_title'))}</strong><br><span class="muted small">${esc(t('ob_map_body'))}</span></span></div>
+        <div class="onboard-item"><span aria-hidden="true">⭐</span>
+          <span><strong>${esc(t('ob_follow_title'))}</strong><br><span class="muted small">${esc(t('ob_follow_body'))}</span></span></div>
+        <p class="muted small">${esc(t('ob_sources'))}</p>
+        <button class="btn" id="obGo" type="button">${esc(t('ob_start'))}</button>
+        <button class="btn ghost small-btn" id="obSkip" type="button">${esc(t('ob_skip'))}</button>
+      </div>`;
+    document.body.appendChild(ob);
+    const done = (openCountry) => {
+      try { localStorage.setItem('kifeh_onboarded', '1'); } catch {}
+      ob.remove();
+      if (openCountry) openSheet('countrySheet'); // écran 2 : le pays
+    };
+    ob.querySelector('#obGo').addEventListener('click', () => { done(true); window.track?.('onboard_go', {}); });
+    ob.querySelector('#obSkip').addEventListener('click', () => { done(false); window.track?.('onboard_skip', {}); });
+    window.track?.('onboard_shown', {});
+  }
 }
 
 // Bandeau discret quand le fond de carte est indisponible : Kifeh reste

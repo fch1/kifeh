@@ -278,6 +278,21 @@ button.brand-name { appearance: none; border: 0; cursor: pointer; font: inherit;
 /* « En bref — situation feu » : bloc réuni, jamais anxiogène. */
 .fire-brief { margin: .5rem 0; border-inline-start: 3px solid var(--brand-red); }
 
+/* Onboarding première visite : UN écran de valeur, passable, jamais re-montré. */
+.onboard {
+  position: fixed; inset: 0; z-index: 2000; display: flex; align-items: center;
+  justify-content: center; background: rgba(30, 42, 77, .55); padding: 1rem;
+}
+.onboard-card {
+  background: var(--surface); border-radius: 18px; box-shadow: var(--shadow);
+  max-width: 380px; width: 100%; padding: 1.25rem;
+  display: flex; flex-direction: column; gap: .625rem;
+}
+.onboard-brand { margin: 0; font-size: 1.25rem; }
+.onboard-tagline { margin: 0; color: var(--muted); font-style: italic; }
+.onboard-item { display: flex; gap: .625rem; align-items: flex-start; }
+.onboard-item > span:first-child { font-size: 1.375rem; }
+
 /* Repère DFCI (feux français) : code en évidence, toujours en LTR. */
 .dfci-block {
   margin: .5rem 0; padding: .625rem .75rem; border-radius: 12px;
