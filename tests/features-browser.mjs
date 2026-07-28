@@ -312,8 +312,14 @@ await ctx2.close();
   '« Carte » referme les feuilles même quand l’une est ouverte (navigation toujours accessible)');
   await pn.locator('#btnLayers').click();
   await pn.waitForTimeout(500);
-  ok(await pn.evaluate(() => document.getElementById('filterSheet').classList.contains('open')),
-    'bouton flottant Couches → feuille des couches et filtres');
+  ok(await pn.evaluate(() => document.getElementById('layersSheet').classList.contains('open')),
+    'bouton flottant Couches → panneau des couches d’information');
+  ok(await pn.evaluate(() => {
+    const rows = [...document.querySelectorAll('#layersSheet .layer-src')].filter((p) => !p.hidden);
+    return rows.length >= 2 && rows.every((p) => p.textContent.length > 4);
+  }), 'chaque couche visible affiche sa source (NASA, EFFIS, Bison Futé, météo)');
+  await pn.locator('#navMap').click();
+  await pn.waitForTimeout(300);
   ok(await pn.evaluate(() => {
     const f = document.querySelectorAll('.map-fabs .fab');
     return f.length === 4 && [...f].every((b) => b.getBoundingClientRect().width >= 40);
@@ -339,6 +345,55 @@ await ctx2.close();
   ok(await pn.evaluate(() => Boolean(document.getElementById('burntLegend'))),
     'légende zones brûlées EFFIS présente (affichée seulement avec des données)');
   await ctxN.close();
+}
+
+// ── Très petit écran (320 px) : tout tient, rien ne déborde ─────────────────
+{
+  const ctx320 = await browser.newContext({ viewport: { width: 320, height: 640 }, locale: 'fr-FR' });
+  const p3 = await ctx320.newPage();
+  await p3.addInitScript(() => {
+    localStorage.setItem('lang', 'fr');
+    localStorage.setItem('kifeh_country', 'FR');
+    localStorage.setItem('kifeh_consent', 'denied');
+  });
+  await p3.goto(`${BASE}/?country=FR`, { waitUntil: 'load' });
+  await p3.waitForTimeout(1500);
+  ok(await p3.evaluate(() => document.documentElement.scrollWidth <= 321),
+    '320 px : aucun débordement horizontal du document');
+  ok(await p3.evaluate(() => {
+    const n = document.querySelector('.bottom-nav');
+    return n && n.getBoundingClientRect().width <= 321 && n.scrollWidth <= n.clientWidth + 1;
+  }), '320 px : la navigation à 5 destinations tient sans défiler');
+  ok(await p3.evaluate(() => {
+    const f = document.querySelectorAll('.map-fabs .fab');
+    return [...f].every((b) => { const r = b.getBoundingClientRect(); return r.right <= 321 && r.width >= 40; });
+  }), '320 px : boutons flottants visibles et tactiles');
+  await ctx320.close();
+}
+
+// ── Réseau lent (3G simulé via CDP) : utilisable, jamais un écran blanc ─────
+{
+  const ctx3g = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'fr-FR' });
+  const p3g = await ctx3g.newPage();
+  const cdp = await ctx3g.newCDPSession(p3g);
+  await cdp.send('Network.enable');
+  await cdp.send('Network.emulateNetworkConditions', {
+    offline: false, latency: 300,
+    downloadThroughput: (500 * 1024) / 8, uploadThroughput: (250 * 1024) / 8, // ~3G réel
+  });
+  await p3g.addInitScript(() => {
+    localStorage.setItem('lang', 'fr');
+    localStorage.setItem('kifeh_country', 'FR');
+    localStorage.setItem('kifeh_consent', 'denied');
+  });
+  const t0 = Date.now();
+  await p3g.goto(`${BASE}/?country=FR`, { waitUntil: 'load', timeout: 45_000 });
+  await p3g.waitForTimeout(2500);
+  const loadS = ((Date.now() - t0) / 1000).toFixed(1);
+  ok(await p3g.evaluate(() => Boolean(document.querySelector('.bottom-nav'))
+    && document.getElementById('counter').textContent.trim().length > 0),
+  `3G simulé : interface utilisable (navigation + situation) en ${loadS} s`);
+  await ctx3g.close();
 }
 
 // ── Garde anti-chevauchement GRAND ÉCRAN (régression du 28/07 : des enfants

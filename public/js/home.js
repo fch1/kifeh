@@ -800,12 +800,73 @@ document.getElementById('navAide')?.addEventListener('click', () => {
   renderAide(); openSheet('aideSheet'); setNavCurrent('navAide'); window.track?.('nav_aide', {});
 });
 document.getElementById('btnLayers')?.addEventListener('click', () => {
-  openSheet('filterSheet'); window.track?.('layers_opened', {});
+  renderLayerSources();
+  openSheet('layersSheet'); window.track?.('layers_opened', {});
 });
+
+// Chaque couche affiche SA source et l'heure de SA dernière mise à jour —
+// une donnée sans source ni horodatage n'a pas sa place sur la carte.
+function renderLayerSources() {
+  const set = (id, text) => {
+    const el = document.getElementById(id);
+    if (el) { el.hidden = !text; if (text) el.textContent = text; }
+  };
+  set('srcSat', satLastSync ? `NASA FIRMS · ${fmtDate(satLastSync)}` : 'NASA FIRMS');
+  set('srcWx', window._lastWxAt ? t('wx_legend_at', { t: fmtDate(window._lastWxAt) }) : (document.getElementById('wxRow')?.hidden ? '' : 'Météo-France via Open-Meteo'));
+  set('srcRoads', window._lastRoadsAt ? `Bison Futé — DIR · ${fmtDate(window._lastRoadsAt)}` : (document.getElementById('fRoadsRow')?.hidden ? '' : 'Bison Futé — DIR'));
+  set('srcBurnt', window._lastBurntAt ? `Copernicus EFFIS · ${fmtDate(window._lastBurntAt)}` : (document.getElementById('fBurntRow')?.hidden ? '' : 'Copernicus EFFIS'));
+}
 // Zoom dans la pile flottante : une seule grappe de commandes de carte,
 // miroitée automatiquement en arabe (inset-inline-end).
 document.getElementById('fabZoomIn')?.addEventListener('click', () => map.zoomIn());
 document.getElementById('fabZoomOut')?.addEventListener('click', () => map.zoomOut());
+// ── PWA : enregistrement du service worker (cache du shell + push) et
+// proposition d'installation DISCRÈTE — jamais à la première visite.
+(function initPwa() {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+  let visits = 0;
+  try {
+    visits = Number(localStorage.getItem('kifeh_visits') || 0) + 1;
+    localStorage.setItem('kifeh_visits', String(visits));
+  } catch {}
+  let deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    let dismissed = false;
+    try { dismissed = localStorage.getItem('kifeh_install_dismissed') === '1'; } catch {}
+    if (visits < 2 || dismissed || window.matchMedia('(display-mode: standalone)').matches) return;
+    const b = document.createElement('div');
+    b.className = 'since-banner install-banner';
+    b.setAttribute('role', 'status');
+    b.innerHTML = `
+      <button class="since-close" aria-label="✕">✕</button>
+      <strong>📲 ${esc(t('install_title'))}</strong>
+      <div class="since-line">${esc(t('install_body'))}</div>
+      <div class="row" style="gap:.4rem;margin-top:.4rem">
+        <button class="btn small-btn" id="installGo" type="button">${esc(t('install_btn'))}</button>
+      </div>`;
+    document.body.appendChild(b);
+    const dismiss = () => {
+      b.remove();
+      try { localStorage.setItem('kifeh_install_dismissed', '1'); } catch {}
+    };
+    b.querySelector('.since-close').addEventListener('click', dismiss);
+    b.querySelector('#installGo').addEventListener('click', async () => {
+      b.remove();
+      try {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        window.track?.('pwa_install_choice', { outcome });
+        if (outcome !== 'accepted') localStorage.setItem('kifeh_install_dismissed', '1');
+      } catch {}
+    });
+    setTimeout(() => { if (b.isConnected) dismiss(); }, 30_000);
+    window.track?.('pwa_install_banner', {});
+  });
+})();
+
 // La marque ramène à la vue d'ensemble du pays (repère universel « accueil »).
 document.getElementById('brandHome')?.addEventListener('click', () => {
   const p = countryProfile();
@@ -2490,6 +2551,7 @@ async function drawWeatherLayer() {
     return;
   }
   const g = r.grid;
+  window._lastWxAt = g.updatedAt || window._lastWxAt;
   for (const c of g.cells) {
     // Voile de température : cercles LARGES qui se chevauchent et se fondent —
     // un vrai nuage de couleur, sans coutures ni damier (les rectangles à
@@ -2529,8 +2591,8 @@ async function drawWeatherLayer() {
 
 function toggleWeatherLayer() {
   weatherOn = !weatherOn;
-  const btn = document.getElementById('btnWeather');
-  btn?.setAttribute('aria-pressed', String(weatherOn));
+  const cb = document.getElementById('fWxLayer');
+  if (cb) cb.checked = weatherOn;
   if (weatherOn) {
     weatherLayer.addTo(map);
     drawWeatherLayer();
@@ -2544,13 +2606,14 @@ function toggleWeatherLayer() {
   try { localStorage.setItem('kifeh_weather_layer', weatherOn ? '1' : '0'); } catch {}
 }
 
-// Bouton 🌡️ sur la carte (France uniquement) + redessin après déplacement.
+// Couche météo (France uniquement) + redessin après déplacement.
 (function initWeatherLayer() {
   if (currentCountry() !== 'FR') return;
-  const btn = document.getElementById('btnWeather');
-  if (!btn) return;
-  btn.hidden = false;
-  btn.addEventListener('click', toggleWeatherLayer);
+  const row = document.getElementById('wxRow');
+  const cb = document.getElementById('fWxLayer');
+  if (!row || !cb) return;
+  row.hidden = false;
+  cb.addEventListener('change', toggleWeatherLayer);
   map.on('moveend', () => {
     if (!weatherOn) return;
     clearTimeout(weatherTimer);
@@ -2572,9 +2635,17 @@ function toggleWeatherLayer() {
 // ═════════════════════════════════════════════════════════════════════════════
 const burntLayer = L.layerGroup();
 let burntTimer = null;
+let burntOn = true; // visible par défaut (rare et signifiant) — désactivable
 
 async function drawBurntAreas() {
-  if (currentCountry() !== 'FR' || LITE) return;
+  if (currentCountry() !== 'FR' || LITE || !burntOn) {
+    if (!burntOn) {
+      burntLayer.clearLayers();
+      const lg = document.getElementById('burntLegend');
+      if (lg) lg.hidden = true;
+    }
+    return;
+  }
   const legend = document.getElementById('burntLegend');
   if (map.getZoom() < 7) {
     burntLayer.clearLayers();
@@ -2590,6 +2661,7 @@ async function drawBurntAreas() {
     })}`);
   } catch { r = null; }
   burntLayer.clearLayers();
+  if (r?.updatedAt) window._lastBurntAt = r.updatedAt;
   const any = Boolean(r?.enabled && r.areas?.length);
   if (legend) {
     legend.hidden = !any;
@@ -2633,6 +2705,20 @@ function openBurntDetail(a, updatedAt) {
     clearTimeout(burntTimer);
     burntTimer = setTimeout(drawBurntAreas, 500); // jamais pendant le geste
   });
+  // Bascule dans le panneau Couches — choix mémorisé, ON par défaut.
+  const row = document.getElementById('fBurntRow');
+  const cb = document.getElementById('fBurntLayer');
+  try { burntOn = localStorage.getItem('kifeh_burnt_layer') !== '0'; } catch {}
+  if (row && cb) {
+    row.hidden = false;
+    cb.checked = burntOn;
+    cb.addEventListener('change', () => {
+      burntOn = cb.checked;
+      try { localStorage.setItem('kifeh_burnt_layer', burntOn ? '1' : '0'); } catch {}
+      drawBurntAreas();
+      window.track?.('burnt_layer_toggle', { on: burntOn });
+    });
+  }
   burntLayer.addTo(map);
   drawBurntAreas();
 })();
@@ -2666,6 +2752,7 @@ async function drawRoads() {
     })}`);
   } catch { r = null; }
   roadsLayer.clearLayers();
+  if (r?.updatedAt) window._lastRoadsAt = r.updatedAt;
   if (!r?.enabled || !r.events?.length) return;
   for (const e of r.events) {
     const mk = L.marker([e.lat, e.lng], {

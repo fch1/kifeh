@@ -129,13 +129,6 @@
   </div>
   <!-- Le satellite est une SOURCE d'information, jamais un type d'incident :
        il vit dans les couches, pas dans les catégories. -->
-  <label data-i18n="filter_layers"></label>
-  <div role="group">
-    <label class="checkbox-row"><input type="checkbox" id="fSatLayer"> 🛰️ <span data-i18n="layer_sat"></span></label>
-    <label class="checkbox-row" id="fRoadsRow" hidden><input type="checkbox" id="fRoadsLayer"> 🚧 <span data-i18n="layer_roads"></span></label>
-    <button class="btn secondary small-btn" id="btnWeather" hidden
-            aria-pressed="false" data-i18n-aria="wx_layer_btn_aria">🌡️ <span data-i18n="wx_layer_btn"></span></button>
-  </div>
   <label for="fStatus" data-i18n="filter_status"></label>
   <select id="fStatus">
     <option value="" data-i18n="filter_status_all"></option>
@@ -259,6 +252,24 @@
 <div class="sheet" id="roadSheet" role="dialog" aria-modal="true" data-i18n-aria="layer_roads">
   <div class="handle"></div>
   <div id="roadContent"></div>
+</div>
+
+<!-- Feuille : Couches d'information — chaque couche affiche SA source et SA
+     dernière mise à jour ; aucune couche secondaire n'est active d'office. -->
+<div class="sheet" id="layersSheet" role="dialog" aria-modal="true" data-i18n-aria="layers_btn_aria">
+  <div class="handle"></div>
+  <h2 data-i18n="layers_title"></h2>
+  <div role="group">
+    <label class="checkbox-row"><input type="checkbox" id="fSatLayer"> 🛰️ <span data-i18n="layer_sat"></span></label>
+    <p class="muted small layer-src" id="srcSat"></p>
+    <label class="checkbox-row" id="wxRow" hidden><input type="checkbox" id="fWxLayer"> 🌡️ <span data-i18n="wx_layer_btn"></span></label>
+    <p class="muted small layer-src" id="srcWx" hidden></p>
+    <label class="checkbox-row" id="fRoadsRow" hidden><input type="checkbox" id="fRoadsLayer"> 🚧 <span data-i18n="layer_roads"></span></label>
+    <p class="muted small layer-src" id="srcRoads" hidden></p>
+    <label class="checkbox-row" id="fBurntRow" hidden><input type="checkbox" id="fBurntLayer"> ▨ <span data-i18n="burnt_legend"></span></label>
+    <p class="muted small layer-src" id="srcBurnt" hidden></p>
+  </div>
+  <p class="muted small" data-i18n="layers_note"></p>
 </div>
 
 <!-- Feuille : choix du pays (première visite et bouton pays).

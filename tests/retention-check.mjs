@@ -53,7 +53,15 @@ async function main() {
   const sw = await fetch(`${BASE}/sw.js`);
   const swText = await sw.text();
   ok(sw.status === 200 && swText.includes('showNotification'), 'service worker /sw.js servi');
-  ok(!swText.includes('fetch('), 'service worker sans interception réseau (aucun cache ajouté)');
+  // Politique de cache HONNÊTE (PWA) : le shell peut être mis en cache pour
+  // les réseaux instables, mais les DONNÉES (/api/…) ne le sont JAMAIS — un
+  // instantané périmé présenté comme frais serait un mensonge.
+  ok(swText.includes(`startsWith('/api/')`) && swText.includes('return;'),
+    'service worker : les données /api/ ne sont JAMAIS mises en cache');
+  ok(swText.includes('offline.html'), 'service worker : page hors connexion honnête prévue');
+  const offPage = await fetch(`${BASE}/offline.html`);
+  ok(offPage.status === 200 && (await offPage.text()).includes('peuvent avoir changé'),
+    'offline.html : page hors connexion honnête (« peuvent avoir changé »)');
 
   // ── Abonnement : validation, arrondi de position, cloisonnement pays ──
   section('Abonnements : vie privée et cloisonnement');
