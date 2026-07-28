@@ -49,6 +49,8 @@ const CATALOG = {
     // Notifications « M'alerter dans cette zone » (Web Push)
     push_title_electricity: '⚡ Coupure d’électricité signalée près de chez vous',
     push_title_water: '💧 Coupure d’eau signalée près de chez vous',
+    push_test_title: 'Kifeh — notification de test',
+    push_test_body: 'Les alertes sont correctement activées pour votre zone. Rien à faire.',
     push_title_fire: '🔥 Incendie signalé près de chez vous',
     push_title_internet: '📶 Panne internet signalée près de chez vous',
     push_title_other: 'Incident signalé près de chez vous',
@@ -151,6 +153,8 @@ const CATALOG = {
     unsupported_location: 'هذه المنطقة غير مغطاة بعدُ من كيفاه (تونس وفرنسا القارية فقط).',
     push_title_electricity: '⚡ انقطاع كهرباء مُبلغ عنه قربك',
     push_title_water: '💧 انقطاع ماء مُبلغ عنه قربك',
+    push_test_title: 'كيفاه — إشعار تجريبي',
+    push_test_body: 'التنبيهات مفعّلة بشكل صحيح لمنطقتك. لا شيء مطلوب.',
     push_title_fire: '🔥 حريق مُبلغ عنه قربك',
     push_title_internet: '📶 عطل إنترنت مُبلغ عنه قربك',
     push_title_other: 'حادث مُبلغ عنه قربك',

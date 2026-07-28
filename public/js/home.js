@@ -60,9 +60,9 @@ API.get('/api/public/config').then((c) => {
 let pushKey = null;
 const pushSupported = kifehPushSupported; // helpers partagés (api.js)
 function alertsBtnState(on) {
-  const btn = document.getElementById('btnAlerts');
-  btn.setAttribute('aria-pressed', String(on));
-  btn.textContent = on ? t('alerts_btn_on') : t('alerts_btn');
+  // Le bouton du bas est désormais « Suivis » (⭐) : l'état des notifications
+  // n'écrase plus son libellé — il vit dans les fiches de suivi elles-mêmes.
+  document.getElementById('btnAlerts')?.setAttribute('aria-pressed', String(on));
 }
 function transientBanner(text) {
   const b = document.createElement('div');
@@ -95,45 +95,214 @@ async function toggleAlerts() {
     transientBanner(t(ex.message === 'denied' ? 'alerts_denied' : 'search_error'));
   }
 }
-// « M'alerter » ouvre le CHOIX du canal (notifications navigateur / e-mail)
-// parmi ce qui est réellement en place — jamais un simple interrupteur opaque.
-async function refreshAlertSheetPush() {
-  const btn = document.getElementById('alertPushBtn');
-  if (!btn) return;
-  if (!pushSupported()) {
-    btn.textContent = t('alerts_unsupported');
-    btn.disabled = true;
-    return;
+// ═════════════════════════════════════════════════════════════════════════════
+// « Suivre cette zone » — UN parcours continu : je choisis une zone → je
+// comprends ce que je recevrai (AVANT toute permission navigateur) → je suis
+// la zone → je peux tester la livraison. Le bouton du bas devient « Suivis ».
+// ═════════════════════════════════════════════════════════════════════════════
+let followRadius = 20;
+
+function zonePlaceLabel() {
+  const q = document.getElementById('search').value.trim();
+  return (q ? q.split(',')[0] : '').slice(0, 30) || t('follow_here_place');
+}
+// Zone suivie couvrant le centre actuel (même pays, < 3 km).
+function currentFollowedZone() {
+  const c = map.getCenter();
+  return zoneStore().find((z) => z.country === currentCountry()
+    && map.distance([z.lat, z.lng], [c.lat, c.lng]) < 3000) || null;
+}
+// Crée ou met à jour la zone suivie au centre actuel.
+function saveFollowZoneAtCenter(extra = {}) {
+  const zones = zoneStore();
+  const c = map.getCenter();
+  let z = zones.find((s) => s.country === currentCountry()
+    && map.distance([s.lat, s.lng], [c.lat, c.lng]) < 3000);
+  if (!z) {
+    if (zones.length >= 5) { transientBanner(t('follow_zone_limit')); return null; }
+    z = { label: zonePlaceLabel(), lat: +c.lat.toFixed(3), lng: +c.lng.toFixed(3),
+      zoom: map.getZoom(), country: currentCountry(), at: Date.now() };
+    zones.push(z);
   }
-  const existing = await currentPushSubscription().catch(() => null);
-  btn.textContent = existing ? t('alerts_push_off') : t('alerts_push_on');
-  btn.setAttribute('aria-pressed', String(Boolean(existing)));
+  Object.assign(z, { radiusKm: followRadius, ...extra });
+  try { localStorage.setItem('kifeh_zones', JSON.stringify(zones)); } catch {}
+  renderSummary(false);
+  return z;
 }
-function openAlertSheet() {
+
+function openFollowSheet() {
   openSheet('alertSheet');
-  refreshAlertSheetPush();
-  window.track?.('alert_sheet_opened', {});
+  renderFollowSheet();
+  window.track?.('follow_sheet_opened', {});
 }
-document.getElementById('btnAlerts').addEventListener('click', openAlertSheet);
-document.getElementById('alertPushBtn')?.addEventListener('click', (e) =>
-  withButton(e.currentTarget, async () => { await toggleAlerts(); await refreshAlertSheetPush(); }));
-// Alertes par e-mail (double consentement — l'e-mail de confirmation fait foi).
-document.getElementById('emailAlertBtn')?.addEventListener('click', (e) => withButton(e.currentTarget, async () => {
-  const input = document.getElementById('emailAlertInput');
-  const msgEl = document.getElementById('emailAlertMsg');
-  const email = input.value.trim();
-  if (!email || !email.includes('@')) { msgEl.textContent = t('email_alerts_invalid'); return; }
-  try {
-    const c = map.getCenter();
-    const r = await API.post('/api/public/email-alerts/subscribe', {
-      email, lat: c.lat, lng: c.lng, radiusKm: 20,
-      country: currentCountry(), lang: LANG,
-    });
-    msgEl.textContent = r.message;
-    input.value = '';
-    window.track?.('email_alerts_subscribed', {});
-  } catch (ex) { msgEl.textContent = ex.message; }
-}));
+
+function renderFollowSheet() {
+  const body = document.getElementById('followBody');
+  const existing = currentFollowedZone();
+  if (existing) return renderFollowSuccess(existing);
+  followRadius = 20;
+  const place = zonePlaceLabel();
+  body.innerHTML = `
+    <h2>☆ ${esc(t('follow_sheet_title', { place }))}</h2>
+    <p class="muted small">${esc(t('follow_sheet_intro'))}</p>
+    <p class="small" style="margin-bottom:.25rem"><strong>${esc(t('follow_will_title'))}</strong></p>
+    <ul class="small follow-list">
+      <li>${esc(t('follow_will_1'))}</li>
+      <li>${esc(t('follow_will_2'))}</li>
+      <li>${esc(t('follow_will_3'))}</li>
+    </ul>
+    <p class="muted small">${esc(t('follow_wont'))}</p>
+    <label class="small" style="margin-top:.5rem">${esc(t('follow_radius'))}</label>
+    <div class="chips" id="radiusChips" role="group">
+      ${[5, 10, 20, 30].map((r) => `<button class="chip" type="button" data-r="${r}" aria-pressed="${r === 20}">${r} km</button>`).join('')}
+    </div>
+    ${pushSupported()
+    ? `<button class="btn" id="followPushBtn" type="button" style="margin-top:.75rem">🔔 ${esc(t('follow_enable_push'))}</button>`
+    : `<p class="muted small">${esc(t('alerts_unsupported'))}</p>`}
+    <div class="row" style="gap:.5rem;margin-top:.5rem">
+      <input type="email" id="followEmail" inputmode="email" autocomplete="email"
+             placeholder="${esc(t('email_alerts_ph'))}" style="flex:1;min-height:44px" aria-label="${esc(t('alerts_email_title'))}">
+      <button class="btn secondary small-btn" id="followEmailBtn" type="button" style="flex:0 0 auto">✉️ ${esc(t('email_alerts_btn'))}</button>
+    </div>
+    <p class="muted small" id="followMsg" role="status" aria-live="polite"></p>
+    <button class="btn ghost small-btn" id="followLater" type="button">${esc(t('follow_later'))}</button>`;
+  document.querySelectorAll('#radiusChips .chip').forEach((chip) => chip.addEventListener('click', () => {
+    followRadius = Number(chip.dataset.r);
+    document.querySelectorAll('#radiusChips .chip').forEach((c) =>
+      c.setAttribute('aria-pressed', String(c === chip)));
+  }));
+  // La permission navigateur n'est demandée QU'ICI, après l'explication.
+  document.getElementById('followPushBtn')?.addEventListener('click', (e) => withButton(e.currentTarget, async () => {
+    try {
+      const c = map.getCenter();
+      await kifehSubscribePush({ lat: c.lat, lng: c.lng, radiusKm: followRadius, key: pushKey, country: currentCountry() });
+      alertsBtnState(true);
+      const z = saveFollowZoneAtCenter({ push: true });
+      window.track?.('zone_alerts_enabled', { radius_km: followRadius });
+      if (z) renderFollowSuccess(z, true);
+    } catch (ex) {
+      document.getElementById('followMsg').textContent =
+        t(ex.message === 'denied' ? 'follow_push_denied' : 'search_error');
+    }
+  }));
+  document.getElementById('followEmailBtn')?.addEventListener('click', (e) => withButton(e.currentTarget, async () => {
+    const email = document.getElementById('followEmail').value.trim();
+    const msgEl = document.getElementById('followMsg');
+    if (!email || !email.includes('@')) { msgEl.textContent = t('email_alerts_invalid'); return; }
+    try {
+      const c = map.getCenter();
+      const r = await API.post('/api/public/email-alerts/subscribe', {
+        email, lat: c.lat, lng: c.lng, radiusKm: followRadius, country: currentCountry(), lang: LANG,
+      });
+      saveFollowZoneAtCenter({ email: true });
+      msgEl.textContent = r.message;
+      window.track?.('email_alerts_subscribed', {});
+    } catch (ex) { msgEl.textContent = ex.message; }
+  }));
+  document.getElementById('followLater')?.addEventListener('click', () => {
+    const z = saveFollowZoneAtCenter({});
+    window.track?.('zone_followed', { notif: 'none' });
+    if (z) renderFollowSuccess(z, true);
+  });
+}
+
+// État de réussite : statut réel de livraison + notification de test.
+function renderFollowSuccess(z, justSaved) {
+  const body = document.getElementById('followBody');
+  body.innerHTML = `
+    ${justSaved ? `<p class="notice ok">${esc(t('follow_done_banner', { place: z.label }))}</p>` : ''}
+    <h2>★ ${esc(z.label)}</h2>
+    <p class="small">${esc(t('follow_done_body', { km: z.radiusKm || 20 }))}</p>
+    <p class="small">${z.push ? `🔔 ${esc(t('follow_push_on'))}` : `🔕 ${esc(t('follow_push_off'))}`}${z.email ? ` · ✉️ ${esc(t('follow_email_on'))}` : ''}</p>
+    ${z.push
+    ? `<button class="btn secondary" id="followTestBtn" type="button">${esc(t('follow_test_btn'))}</button>`
+    : (pushSupported() ? `<button class="btn" id="followPushBtn2" type="button">🔔 ${esc(t('follow_enable_push'))}</button>` : '')}
+    <p class="muted small" id="followMsg" role="status" aria-live="polite"></p>
+    <div class="row" style="gap:.5rem;margin-top:.5rem">
+      <button class="btn ghost small-btn" id="followSee" type="button">${esc(t('suivis_see'))}</button>
+      <button class="btn ghost small-btn" id="followRemove" type="button">${esc(t('follow_remove'))}</button>
+    </div>`;
+  document.getElementById('followTestBtn')?.addEventListener('click', (e) => withButton(e.currentTarget, async () => {
+    const msgEl = document.getElementById('followMsg');
+    try {
+      const sub = await currentPushSubscription();
+      if (!sub) { msgEl.textContent = t('follow_test_nosub'); return; }
+      const r = await API.post('/api/public/push/test', { endpoint: sub.endpoint, lang: LANG });
+      msgEl.textContent = r.ok ? t('follow_test_sent') : t('follow_test_failed');
+      window.track?.('push_test', { ok: Boolean(r.ok) });
+    } catch { msgEl.textContent = t('follow_test_failed'); }
+  }));
+  document.getElementById('followPushBtn2')?.addEventListener('click', (e) => withButton(e.currentTarget, async () => {
+    try {
+      await kifehSubscribePush({ lat: z.lat, lng: z.lng, radiusKm: z.radiusKm || 20, key: pushKey, country: z.country });
+      alertsBtnState(true);
+      renderFollowSuccess(saveFollowZoneAtCenter({ push: true }) || z);
+    } catch (ex) {
+      document.getElementById('followMsg').textContent =
+        t(ex.message === 'denied' ? 'follow_push_denied' : 'search_error');
+    }
+  }));
+  document.getElementById('followSee')?.addEventListener('click', () => {
+    closeSheets(); map.setView([z.lat, z.lng], z.zoom || 12);
+  });
+  document.getElementById('followRemove')?.addEventListener('click', () => {
+    const zones = zoneStore().filter((s) => s.at !== z.at);
+    try { localStorage.setItem('kifeh_zones', JSON.stringify(zones)); } catch {}
+    renderSummary(false);
+    renderFollowSheet();
+    window.track?.('zone_unfollowed', {});
+  });
+}
+
+// ── « Suivis » : destination de premier rang (zones + incidents suivis) ──────
+function openSuivis() {
+  openSheet('suivisSheet');
+  renderSuivis();
+  window.track?.('suivis_opened', {});
+}
+function renderSuivis() {
+  const body = document.getElementById('suivisBody');
+  const zones = zoneStore();
+  const follows = Object.entries(followStore());
+  body.innerHTML = `
+    <button class="btn" id="suivisFollowHere" type="button">☆ ${esc(t('follow_zone_btn'))}</button>
+    ${zones.length ? `<p class="small" style="margin:.75rem 0 .25rem"><strong>${esc(t('suivis_zones'))}</strong></p>`
+      + zones.map((z, i) => `
+      <div class="card" style="margin:.4rem 0">
+        <strong>📍 ${esc(z.label)}</strong>
+        <span class="muted small"> · ${esc(String(z.radiusKm || 20))} km</span><br>
+        <span class="small">${z.push ? `🔔 ${esc(t('follow_push_on'))}` : `🔕 ${esc(t('follow_push_off'))}`}${z.email ? ` · ✉️ ${esc(t('follow_email_on'))}` : ''}</span>
+        <div class="row" style="gap:.4rem;margin-top:.5rem">
+          <button class="btn secondary small-btn" data-see="${i}" type="button">${esc(t('suivis_see'))}</button>
+          <button class="btn ghost small-btn" data-manage="${i}" type="button">${esc(t('suivis_manage'))}</button>
+          <button class="btn ghost small-btn" data-del="${i}" type="button">${esc(t('follow_remove'))}</button>
+        </div>
+      </div>`).join('') : ''}
+    ${follows.length ? `<p class="small" style="margin:.75rem 0 .25rem"><strong>${esc(t('suivis_incidents'))}</strong></p>
+      <div class="chips">${follows.map(([pid, f]) => `<button class="chip" type="button" data-pid="${esc(pid)}">★ ${TYPE_ICONS[f.type] || ''} ${esc(f.area || pid)}</button>`).join('')}</div>` : ''}
+    ${!zones.length && !follows.length ? `<p class="muted small" style="margin-top:.75rem">${esc(t('suivis_empty'))}</p>` : ''}`;
+  document.getElementById('suivisFollowHere')?.addEventListener('click', openFollowSheet);
+  body.querySelectorAll('[data-see]').forEach((b) => b.addEventListener('click', () => {
+    const z = zones[+b.dataset.see];
+    closeSheets(); map.setView([z.lat, z.lng], z.zoom || 12);
+  }));
+  body.querySelectorAll('[data-manage]').forEach((b) => b.addEventListener('click', () => {
+    const z = zones[+b.dataset.manage];
+    map.setView([z.lat, z.lng], z.zoom || 12);
+    openSheet('alertSheet');
+    renderFollowSuccess(z);
+  }));
+  body.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', () => {
+    const z = zones[+b.dataset.del];
+    try { localStorage.setItem('kifeh_zones', JSON.stringify(zoneStore().filter((s) => s.at !== z.at))); } catch {}
+    renderSummary(false);
+    renderSuivis();
+  }));
+  body.querySelectorAll('[data-pid]').forEach((chip) => chip.addEventListener('click', () => {
+    openDetail(chip.dataset.pid);
+  }));
+}
+document.getElementById('btnAlerts').addEventListener('click', openSuivis);
 // État initial du bouton (abonnement déjà actif ?) — sans demander de permission.
 if (pushSupported()) {
   currentPushSubscription().then((s) => alertsBtnState(Boolean(s))).catch(() => {});
@@ -389,8 +558,9 @@ function renderSummary(degraded, snapshotAt) {
   else if (active.length > 0) mainLine = active.length === 1 ? t('counter_one') : t('counter_n', { n: active.length });
   else mainLine = `🛰️ ${t('summary_sat_n', { n: satsShown.length })}`;
 
+  const fz = currentFollowedZone?.() || null;
   counter.innerHTML = `
-    <span class="summary-where">${esc(where)}</span>
+    <span class="summary-where">📍 ${esc(where)}</span>
     <strong>${mainLine}</strong>
     ${active.length > 0 && typeParts.length ? `<span class="summary-types">${typeParts.join(' · ')}</span>` : ''}
     ${ended > 0 ? `<span class="summary-types">✓ ${ended === 1 ? t('summary_ended_one') : t('summary_ended_n', { n: ended })}</span>` : ''}
@@ -399,6 +569,7 @@ function renderSummary(degraded, snapshotAt) {
     ${fireEmptyMode ? `<span class="summary-types muted">${esc(t('fire_none_note'))}</span>` : ''}
     ${nearestFireLineHtml(active, satsShown)}
     ${condLineHtml()}
+    <span id="followZoneCta" class="summary-types vig-line${fz ? ' followed' : ''}" role="button" tabindex="0" aria-haspopup="dialog">${fz ? `★ ${esc(t('zone_followed_short'))} · ${esc(t('suivis_manage'))}` : `☆ ${esc(t('follow_zone_btn'))}`} ›</span>
     ${degraded ? `<span class="summary-degraded">${t('api_degraded')}<br>${t('offline_snapshot', { t: timeAgo(new Date(snapshotAt).toISOString()) })}</span>` : ''}`;
 }
 // « Plus proche : ~N km » — distance du feu le plus proche (signalement citoyen
@@ -494,12 +665,13 @@ function condLineHtml() {
 // « conditions » ouvre sa fiche dédiée (clavier : Entrée ou Espace).
 document.getElementById('counter').addEventListener('click', (e) => {
   if (e.target.closest('#condLine')) { openVigilanceSheet(); return; }
+  if (e.target.closest('#followZoneCta')) { openFollowSheet(); return; }
   renderList(); openSheet('listSheet');
 });
 document.getElementById('counter').addEventListener('keydown', (e) => {
-  if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('#condLine')) {
-    e.preventDefault(); openVigilanceSheet();
-  }
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  if (e.target.closest('#condLine')) { e.preventDefault(); openVigilanceSheet(); }
+  else if (e.target.closest('#followZoneCta')) { e.preventDefault(); openFollowSheet(); }
 });
 
 // Heure locale (fuseau du pays consulté) d'un horodatage — ex. « 16 h ».
@@ -560,9 +732,8 @@ async function openVigilanceSheet() {
     ${monitored && v.checkedAt ? `<p class="muted small">${esc(t('vig_checked_at', { t: fmtDate(v.checkedAt) }))}</p>` : ''}
     <button class="btn secondary" id="vigAlertsBtn" type="button">🔔 ${esc(t('vig_enable_alerts'))}</button>
     <button class="btn ghost small-btn" id="vigFollowZone" type="button">☆ ${esc(t('follow_zone_btn'))}</button>`;
-  document.getElementById('vigAlertsBtn')?.addEventListener('click', () => openAlertSheet());
-  document.getElementById('vigFollowZone')?.addEventListener('click', (e) =>
-    saveCurrentZone(e.currentTarget));
+  document.getElementById('vigAlertsBtn')?.addEventListener('click', () => openFollowSheet());
+  document.getElementById('vigFollowZone')?.addEventListener('click', () => openFollowSheet());
 }
 
 // Marqueurs ⚠️ des départements en alerte — un point honnête au centre du
@@ -929,8 +1100,7 @@ function renderList() {
         <button class="btn secondary small-btn" id="emptyFollowZone">☆ ${esc(t('follow_zone_btn'))}</button>
         <a class="btn secondary small-btn" href="declare.html">${esc(t('declare_btn'))}</a>
       </div>`;
-    document.getElementById('emptyFollowZone')?.addEventListener('click', (e) =>
-      saveCurrentZone(e.currentTarget));
+    document.getElementById('emptyFollowZone')?.addEventListener('click', () => openFollowSheet());
     return;
   }
   el.innerHTML = '';

@@ -111,6 +111,30 @@ export async function notifySatelliteEvent(ev) {
 
 // Purge RGPD des abonnements dormants : jamais notifiés depuis 6 mois, en
 // échec durable depuis 30 jours, ou sans notification depuis 12 mois.
+// Notification de TEST : la personne vérifie que la livraison fonctionne
+// vraiment (beaucoup d'utilisateurs ne comprennent pas les permissions
+// navigateur). Uniquement vers SA propre inscription (endpoint connu du
+// client seul), libellé explicite, jamais un faux incendie.
+export async function sendTestPush(endpoint, lang = 'fr') {
+  ensureVapid();
+  const s = db.prepare(`SELECT * FROM push_subscriptions WHERE endpoint = ?`).get(String(endpoint || ''));
+  if (!s) return { ok: false, notFound: true };
+  const payload = JSON.stringify({
+    title: msg(lang, 'push_test_title'),
+    body: msg(lang, 'push_test_body'),
+    url: `${getBaseUrl()}/?src=push-test`,
+    tag: 'kifeh-test',
+  });
+  try {
+    await webpush.sendNotification(
+      { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+      payload, { TTL: 600 });
+    return { ok: true };
+  } catch {
+    return { ok: false };
+  }
+}
+
 export function prunePushSubscriptions() {
   return db.prepare(`DELETE FROM push_subscriptions WHERE
       (last_notified_at IS NULL AND created_at < strftime('%Y-%m-%dT%H:%M:%fZ','now','-180 days'))

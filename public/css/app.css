@@ -608,6 +608,11 @@ html, body { overscroll-behavior: none; }
 /* Bannière de proximité feu : sérieuse sans être anxiogène */
 .fire-banner { border-inline-start: 4px solid var(--brand-red); }
 
+/* Parcours « Suivre cette zone » */
+.follow-list { margin: .25rem 0 .5rem; padding-inline-start: 1.2rem; }
+.follow-list li { margin: .15rem 0; }
+#followZoneCta.followed { color: var(--secondary); }
+
 /* Zones suivies : puces avec suppression intégrée */
 .zone-chip { display: inline-flex; align-items: center; gap: .35rem; }
 .zone-del { opacity: .6; padding: 0 .15rem; }

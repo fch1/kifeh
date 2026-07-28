@@ -15,7 +15,7 @@ import { audit } from '../services/audit.js';
 import { getLang, msg } from '../i18n.js';
 import { config } from '../config.js';
 import { requestCountry, enabledCountries, getProfile, resolveCountry, isPhoneFor, normalizePhoneFor } from '../countries/index.js';
-import { publicVapidKey } from '../services/push.js';
+import { publicVapidKey, sendTestPush } from '../services/push.js';
 
 export const publicRouter = Router();
 
@@ -640,6 +640,16 @@ publicRouter.post('/push/unsubscribe', ipRateLimit('push_ip', 10, 60), (req, res
   const endpoint = String(req.body?.endpoint || '');
   if (endpoint) db.prepare(`DELETE FROM push_subscriptions WHERE endpoint = ?`).run(endpoint);
   res.json({ ok: true });
+});
+
+// Notification de TEST vers sa propre inscription (l'endpoint n'est connu que
+// du navigateur abonné) — libellé explicite, jamais un faux incident.
+publicRouter.post('/push/test', ipRateLimit('push_test_ip', 5, 60), async (req, res) => {
+  const endpoint = String(req.body?.endpoint || '');
+  if (!endpoint.startsWith('https://')) return res.status(400).json({ error: msg(req, 'invalid_params') });
+  const r = await sendTestPush(endpoint, req.body?.lang === 'ar' ? 'ar' : 'fr');
+  if (r.notFound) return res.status(404).json({ error: msg(req, 'incident_not_found') });
+  res.json({ ok: r.ok });
 });
 
 // --- Télémétrie d'erreurs frontend ------------------------------------------
