@@ -200,6 +200,38 @@ export function distanceKm(lat1, lng1, lat2, lng2) {
   return 2 * R * Math.asin(Math.sqrt(a));
 }
 
+// ── Qualité de l'air (PM2.5) — Open-Meteo Air Quality, AUCUNE clé ──────────
+// Accès vérifié le 28/07/2026. Contexte fumée/pollution : une INFORMATION,
+// jamais un avis médical ni une consigne. Surcharge de test : AIR_URL.
+const AIR_BASE = () => process.env.AIR_URL || 'https://air-quality-api.open-meteo.com';
+const airCache = new Map();
+
+export async function getAir(lat, lng) {
+  const key = cacheKey(lat, lng);
+  const cfgMin = getSettingNum('wind_cache_min');
+  const ttlMs = (Number.isFinite(cfgMin) && cfgMin >= 0 ? cfgMin : 15) * 60_000;
+  const hit = airCache.get(key);
+  if (hit && Date.now() - hit.at < ttlMs) return hit.data;
+  try {
+    const url = `${AIR_BASE()}/v1/air-quality?latitude=${lat.toFixed(3)}&longitude=${lng.toFixed(3)}`
+      + `&current=pm2_5,pm10,european_aqi&timezone=UTC`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    if (!res.ok) throw new Error(`air ${res.status}`);
+    const c = (await res.json()).current || {};
+    if (!Number.isFinite(c.pm2_5)) return null;
+    const data = {
+      pm25: Math.round(c.pm2_5),
+      pm10: Number.isFinite(c.pm10) ? Math.round(c.pm10) : null,
+      eaqi: Number.isFinite(c.european_aqi) ? Math.round(c.european_aqi) : null,
+      observedAt: c.time ? (/Z$/.test(c.time) ? c.time : `${c.time}:00Z`) : new Date().toISOString(),
+      provider: 'open_meteo_air',
+    };
+    airCache.set(key, { at: Date.now(), data });
+    if (airCache.size > 500) airCache.delete(airCache.keys().next().value);
+    return data;
+  } catch { return null; } // panne indépendante
+}
+
 // Contexte « sous le vent » — CONSERVATEUR, jamais un score de risque :
 // 'downwind' | 'crosswind' | 'upwind' | 'unknown'. Données absentes,
 // périmées ou lieu trop lointain → 'unknown' (on n'infère jamais).

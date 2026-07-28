@@ -17,6 +17,7 @@ import { eventsRouter } from './src/routes/events.js';
 import { devRouter } from './src/routes/dev.js';
 import { startScheduler } from './src/services/scheduler.js';
 import { effisStatus } from './src/services/effis.js';
+import { roadsStatus } from './src/services/roads.js';
 import { msg } from './src/i18n.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -102,7 +103,10 @@ app.get('/healthz', (req, res) => {
   // Copernicus EFFIS : dernière synchro des zones brûlées ? (indicateurs seuls)
   let effis = null;
   try { effis = effisStatus(); } catch { /* idem */ }
-  res.json({ ok: true, backupAt, incidents, firms, offsite, vigilance, emailAlerts, effis });
+  // Bison Futé : routes barrées & entraves (indicateurs seuls).
+  let roads = null;
+  try { roads = roadsStatus(); } catch { /* idem */ }
+  res.json({ ok: true, backupAt, incidents, firms, offsite, vigilance, emailAlerts, effis, roads });
 });
 
 // ── Sandbox (/sandbox) — environnement de test totalement cloisonné ─────────

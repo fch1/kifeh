@@ -128,6 +128,41 @@ const effisSrv = http.createServer((req, res) => {
 await new Promise((r) => effisSrv.listen(EFFIS_PORT, r));
 fs.rmSync('data/effis-cache.json', { force: true }); // cache d'un passage précédent
 
+// ── Serveur Bison Futé SIMULÉ : index de dossier + fichiers DATEX II.
+//    3 situations : route fermée (Gironde), travaux (Var), bouchon (ÉCARTÉ).
+const ROADS_PORT = 3969;
+const datex = (typ, lat, lng, road, closed) => `<?xml version="1.0"?><soap:Envelope xmlns:soap="s">
+<d2LogicalModel xmlns:xsi="x"><situation><situationRecord xsi:type="${typ}">
+<overallStartTime>2026-07-28T08:00:00+02:00</overallStartTime>
+${closed ? '<complianceOption>mandatory</complianceOption><roadOrCarriagewayOrLaneManagementType>roadClosed</roadOrCarriagewayOrLaneManagementType>' : ''}
+<groupOfLocations xsi:type="Point"><locationForDisplay><latitude>${lat}</latitude><longitude>${lng}</longitude></locationForDisplay></groupOfLocations>
+<roadNumber>${road}</roadNumber>
+</situationRecord></situation></d2LogicalModel></soap:Envelope>`;
+const roadsFiles = {
+  '9000001.xml': datex('RoadOrCarriagewayOrLaneManagement', 44.84, -0.58, 'D106', true),
+  '9000002.xml': datex('MaintenanceWorks', 43.12, 5.93, 'A50', false),
+  '9000003.xml': datex('AbnormalTraffic', 45.76, 4.83, 'A7', false), // bouchon → écarté
+};
+const roadsSrv = http.createServer((req, res) => {
+  const f = req.url.split('/').pop();
+  if (roadsFiles[f]) {
+    res.writeHead(200, { 'Content-Type': 'text/xml' });
+    return res.end(roadsFiles[f]);
+  }
+  res.writeHead(200, { 'Content-Type': 'text/html' });
+  res.end(Object.keys(roadsFiles).map((n) => `<a href="${n}">${n}</a>`).join('\n'));
+});
+await new Promise((r) => roadsSrv.listen(ROADS_PORT, r));
+fs.rmSync('data/roads-cache.json', { force: true });
+
+// ── Serveur qualité de l'air SIMULÉ (format Open-Meteo Air Quality).
+const AIR_PORT = 3968;
+const airSrv = http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ current: { time: state.time(), pm2_5: 18.4, pm10: 27.1, european_aqi: 31 } }));
+});
+await new Promise((r) => airSrv.listen(AIR_PORT, r));
+
 const server = spawn('node', ['server.js'], {
   env: {
     ...process.env, NODE_ENV: 'development', PORT: String(PORT), DB_PATH: DB,
@@ -138,11 +173,13 @@ const server = spawn('node', ['server.js'], {
     METEOFRANCE_API_KEY: 'cle-de-test-vigilance',
     VIGILANCE_URL: `http://127.0.0.1:${VIGI_PORT}`,
     EFFIS_URL: `http://127.0.0.1:${EFFIS_PORT}`,
+    ROADS_URL: `http://127.0.0.1:${ROADS_PORT}`,
+    AIR_URL: `http://127.0.0.1:${AIR_PORT}`,
   },
   stdio: ['ignore', 'pipe', 'inherit'],
 });
 server.stdout.on('data', () => {});
-process.on('exit', () => { try { server.kill(); windSrv.close(); vigiSrv.close(); effisSrv.close(); } catch {} });
+process.on('exit', () => { try { server.kill(); windSrv.close(); vigiSrv.close(); effisSrv.close(); roadsSrv.close(); airSrv.close(); } catch {} });
 // Attente de disponibilité réelle (le premier démarrage crée les tables).
 for (let i = 0; i < 30; i++) {
   try { await fetch(`${BASE}/healthz`); break; } catch { await new Promise((r) => setTimeout(r, 500)); }
@@ -479,6 +516,39 @@ async function main() {
   ok(hz.effis && hz.effis.count === 2 && Boolean(hz.effis.lastSuccess) && hz.effis.hasError === false,
     'healthz : effis {count: 2, lastSuccess, hasError: false}');
   ok(fs.existsSync('data/effis-cache.json'), 'cache persisté sur disque (survit au redémarrage)');
+
+  // ── Routes barrées Bison Futé (serveur simulé) ──
+  section('Routes barrées : DATEX II, filtrage des types, bbox, honnêteté');
+  let rd = null;
+  for (let i = 0; i < 30; i++) {
+    rd = await api('GET', '/api/fire-situation/roads?minLat=41&maxLat=51&minLng=-5&maxLng=10&country=FR');
+    if (rd.data?.events?.length) break;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  ok(rd.data.enabled === true && Array.isArray(rd.data.events), 'route active côté France');
+  ok(rd.data.events.length === 2, 'entraves retenues : fermeture + travaux (le bouchon est ÉCARTÉ)');
+  const rdClosed = rd.data.events.find((e) => e.road === 'D106');
+  const rdWorks = rd.data.events.find((e) => e.road === 'A50');
+  ok(Boolean(rdClosed && rdWorks), 'les deux entraves réelles présentes (Gironde + Var)');
+  ok(rdClosed.closed === true && rdClosed.type === 'RoadOrCarriagewayOrLaneManagement',
+    'fermeture détectée (roadClosed) avec son type DATEX');
+  ok(rdWorks.closed === false && rdWorks.type === 'MaintenanceWorks', 'travaux non fermants distingués');
+  ok(rd.data.source.includes('Bison Futé') && Boolean(rd.data.updatedAt), 'attribution Bison Futé + horodatage');
+  const rdVar = await api('GET', '/api/fire-situation/roads?minLat=42.5&maxLat=43.5&minLng=5&maxLng=6.5&country=FR');
+  ok(rdVar.data.events.length === 1 && rdVar.data.events[0].road === 'A50', 'bbox Var → entrave varoise uniquement');
+  const rdTn = await api('GET', '/api/fire-situation/roads?minLat=41&maxLat=51&minLng=-5&maxLng=10&country=TN');
+  ok(rdTn.data.enabled === false, 'Tunisie → couche routes désactivée');
+  const hzR = await (await fetch(`${BASE}/healthz`)).json();
+  ok(hzR.roads && hzR.roads.count === 2 && Boolean(hzR.roads.lastSuccess) && hzR.roads.hasError === false,
+    'healthz : roads {count: 2, lastSuccess, hasError: false}');
+
+  // ── Qualité de l'air (serveur simulé) ──
+  section('Qualité de l’air : PM2.5 dans le résumé, panne indépendante');
+  const sAir = await api('GET', '/api/fire-situation/summary?minLat=44&maxLat=45&minLng=-1&maxLng=0&country=FR');
+  ok(sAir.data.air && sAir.data.air.pm25 === 18 && sAir.data.air.eaqi === 31,
+    'résumé : air { pm25: 18, eaqi: 31 } (Open-Meteo Air Quality simulé)');
+  ok(typeof sAir.data.air.observedAt === 'string' && sAir.data.air.provider === 'open_meteo_air',
+    'air : horodatage + fournisseur transmis');
 
   console.log('\n────────────────────────────');
   console.log(`${passed} réussis · ${failed} échoués`);

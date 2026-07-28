@@ -261,6 +261,31 @@ html[dir="rtl"] .topbar .back .arrow { display: inline-block; transform: scaleX(
    s'applique toujours) ; on ne neutralise que la chromie de <button>. */
 button.brand-name { appearance: none; border: 0; cursor: pointer; font: inherit; color: inherit; }
 
+/* Timeline des moments clés (fiche incident) — verticale, sobre, factuelle. */
+.timeline { margin: .625rem 0; padding: .5rem .75rem; background: rgba(30, 42, 77, .045); border-radius: 12px; }
+.tl-item { display: flex; align-items: baseline; gap: .5rem; padding: .2rem 0; position: relative; }
+.tl-dot {
+  flex: 0 0 auto; width: 1.05rem; height: 1.05rem; border-radius: 50%;
+  background: var(--surface); border: 2px solid var(--primary-dark);
+  font-size: .6rem; display: inline-flex; align-items: center; justify-content: center;
+}
+.tl-item + .tl-item::before {
+  content: ''; position: absolute; inset-inline-start: .5rem; top: -0.45rem;
+  width: 2px; height: .65rem; background: var(--border);
+}
+.tl-item .muted { margin-inline-start: auto; white-space: nowrap; }
+
+/* « En bref — situation feu » : bloc réuni, jamais anxiogène. */
+.fire-brief { margin: .5rem 0; border-inline-start: 3px solid var(--brand-red); }
+
+/* Marqueur d'entrave routière (Bison Futé) — sobre, lisible, jamais criard. */
+.road-pin {
+  width: 26px; height: 26px; border-radius: 8px; background: var(--surface);
+  border: 1.5px solid #B98A1F; box-shadow: var(--shadow);
+  display: flex; align-items: center; justify-content: center; font-size: .875rem;
+}
+.road-pin.road-closed { border-color: var(--brand-red-dark); }
+
 /* Nuancier « zone brûlée » (légende EFFIS) : brun assumé, jamais le rouge feu. */
 .burnt-swatch {
   display: inline-block; width: 14px; height: 14px; border-radius: 3px;

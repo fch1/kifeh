@@ -259,10 +259,40 @@ function renderFollowSuccess(z, justSaved) {
     ? `<button class="btn secondary" id="followTestBtn" type="button">${esc(t('follow_test_btn'))}</button>`
     : (pushSupported() ? `<button class="btn" id="followPushBtn2" type="button">🔔 ${esc(t('follow_enable_push'))}</button>` : '')}
     <p class="muted small" id="followMsg" role="status" aria-live="polite"></p>
+    <label class="small" for="zoneNameInput" style="margin-top:.5rem">${esc(t('zone_name_label'))}</label>
+    <div class="chips" id="zoneNameChips">
+      ${['zone_name_home', 'zone_name_family', 'zone_name_work'].map((k) =>
+    `<button class="chip" type="button" data-name="${esc(t(k))}">${esc(t(k))}</button>`).join('')}
+    </div>
+    <div class="row" style="gap:.5rem">
+      <input type="text" id="zoneNameInput" maxlength="30" value="${esc(z.label || '')}"
+             style="flex:1;min-height:44px" aria-label="${esc(t('zone_name_label'))}">
+      <button class="btn secondary small-btn" id="zoneNameSave" type="button" style="flex:0 0 auto">✓</button>
+    </div>
     <div class="row" style="gap:.5rem;margin-top:.5rem">
       <button class="btn ghost small-btn" id="followSee" type="button">${esc(t('suivis_see'))}</button>
       <button class="btn ghost small-btn" id="followRemove" type="button">${esc(t('follow_remove'))}</button>
     </div>`;
+  // Nommer sa zone (« Chez moi », « Parents »…) : le suivi devient personnel.
+  const saveZoneName = (name) => {
+    const clean = String(name || '').trim().slice(0, 30);
+    if (!clean) return;
+    const zones = zoneStore();
+    const zz = zones.find((s) => s.at === z.at);
+    if (zz) {
+      zz.label = clean;
+      try { localStorage.setItem('kifeh_zones', JSON.stringify(zones)); } catch {}
+      z.label = clean;
+      document.getElementById('followMsg').textContent = t('zone_name_saved');
+      renderSummary(false);
+      window.track?.('zone_named', {});
+      renderFollowSuccess(z);
+    }
+  };
+  document.querySelectorAll('#zoneNameChips .chip').forEach((c) =>
+    c.addEventListener('click', () => saveZoneName(c.dataset.name)));
+  document.getElementById('zoneNameSave')?.addEventListener('click', () =>
+    saveZoneName(document.getElementById('zoneNameInput').value));
   document.getElementById('followTestBtn')?.addEventListener('click', (e) => withButton(e.currentTarget, async () => {
     const msgEl = document.getElementById('followMsg');
     try {
@@ -312,7 +342,8 @@ function renderSuivis() {
       <div class="card" style="margin:.4rem 0">
         <strong>📍 ${esc(z.label)}</strong>
         <span class="muted small"> · ${esc(String(z.radiusKm || 20))} km</span><br>
-        <span class="small">${z.push ? `🔔 ${esc(t('follow_push_on'))}` : `🔕 ${esc(t('follow_push_off'))}`}${z.email ? ` · ✉️ ${esc(t('follow_email_on'))}` : ''}</span>
+        <span class="small">${z.push ? `🔔 ${esc(t('follow_push_on'))}` : `🔕 ${esc(t('follow_push_off'))}`}${z.email ? ` · ✉️ ${esc(t('follow_email_on'))}` : ''}</span><br>
+        <span class="small muted zone-activity" data-zlat="${z.lat}" data-zlng="${z.lng}" data-zr="${z.radiusKm || 20}">…</span>
         <div class="row" style="gap:.4rem;margin-top:.5rem">
           <button class="btn secondary small-btn" data-see="${i}" type="button">${esc(t('suivis_see'))}</button>
           <button class="btn ghost small-btn" data-manage="${i}" type="button">${esc(t('suivis_manage'))}</button>
@@ -342,6 +373,22 @@ function renderSuivis() {
   body.querySelectorAll('[data-pid]').forEach((chip) => chip.addEventListener('click', () => {
     openDetail(chip.dataset.pid);
   }));
+  // Activité RÉELLE de chaque zone suivie (« centre d'alertes » honnête) :
+  // le compte d'incidents en cours dans le rayon, depuis les données publiques
+  // — jamais un historique fabriqué. Chargement après rendu, jamais bloquant.
+  body.querySelectorAll('.zone-activity').forEach(async (elz) => {
+    try {
+      const lat = +elz.dataset.zlat, lng = +elz.dataset.zlng, rKm = +elz.dataset.zr;
+      const dLat = rKm / 111, dLng = rKm / (111 * Math.max(.2, Math.cos((lat * Math.PI) / 180)));
+      const d = await API.get(`/api/public/incidents?${new URLSearchParams({
+        minLat: (lat - dLat).toFixed(4), maxLat: (lat + dLat).toFixed(4),
+        minLng: (lng - dLng).toFixed(4), maxLng: (lng + dLng).toFixed(4), status: 'active',
+      })}`);
+      const n = (d.incidents || []).filter((i) =>
+        map.distance([lat, lng], [i.lat, i.lng]) <= rKm * 1000).length;
+      elz.textContent = n ? `⚠️ ${t('suivis_active_n', { n })}` : `🟢 ${t('suivis_active_none')}`;
+    } catch { elz.textContent = ''; }
+  });
 }
 document.getElementById('btnAlerts').addEventListener('click', openSuivis);
 // État initial du bouton (abonnement déjà actif ?) — sans demander de permission.
@@ -353,7 +400,7 @@ if (pushSupported()) {
 function renderCountryButton() {
   const btn = document.getElementById('countrySwitch');
   const p = countryProfile();
-  btn.textContent = `${p.flag} ${p.name[LANG] || p.name.fr}`;
+  btn.textContent = `${p.flag} ${p.name[LANG] || p.name.fr} ▾`; // territoire explicite, dépliable
   // Marque selon le pays consulté : bilingue en Tunisie (« Kifeh كيفاه »),
   // française en France (« Kifeh »). Indépendant de la langue de l'interface.
   const ar = document.getElementById('brandArabic');
@@ -792,12 +839,54 @@ function renderSituationHub() {
       ? `🟠 ${esc(t('fs_vigilance_active', { n: fireSit.vigilance.activeDepartments }))}`
       : `🟢 ${esc(t('fs_vigilance_none'))}`} ›</button>`;
   }
+  // Météo locale (France) : mêmes données que le bandeau, avec source + heure.
+  let wxLine = '';
+  if (fireSit?.heat || fireSit?.wind) {
+    const h = fireSit.heat, w = fireSit.wind && !fireSit.wind.stale ? fireSit.wind : null;
+    const air = fireSit.air;
+    wxLine = `<p class="small" id="situWx" role="button" tabindex="0">
+      ${h ? `🌡️ <strong>${esc(String(h.tempC))}°</strong>` : ''}
+      ${h?.humidityPct != null ? ` · 💧 ${esc(String(h.humidityPct))} %` : ''}
+      ${w ? ` · <span class="wx-s-arrow" style="display:inline-block;transform:rotate(${((Number(w.directionToDeg) || 0) - 90 + 360) % 360}deg)">➤</span> ${esc(String(w.speedKmh))} km/h${w.gustsKmh ? ` (${esc(String(w.gustsKmh))})` : ''}` : ''}
+      ${air ? ` · 🫁 ${esc(t('air_pm25', { n: air.pm25 }))}${air.eaqi != null ? ` (${esc(airQualityLabel(air.eaqi))})` : ''}` : ''} ›
+      <br><span class="muted">${esc(t('wx_legend_at', { t: fmtDate((h || w).observedAt || new Date().toISOString()) }))}</span></p>`;
+  }
+  // « En bref — situation feu » : réuni quand le filtre 🔥 est actif ou qu'un
+  // feu récent est proche (< 15 km). Que se passe-t-il, à quelle distance,
+  // quelle origine, quel vent, quelle information officielle — SANS jamais
+  // de prévision de propagation ni d'heure d'arrivée estimée.
+  let fireBrief = '';
+  const nearest = nearestFire(active, sats);
+  let fireModeOn = false;
+  try { fireModeOn = fireFilterActive() || (nearest && nearest.d < 15_000); } catch {}
+  if (currentCountry() === 'FR' && fireModeOn && nearest) {
+    const freshAt = nearest.sat ? nearest.item.last_detected_at
+      : (nearest.item.updated_at || nearest.item.started_at);
+    const origin = nearest.sat ? t('origin_sat')
+      : (nearest.item.satellite_last_seen ? t('origin_corr') : t('origin_cit'));
+    const km = Math.max(1, Math.round(nearest.d / 1000));
+    fireBrief = `
+    <div class="card fire-brief">
+      <p class="small" style="margin:0 0 .25rem"><strong>🔥 ${esc(t('fire_brief_title'))}</strong></p>
+      <p class="small" style="margin:.1rem 0">📍 ${esc(t('nearest_fire_km_dir', { km, dir: nearest.dir }))}</p>
+      ${freshAt ? `<p class="small muted" style="margin:.1rem 0">${esc(t('fire_brief_seen', { t: timeAgo(freshAt) }))} · ${esc(origin)}</p>` : ''}
+      ${fireSit?.official?.length
+      ? `<p class="small" style="margin:.1rem 0">${esc(t('fire_brief_official_yes'))}</p>`
+      : `<p class="small muted" style="margin:.1rem 0">${esc(t('fire_brief_official_no'))}</p>`}
+      <div class="row" style="gap:.4rem;margin-top:.4rem">
+        <button class="btn secondary small-btn" id="fireBriefSee" type="button">${esc(t('suivis_see'))}</button>
+        <a class="btn secondary small-btn" href="declare.html?type=fire">${esc(t('fire_brief_declare'))}</a>
+      </div>
+    </div>`;
+  }
   el.innerHTML = `
     ${calm
     ? `<p><strong>${esc(t('situation_calm'))}</strong></p>
        <p class="muted small">${esc(t('situation_calm_note'))}</p>
        <a class="btn secondary small-btn" href="declare.html">${esc(t('declare_btn'))}</a>`
     : `<p><strong>${mainLine}</strong></p>${nearestFireLineHtml(active, sats)}`}
+    ${fireBrief}
+    ${wxLine}
     <div class="detail-links">
       ${vigLine}
       <button class="btn secondary small-btn" id="situFollow">${fz
@@ -805,7 +894,13 @@ function renderSituationHub() {
     </div>
     ${snapAt ? `<p class="muted small">${esc(t('situation_updated', { t: timeAgo(new Date(snapAt).toISOString()) }))}</p>` : ''}`;
   el.querySelector('#situCond')?.addEventListener('click', openVigilanceSheet);
+  el.querySelector('#situWx')?.addEventListener('click', openVigilanceSheet);
   el.querySelector('#situFollow')?.addEventListener('click', openFollowSheet);
+  el.querySelector('#fireBriefSee')?.addEventListener('click', () => {
+    closeSheets();
+    map.setView([nearest.lat, nearest.lng], Math.max(map.getZoom(), 11));
+    if (nearest.sat) openSatDetail(nearest.item.id); else openDetail(nearest.item.public_id);
+  });
 }
 
 // « Aide » — urgences d'abord (avec l'honnêteté habituelle : Kifeh n'appelle
@@ -820,6 +915,8 @@ function renderAide() {
       <a class="btn secondary" href="a-propos.html">💡 ${esc(t('aide_how'))}</a>
       <a class="btn secondary" href="faq.html">❓ ${esc(t('aide_faq'))}</a>
       <button class="btn secondary" id="aideCountry">${esc(countryProfile().flag)} ${esc(t('aide_country'))}</button>
+      <button class="btn secondary" id="aideLang">🌐 ${esc(t('lang_button'))}</button>
+      <button class="btn secondary" id="aideLite">🌿 ${esc(t('aide_lite'))}</button>
       <a class="btn secondary" href="legal.html">ⓘ ${esc(t('aide_legal'))}</a>
     </div>`;
   el.querySelector('#aideEmergency')?.addEventListener('click', () => {
@@ -832,6 +929,9 @@ function renderAide() {
     renderSafetyHelp(ctx);
   });
   el.querySelector('#aideCountry')?.addEventListener('click', () => openSheet('countrySheet'));
+  el.querySelector('#aideLang')?.addEventListener('click', () => setLang(LANG === 'ar' ? 'fr' : 'ar'));
+  // Kifeh Léger vit avec les couches/performances (feuille des couches).
+  el.querySelector('#aideLite')?.addEventListener('click', () => openSheet('filterSheet'));
 }
 
 // Heure locale (fuseau du pays consulté) d'un horodatage — ex. « 16 h ».
@@ -940,11 +1040,17 @@ function updateFilterCount() {
 // bouge ; fenêtre plus longue en mode léger.
 map.on('moveend', () => { clearTimeout(loadTimer); loadTimer = setTimeout(loadIncidents, LITE ? 800 : 400); });
 loadIncidents().then(() => {
+  const deepLink = location.search.includes('incident=') || location.search.includes('confirm=');
   // Mode léger : l'information d'abord — la liste s'ouvre avant la carte.
-  if (LITE && !location.search.includes('incident=') && !location.search.includes('confirm=')) {
+  if (LITE && !deepLink) {
     renderList();
     openSheet('listSheet');
+    return;
   }
+  // Vue mémorisée : qui quitte Kifeh en mode liste retrouve la liste.
+  let savedView = null;
+  try { savedView = localStorage.getItem('kifeh_view'); } catch {}
+  if (savedView === 'list' && !deepLink) { renderList(); openSheet('listSheet'); }
 });
 
 // --- Temps réel (SSE) -------------------------------------------------------
@@ -1209,6 +1315,8 @@ function openSheet(id) {
   s.classList.add('open');
   s.setAttribute('tabindex', '-1');
   s.focus({ preventScroll: true });
+  // La vue « liste » est un premier rang : son état survit à la visite.
+  if (id === 'listSheet') { try { localStorage.setItem('kifeh_view', 'list'); } catch {} }
 }
 function closeSheets(restoreFocus = true) {
   const wasOpen = document.querySelector('.sheet.open');
@@ -1219,6 +1327,7 @@ function closeSheets(restoreFocus = true) {
   }
   // Feuilles fermées = on est « sur la carte » (état de la navigation).
   try { setNavCurrent('navMap'); } catch { /* page sans navigation */ }
+  if (wasOpen?.id === 'listSheet') { try { localStorage.setItem('kifeh_view', 'map'); } catch {} }
 }
 // Fermeture visible et cohérente sur TOUTES les feuilles (accessibilité :
 // la poignée seule n'est pas une affordance suffisante).
@@ -1237,7 +1346,15 @@ map.on('click', closeSheets);
 
 // --- Liste ------------------------------------------------------------------
 document.getElementById('btnList').addEventListener('click', () => { renderList(); openSheet('listSheet'); });
-document.getElementById('sortSelect').addEventListener('change', renderList);
+// Tri mémorisé : proximité/récence/gravité — le choix survit aux visites.
+try {
+  const savedSort = localStorage.getItem('kifeh_sort');
+  if (savedSort) document.getElementById('sortSelect').value = savedSort;
+} catch {}
+document.getElementById('sortSelect').addEventListener('change', () => {
+  try { localStorage.setItem('kifeh_sort', document.getElementById('sortSelect').value); } catch {}
+  renderList();
+});
 
 function renderList() {
   renderSavedZoneChips(); // zones suivies : accès en un geste depuis la liste
@@ -1332,6 +1449,36 @@ function windVisualHtml(w) {
     </span>
   </div>`;
 }
+// Qualité de l'air : mot QUALITATIF de l'échelle européenne EAQI — une
+// information de contexte, jamais un avis médical.
+function airQualityLabel(eaqi) {
+  if (eaqi <= 20) return t('air_q_good');
+  if (eaqi <= 50) return t('air_q_medium');
+  return t('air_q_bad');
+}
+
+// Timeline des moments clés d'un incident — UNIQUEMENT à partir des
+// horodatages réellement stockés (jamais d'événement reconstitué).
+function timelineHtml(i) {
+  const ev = [];
+  if (i.started_at) ev.push({ at: i.started_at, label: t('tl_started') });
+  if (i.satellite_last_seen) ev.push({ at: i.satellite_last_seen, label: t('tl_sat'), icon: '🛰️' });
+  if (i.ended_at || i.resolved_at) {
+    ev.push({ at: i.ended_at || i.resolved_at, label: t('tl_resolved'), icon: '✓' });
+  } else if (i.updated_at && i.updated_at !== i.started_at) {
+    ev.push({ at: i.updated_at, label: t('tl_updated') });
+  }
+  if (ev.length < 2) return ''; // une timeline d'un seul point n'apprend rien
+  ev.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+  return `
+  <div class="timeline" aria-label="${esc(t('timeline_title'))}">
+    <p class="small" style="margin:0 0 .25rem"><strong>${esc(t('timeline_title'))}</strong></p>
+    ${ev.map((e) => `<div class="tl-item"><span class="tl-dot" aria-hidden="true">${e.icon || ''}</span>
+      <span class="small">${esc(e.label)}</span>
+      <span class="muted small">${esc(fmtDate(e.at))}</span></div>`).join('')}
+  </div>`;
+}
+
 function heatVisualHtml(h) {
   if (!h) return '';
   const pct = Math.max(2, Math.min(98, ((h.tempC + 5) / 50) * 100)); // échelle −5…45 °C
@@ -1461,6 +1608,7 @@ async function openDetail(publicId) {
     <strong>${t('severity_label')}</strong> ${esc(SEVERITY_LABELS[i.severity])}<br>
     <strong>${t('last_update')}</strong> ${esc(timeAgo(i.updated_at))}</p>
     ${i.description ? `<p>${esc(i.description)}</p>` : ''}
+    ${timelineHtml(i)}
     ${i.confirmations_count > 0 ? `<p class="notice ok" id="affectedCount">${i.confirmations_count > 1 ? t('affected_n', { n: i.confirmations_count }) : t('affected_one')}</p>` : '<p hidden id="affectedCount"></p>'}
     ${i.resolutionReports > 0 && i.status === 'active' ? `<p class="notice warn" id="endedCount"><strong>${t('ended_pending')}</strong><br>${i.resolutionReports > 1 ? t('ended_reports_n', { n: i.resolutionReports }) : t('ended_reports_one')}</p>` : ''}
     ${isFire ? '<div id="fsSections"></div>' : ''}
@@ -2487,4 +2635,90 @@ function openBurntDetail(a, updatedAt) {
   });
   burntLayer.addTo(map);
   drawBurntAreas();
+})();
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Routes barrées & entraves — Bison Futé (DATEX II, DIR). Couche OPTIONNELLE
+// (jamais active par défaut : chaque calque secondaire se choisit), marqueurs
+// 🚧 sobres, fiche avec type, route, depuis quand, source et limites.
+// ═════════════════════════════════════════════════════════════════════════════
+const roadsLayer = L.layerGroup();
+let roadsOn = false, roadsTimer = null;
+const ROAD_TYPE_KEY = {
+  Accident: 'road_accident',
+  MaintenanceWorks: 'road_works', ConstructionWorks: 'road_works',
+  RoadOrCarriagewayOrLaneManagement: 'road_mgmt', ReroutingManagement: 'road_mgmt',
+  VehicleObstruction: 'road_obstruction', GeneralObstruction: 'road_obstruction',
+  EnvironmentalObstruction: 'road_obstruction',
+};
+function roadTypeLabel(e) {
+  return e.closed ? t('road_closed') : t(ROAD_TYPE_KEY[e.type] || 'road_mgmt');
+}
+
+async function drawRoads() {
+  if (!roadsOn || currentCountry() !== 'FR') return;
+  const b = map.getBounds();
+  let r;
+  try {
+    r = await API.get(`/api/fire-situation/roads?${new URLSearchParams({
+      minLat: b.getSouth().toFixed(3), maxLat: b.getNorth().toFixed(3),
+      minLng: b.getWest().toFixed(3), maxLng: b.getEast().toFixed(3),
+    })}`);
+  } catch { r = null; }
+  roadsLayer.clearLayers();
+  if (!r?.enabled || !r.events?.length) return;
+  for (const e of r.events) {
+    const mk = L.marker([e.lat, e.lng], {
+      keyboard: false,
+      icon: L.divIcon({
+        className: '',
+        html: `<div class="road-pin${e.closed ? ' road-closed' : ''}">${e.closed ? '⛔' : '🚧'}</div>`,
+        iconSize: [26, 26], iconAnchor: [13, 13],
+      }),
+    }).addTo(roadsLayer);
+    mk.on('click', (ev) => {
+      L.DomEvent.stopPropagation(ev);
+      openRoadDetail(e, r.updatedAt);
+    });
+  }
+  window.track?.('roads_drawn', { n: r.events.length });
+}
+
+function openRoadDetail(e, updatedAt) {
+  const el = document.getElementById('roadContent');
+  el.innerHTML = `
+    <h2>${e.closed ? '⛔' : '🚧'} ${esc(roadTypeLabel(e))}${e.road ? ` — ${esc(e.road)}` : ''}</h2>
+    <p>
+      ${e.start ? `${esc(t('road_since', { t: fmtDate(e.start) }))}<br>` : ''}
+      ${e.end ? `${esc(t('road_until', { t: fmtDate(e.end) }))}<br>` : ''}
+      ${updatedAt ? `<span class="muted small">${esc(t('burnt_updated', { d: fmtDate(updatedAt) }))}</span>` : ''}
+    </p>
+    <p class="notice sat">🛣️ <strong>${esc(t('road_source'))}</strong></p>
+    <p class="muted small">${esc(t('road_honesty'))}</p>`;
+  openSheet('roadSheet');
+  window.track?.('road_detail_opened', {});
+}
+
+(function initRoadsLayer() {
+  if (currentCountry() !== 'FR' || LITE) return;
+  const row = document.getElementById('fRoadsRow');
+  const cb = document.getElementById('fRoadsLayer');
+  if (!row || !cb) return;
+  row.hidden = false;
+  let saved = null;
+  try { saved = localStorage.getItem('kifeh_roads_layer'); } catch {}
+  const apply = (on) => {
+    roadsOn = on;
+    cb.checked = on;
+    if (on) { roadsLayer.addTo(map); drawRoads(); window.track?.('roads_layer_on', {}); }
+    else { roadsLayer.clearLayers(); map.removeLayer(roadsLayer); }
+    try { localStorage.setItem('kifeh_roads_layer', on ? '1' : '0'); } catch {}
+  };
+  cb.addEventListener('change', () => apply(cb.checked));
+  map.on('moveend', () => {
+    if (!roadsOn) return;
+    clearTimeout(roadsTimer);
+    roadsTimer = setTimeout(drawRoads, 500);
+  });
+  if (saved === '1') apply(true); // choix mémorisé — jamais actif d'office
 })();

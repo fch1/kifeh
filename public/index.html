@@ -132,6 +132,7 @@
   <label data-i18n="filter_layers"></label>
   <div role="group">
     <label class="checkbox-row"><input type="checkbox" id="fSatLayer"> 🛰️ <span data-i18n="layer_sat"></span></label>
+    <label class="checkbox-row" id="fRoadsRow" hidden><input type="checkbox" id="fRoadsLayer"> 🚧 <span data-i18n="layer_roads"></span></label>
     <button class="btn secondary small-btn" id="btnWeather" hidden
             aria-pressed="false" data-i18n-aria="wx_layer_btn_aria">🌡️ <span data-i18n="wx_layer_btn"></span></button>
   </div>
@@ -254,6 +255,12 @@
   <div id="burntContent"></div>
 </div>
 
+<!-- Feuille : entrave routière Bison Futé — la signalisation sur place prime. -->
+<div class="sheet" id="roadSheet" role="dialog" aria-modal="true" data-i18n-aria="layer_roads">
+  <div class="handle"></div>
+  <div id="roadContent"></div>
+</div>
+
 <!-- Feuille : choix du pays (première visite et bouton pays).
      Le pays est INDÉPENDANT de la langue : la France se consulte en arabe,
      la Tunisie en français. Jamais de géolocalisation sans action explicite. -->
@@ -261,6 +268,7 @@
   <div class="handle"></div>
   <h2 data-i18n="country_q"></h2>
   <p class="muted small" data-i18n="country_intro"></p>
+  <p class="muted small" data-i18n="country_lang_note"></p>
   <div class="country-options" role="group">
     <button class="btn secondary country-option" id="countryTN" type="button">🇹🇳 <span data-i18n="country_tn"></span></button>
     <button class="btn secondary country-option" id="countryFR" type="button">🇫🇷 <span data-i18n="country_fr"></span></button>

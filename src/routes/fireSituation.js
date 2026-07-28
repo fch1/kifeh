@@ -9,10 +9,11 @@ import { Router } from 'express';
 import { db, getSetting, getSettingNum } from '../db.js';
 import { isFiniteNum, cleanText } from '../middleware/security.js';
 import { ipRateLimit } from '../middleware/rateLimit.js';
-import { getWind, getHeat, getWeatherGrid, windIsStale, downwindContext, distanceKm } from '../services/wind.js';
+import { getWind, getHeat, getAir, getWeatherGrid, windIsStale, downwindContext, distanceKm } from '../services/wind.js';
 import { requestCountry, inCountry } from '../countries/index.js';
 import { publicConfidenceList } from '../services/firms.js';
 import { burntAreasInBbox } from '../services/effis.js';
+import { roadEventsInBbox } from '../services/roads.js';
 import { msg } from '../i18n.js';
 
 export const fireSituationRouter = Router();
@@ -91,9 +92,9 @@ fireSituationRouter.get('/summary', ipRateLimit('firesit_ip', 60, 5), async (req
      AND last_detected_at > strftime('%Y-%m-%dT%H:%M:%fZ','now','-24 hours')`
   ).get(country, ...conf, b.minLat, b.maxLat, b.minLng, b.maxLng).n;
 
-  // Vent et chaleur au centre de la zone visible — pannes indépendantes.
-  const [wind, heat] = await Promise.all([
-    getWind(centerLat, centerLng), getHeat(centerLat, centerLng)]);
+  // Vent, chaleur et qualité de l'air au centre de la zone — pannes indépendantes.
+  const [wind, heat, air] = await Promise.all([
+    getWind(centerLat, centerLng), getHeat(centerLat, centerLng), getAir(centerLat, centerLng)]);
   const official = officialUpdatesFor(country, centerLat, centerLng, 3);
   const safetyActive = official.some((u) =>
     ['safety_instruction', 'evacuation', 'shelter_in_place'].includes(u.infoType));
@@ -128,6 +129,7 @@ fireSituationRouter.get('/summary', ipRateLimit('firesit_ip', 60, 5), async (req
     official,
     vigilance, // null si la veille Météo-France n'est pas configurée
     heat,      // chaleur locale (température ≠ danger ≠ feu) — null si indisponible
+    air,       // qualité de l'air PM2.5 (information, jamais un avis médical)
   });
 });
 
@@ -201,6 +203,21 @@ fireSituationRouter.get('/burnt-areas', ipRateLimit('firesit_ip', 60, 5), (req, 
   // updatedAt null = cache pas encore constitué (première synchro à venir) —
   // l'interface n'affiche simplement rien, jamais une erreur.
   res.json({ enabled: true, source: 'Copernicus EFFIS', updatedAt, areas });
+});
+
+// ── Routes barrées & entraves — Bison Futé DATEX II (France) ─────────────────
+// Fermetures, travaux, accidents, obstacles (jamais les simples bouchons).
+// Cache serveur : Tipi n'est JAMAIS appelé pendant une requête utilisateur.
+fireSituationRouter.get('/roads', ipRateLimit('firesit_ip', 60, 5), (req, res) => {
+  const country = requestCountry(req);
+  if (!enabledFor(country)) return res.json({ enabled: false });
+  const q = req.query;
+  const hasBbox = ['minLat', 'maxLat', 'minLng', 'maxLng'].every((k) => isFiniteNum(q[k], -180, 180));
+  if (!hasBbox) return res.status(400).json({ error: msg(req, 'invalid_params') });
+  const { updatedAt, events } = roadEventsInBbox({
+    minLat: +q.minLat, maxLat: +q.maxLat, minLng: +q.minLng, maxLng: +q.maxLng,
+  });
+  res.json({ enabled: true, source: 'Bison Futé — DIR (données ouvertes)', updatedAt, events });
 });
 
 // ── Vent contextuel d'un foyer + contexte « sous le vent » ───────────────────
