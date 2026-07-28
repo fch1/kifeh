@@ -565,12 +565,11 @@ function renderSummary(degraded, snapshotAt) {
     <strong>${mainLine}</strong>
     ${active.length > 0 && typeParts.length ? `<span class="summary-types">${typeParts.join(' · ')}</span>` : ''}
     ${ended > 0 ? `<span class="summary-types">✓ ${ended === 1 ? t('summary_ended_one') : t('summary_ended_n', { n: ended })}</span>` : ''}
-    ${satsShown.length && (active.length > 0 || byType.fire) ? `<span class="summary-sat muted small">${t('fire_sat_part', { n: satsShown.length })}</span>` : ''}
+    ${satsShown.length && active.some((i) => i.type === 'fire') ? `<span class="summary-sat muted small">${t('fire_sat_part', { n: satsShown.length })}</span>` : ''}
     ${fireSit?.latestOfficialAt && fireSit.safetyActive ? `<span class="summary-types summary-official-active">🏛️ ${esc(t('fs_latest_official', { t: timeAgo(fireSit.latestOfficialAt) }))}</span>` : ''}
     ${fireEmptyMode ? `<span class="summary-types muted">${esc(t('fire_none_note'))}</span>` : ''}
     ${nearestFireLineHtml(active, satsShown)}
-    ${condLineHtml()}
-    <span id="followZoneCta" class="summary-types vig-line${fz ? ' followed' : ''}" role="button" tabindex="0" aria-haspopup="dialog">${fz ? `★ ${esc(t('zone_followed_short'))} · ${esc(t('suivis_manage'))}` : `☆ ${esc(t('follow_zone_btn'))}`} ›</span>
+    <span class="summary-actions">${condLineHtml()}<span id="followZoneCta" class="summary-types vig-line${fz ? ' followed' : ''}" role="button" tabindex="0" aria-haspopup="dialog">${fz ? `★ ${esc(t('zone_followed_short'))}` : `☆ ${esc(t('follow_zone_btn'))}`} ›</span></span>
     ${degraded ? `<span class="summary-degraded">${t('api_degraded')}<br>${t('offline_snapshot', { t: timeAgo(new Date(snapshotAt).toISOString()) })}</span>` : ''}`;
 }
 // « Plus proche : ~N km » — distance du feu le plus proche (signalement citoyen
