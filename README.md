@@ -197,6 +197,7 @@ docs/                architecture, modèle de données, parcours, déploiement, 
 Détails : [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) ·
 [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md) ·
 [`docs/USER_FLOWS.md`](docs/USER_FLOWS.md) ·
+[`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) ·
 [`docs/BRAND.md`](docs/BRAND.md)
 
 ## Contribuer
