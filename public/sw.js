@@ -10,7 +10,7 @@
 const SHELL_CACHE = 'kifeh-shell-v1';
 const PRECACHE = [
   '/', '/index.html', '/offline.html', '/css/app.css',
-  '/js/i18n.js', '/js/api.js', '/js/map-common.js', '/js/home.js',
+  '/js/i18n.js', '/js/api.js', '/js/map-common.js', '/js/home.js', '/js/home-layers.js',
   '/vendor/leaflet/leaflet.js', '/vendor/leaflet/leaflet.css',
   '/img/logo.svg?v=marque4', '/img/icon-192.png?v=marque4',
 ];
