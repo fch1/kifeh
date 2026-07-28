@@ -239,6 +239,16 @@ async function main() {
   const sumTn = await api('GET', '/api/fire-situation/summary?minLat=36&maxLat=37&minLng=10&maxLng=11');
   ok(sumTn.data.enabled === false, 'résumé inactif côté Tunisie');
 
+  // ── Grille météo de la carte (voile de température + flèches de vent) ──
+  const wg = await api('GET', '/api/fire-situation/weather-grid?minLat=44.5&maxLat=45.2&minLng=-1.2&maxLng=-0.2&country=FR');
+  ok(wg.status === 200 && wg.data.grid?.cells?.length >= 9, `grille météo : ${wg.data.grid?.cells?.length} cellules`);
+  const cell = wg.data.grid.cells[0];
+  ok(Number.isFinite(cell.tempC) && Number.isFinite(cell.windToDeg),
+    'chaque cellule : température + direction du vent prêtes à dessiner');
+  ok(JSON.stringify(wg.data).length < 30_000, 'grille météo < 30 Ko');
+  const wgTn = await api('GET', '/api/fire-situation/weather-grid?minLat=36&maxLat=37&minLng=10&maxLng=11');
+  ok(wgTn.data.enabled === false, 'grille météo inactive côté Tunisie');
+
   // ── Verrou multi-dénominateurs des confirmations ──
   section('Confirmations : un dénominateur (appareil OU IP) ne sert qu’une fois');
   const inc = await publish({ lat: 44.90, lng: -0.55 });

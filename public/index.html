@@ -86,6 +86,7 @@
 </div>
 
 <div class="home-bottom">
+  <div class="wx-legend" id="wxLegend" hidden></div>
   <div class="counter" id="counter" role="status" aria-live="polite" data-i18n="loading"></div>
   <div class="row">
     <button class="btn secondary small-btn" id="btnLocate" style="flex:0 0 auto" data-i18n="my_position"></button>
@@ -94,6 +95,8 @@
             data-i18n="alerts_btn" data-i18n-aria="alerts_aria"></button>
     <button class="btn secondary small-btn" id="btnSafety" style="flex:0 0 auto"
             data-i18n-aria="safety_title">🤍 <span data-i18n="safety_shortcut"></span></button>
+    <button class="btn secondary small-btn" id="btnWeather" style="flex:0 0 auto" hidden
+            aria-pressed="false" data-i18n-aria="wx_layer_btn_aria">🌡️ <span data-i18n="wx_layer_btn"></span></button>
     <a class="btn secondary small-btn" href="legal.html" style="flex:0 0 auto" data-i18n-aria="legal_aria">ⓘ</a>
   </div>
   <a class="btn btn-declare" href="declare.html" data-i18n="declare_btn"></a>

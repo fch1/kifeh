@@ -9,7 +9,7 @@ import { Router } from 'express';
 import { db, getSetting, getSettingNum } from '../db.js';
 import { isFiniteNum, cleanText } from '../middleware/security.js';
 import { ipRateLimit } from '../middleware/rateLimit.js';
-import { getWind, getHeat, windIsStale, downwindContext, distanceKm } from '../services/wind.js';
+import { getWind, getHeat, getWeatherGrid, windIsStale, downwindContext, distanceKm } from '../services/wind.js';
 import { requestCountry } from '../countries/index.js';
 import { publicConfidenceList } from '../services/firms.js';
 import { msg } from '../i18n.js';
@@ -165,6 +165,19 @@ fireSituationRouter.get('/vigilance', ipRateLimit('firesit_ip', 60, 5), (req, re
       sourceUrl: r.source_url,
     })),
   });
+});
+
+// ── Grille météo de la zone visible : « nuage de couleur » + flèches ─────────
+// Valeurs prêtes à dessiner (température par cellule, vent par point) —
+// charge minuscule, cache serveur, panne indépendante. France uniquement.
+fireSituationRouter.get('/weather-grid', ipRateLimit('firesit_ip', 60, 5), async (req, res) => {
+  const country = requestCountry(req);
+  if (!enabledFor(country)) return res.json({ enabled: false });
+  const q = req.query;
+  const hasBbox = ['minLat', 'maxLat', 'minLng', 'maxLng'].every((k) => isFiniteNum(q[k], -180, 180));
+  if (!hasBbox) return res.status(400).json({ error: msg(req, 'invalid_params') });
+  const grid = await getWeatherGrid(+q.minLat, +q.maxLat, +q.minLng, +q.maxLng, 4);
+  res.json({ enabled: true, grid }); // grid null = météo indisponible (honnête)
 });
 
 // ── Vent contextuel d'un foyer + contexte « sous le vent » ───────────────────

@@ -1971,3 +1971,106 @@ function showSinceBanner(changes) {
   setTimeout(() => b.remove(), 45_000);
   window.track?.('since_last_visit_shown', { changes: changes.length });
 }
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Météo SUR LA CARTE (France) : un voile de couleur (température) + des
+// flèches orientées par le vrai vent. Activable d'un geste (bouton 🌡️),
+// désactivé par défaut (légèreté), redessiné au déplacement — jamais pendant.
+// Les couleurs de température ne sont JAMAIS le rouge « danger » des feux ;
+// les marqueurs d'incident restent toujours AU-DESSUS du voile météo.
+// ═════════════════════════════════════════════════════════════════════════════
+const weatherLayer = L.layerGroup();
+let weatherOn = false;
+let weatherTimer = null;
+
+function tempFill(c) {
+  if (c >= 34) return '#C4622D';
+  if (c >= 28) return '#E8A34D';
+  if (c >= 20) return '#F7D774';
+  return '#7FB3D5';
+}
+
+async function drawWeatherLayer() {
+  if (!weatherOn || currentCountry() !== 'FR') return;
+  const b = map.getBounds();
+  let r;
+  try {
+    r = await API.get(`/api/fire-situation/weather-grid?${new URLSearchParams({
+      minLat: b.getSouth().toFixed(3), maxLat: b.getNorth().toFixed(3),
+      minLng: b.getWest().toFixed(3), maxLng: b.getEast().toFixed(3),
+    })}`);
+  } catch { r = null; }
+  weatherLayer.clearLayers();
+  if (!r?.enabled || !r.grid?.cells?.length) {
+    if (weatherOn) transientBanner(t('wx_layer_unavailable'));
+    return;
+  }
+  const g = r.grid;
+  for (const c of g.cells) {
+    // Voile de température : rectangle doux, sans bordure — un « nuage de
+    // couleur », pas une donnée de précision (la légende l'assume).
+    L.rectangle([
+      [c.lat - g.stepLat / 2, c.lng - g.stepLng / 2],
+      [c.lat + g.stepLat / 2, c.lng + g.stepLng / 2],
+    ], { stroke: false, fillColor: tempFill(c.tempC), fillOpacity: 0.28, interactive: false })
+      .addTo(weatherLayer);
+    // Flèche de vent au centre de la cellule (16 max — jamais une forêt de
+    // flèches) : orientée VERS où souffle le vent, taille selon la force.
+    if (c.windToDeg != null && c.windKmh != null) {
+      const size = c.windKmh >= 30 ? 1.25 : c.windKmh >= 15 ? 1.05 : 0.85;
+      L.marker([c.lat, c.lng], {
+        interactive: false, keyboard: false,
+        icon: L.divIcon({
+          className: '',
+          html: `<div class="wx-arrow" style="transform:rotate(${(c.windToDeg - 90 + 360) % 360}deg);font-size:${size}rem">➤</div>`,
+          iconSize: [26, 26], iconAnchor: [13, 13],
+        }),
+      }).addTo(weatherLayer);
+    }
+  }
+  // Légende contextuelle compacte (repliable d'un tap sur le bouton).
+  const legend = document.getElementById('wxLegend');
+  if (legend) {
+    legend.hidden = false;
+    legend.innerHTML = `
+      <span class="wx-leg-scale" aria-hidden="true"></span>
+      <span class="small">${esc(t('wx_legend_temp'))}</span>
+      <span class="small">➤ ${esc(t('wx_legend_wind'))}</span>
+      <span class="muted small">${esc(t('wx_legend_at', { t: fmtDate(g.updatedAt) }))}</span>`;
+  }
+  window.track?.('weather_layer_drawn', { cells: g.cells.length });
+}
+
+function toggleWeatherLayer() {
+  weatherOn = !weatherOn;
+  const btn = document.getElementById('btnWeather');
+  btn?.setAttribute('aria-pressed', String(weatherOn));
+  if (weatherOn) {
+    weatherLayer.addTo(map);
+    drawWeatherLayer();
+    window.track?.('weather_layer_on', {});
+  } else {
+    weatherLayer.clearLayers();
+    map.removeLayer(weatherLayer);
+    const legend = document.getElementById('wxLegend');
+    if (legend) legend.hidden = true;
+  }
+  try { localStorage.setItem('kifeh_weather_layer', weatherOn ? '1' : '0'); } catch {}
+}
+
+// Bouton 🌡️ sur la carte (France uniquement) + redessin après déplacement.
+(function initWeatherLayer() {
+  if (currentCountry() !== 'FR') return;
+  const btn = document.getElementById('btnWeather');
+  if (!btn) return;
+  btn.hidden = false;
+  btn.addEventListener('click', toggleWeatherLayer);
+  map.on('moveend', () => {
+    if (!weatherOn) return;
+    clearTimeout(weatherTimer);
+    weatherTimer = setTimeout(drawWeatherLayer, 450); // jamais pendant le geste
+  });
+  let saved = null;
+  try { saved = localStorage.getItem('kifeh_weather_layer'); } catch {}
+  if (saved === '1' && !LITE) toggleWeatherLayer(); // choix mémorisé (jamais en mode léger)
+})();

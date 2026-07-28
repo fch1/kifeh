@@ -134,12 +134,19 @@ html[dir="rtl"] input[type=datetime-local] { text-align: right; }
 }
 html[dir="rtl"] .topbar .back .arrow { display: inline-block; transform: scaleX(-1); }
 
-.lang-switch,
 .country-switch {
   min-height: 40px; padding: 0 .8rem; border-radius: 20px; border: 1px solid var(--border);
   background: var(--surface); font-weight: 600; font-size: .85rem; cursor: pointer;
   color: var(--primary); font-family: var(--font-latin), var(--font-ar);
 }
+/* La LANGUE est une préférence, pas un territoire : contrôle discret (🌐,
+   sans drapeau, plus petit) — jamais la même pilule que le choix du pays. */
+.lang-switch {
+  min-height: 40px; padding: 0 .6rem; border-radius: 12px; border: 1px dashed var(--border);
+  background: transparent; font-weight: 500; font-size: .8rem; cursor: pointer;
+  color: var(--muted); font-family: var(--font-latin), var(--font-ar);
+}
+.lang-switch:hover { color: var(--primary); border-style: solid; background: var(--surface); }
 
 /* Choix du pays (indépendant de la langue) : deux grandes options + position */
 .country-options { display: flex; gap: .5rem; margin: .75rem 0; }
@@ -195,6 +202,15 @@ html[dir="rtl"] .topbar .back .arrow { display: inline-block; transform: scaleX(
   display: flex; flex-direction: column; gap: .5rem; pointer-events: none;
 }
 .home-bottom > * { pointer-events: auto; }
+/* Rangée d'actions : défilement horizontal fluide quand l'écran est étroit —
+   plus JAMAIS un bouton hors champ (revue UX : le 5e bouton était invisible
+   à 400 px). Barre de défilement masquée, geste naturel au doigt. */
+.home-bottom .row {
+  flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; justify-content: flex-start; max-width: 100%;
+}
+.home-bottom .row::-webkit-scrollbar { display: none; }
+.home-bottom .row .btn { white-space: nowrap; }
 .counter {
   align-self: center; background: var(--surface); border-radius: 20px; padding: .375rem .875rem;
   font-size: .8125rem; font-weight: 600; box-shadow: var(--shadow);
@@ -545,6 +561,22 @@ html, body { overscroll-behavior: none; }
   width: 14px; height: 14px; border-radius: 50%; background: #fff;
   border: 3px solid var(--primary, #1E2A4D);
 }
+
+/* Météo SUR LA CARTE : flèches de vent + légende du voile de température */
+.wx-arrow {
+  color: #1E2A4D; opacity: .8; line-height: 26px; text-align: center;
+  text-shadow: 0 0 3px #fff, 0 0 3px #fff; transform-origin: 50% 50%;
+}
+.wx-legend {
+  display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+  background: #fff; border-radius: 12px; padding: .4rem .7rem; margin-bottom: .4rem;
+  box-shadow: 0 2px 10px rgb(30 42 77 / .14);
+}
+.wx-leg-scale {
+  width: 74px; height: 10px; border-radius: 5px; flex: 0 0 auto;
+  background: linear-gradient(90deg, #7FB3D5, #F7D774, #E8A34D, #C4622D);
+}
+[dir="rtl"] .wx-leg-scale { background: linear-gradient(-90deg, #7FB3D5, #F7D774, #E8A34D, #C4622D); }
 
 /* Grille météo : tuiles lisibles en un coup d'œil, teintes douces par
    température — jamais de rouge « danger » pour de la météo */

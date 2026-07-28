@@ -105,6 +105,57 @@ export async function getHeat(lat, lng) {
   }
 }
 
+// ── Grille météo pour la CARTE (« nuage de couleur » + flèches de vent) ─────
+// Une grille de points sur la zone visible, récupérée en UN SEUL appel
+// Open-Meteo (listes de coordonnées) et mise en cache par zone arrondie.
+// Le navigateur ne reçoit que des valeurs prêtes à dessiner — jamais de GRIB.
+const gridCache = new Map();
+
+export async function getWeatherGrid(minLat, maxLat, minLng, maxLng, n = 4) {
+  const key = `${Math.round(minLat * 4) / 4}:${Math.round(maxLat * 4) / 4}:${Math.round(minLng * 4) / 4}:${Math.round(maxLng * 4) / 4}:${n}`;
+  const cfgMin = getSettingNum('wind_cache_min');
+  const ttlMs = (Number.isFinite(cfgMin) && cfgMin >= 0 ? cfgMin : 15) * 60_000;
+  const hit = gridCache.get(key);
+  if (hit && Date.now() - hit.at < ttlMs) return hit.data;
+  try {
+    const lats = [], lngs = [];
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        lats.push((minLat + ((i + 0.5) / n) * (maxLat - minLat)).toFixed(3));
+        lngs.push((minLng + ((j + 0.5) / n) * (maxLng - minLng)).toFixed(3));
+      }
+    }
+    const url = `${BASE()}/v1/meteofrance?latitude=${lats.join(',')}&longitude=${lngs.join(',')}`
+      + `&current=temperature_2m,wind_speed_10m,wind_direction_10m&timezone=UTC`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) throw new Error(`meteo ${res.status}`);
+    const j = await res.json();
+    const list = Array.isArray(j) ? j : [j]; // 1 point (tests) ou n×n points
+    const cells = [];
+    for (let k = 0; k < lats.length; k++) {
+      const c = (list[k] || list[0] || {}).current || {};
+      if (!Number.isFinite(c.temperature_2m)) continue;
+      cells.push({
+        lat: Number(lats[k]), lng: Number(lngs[k]),
+        tempC: Math.round(c.temperature_2m),
+        windKmh: Number.isFinite(c.wind_speed_10m) ? Math.round(c.wind_speed_10m) : null,
+        windToDeg: Number.isFinite(c.wind_direction_10m) ? (Math.round(c.wind_direction_10m) + 180) % 360 : null,
+      });
+    }
+    const data = {
+      cells, n,
+      stepLat: (maxLat - minLat) / n, stepLng: (maxLng - minLng) / n,
+      updatedAt: new Date().toISOString(),
+      provider: getSetting('wind_provider') || 'open_meteo_meteofrance',
+    };
+    gridCache.set(key, { at: Date.now(), data });
+    if (gridCache.size > 200) gridCache.delete(gridCache.keys().next().value);
+    return data;
+  } catch {
+    return null; // panne indépendante
+  }
+}
+
 export function windIsStale(wind) {
   const staleMin = getSettingNum('wind_stale_min') || 90;
   return !wind || Date.now() - Date.parse(wind.observedAt) > staleMin * 60_000;
