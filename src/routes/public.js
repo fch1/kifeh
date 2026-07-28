@@ -663,3 +663,49 @@ publicRouter.get('/stats', (req, res) => {
   const byType = db.prepare(`SELECT type, COUNT(*) AS n FROM incidents WHERE status = 'active' ${cond} GROUP BY type`).all(...args);
   res.json({ active, byType: Object.fromEntries(byType.map((r) => [r.type, r.n])) });
 });
+
+// --- Alertes de zone par e-mail (Resend) ------------------------------------
+// Double consentement : l'abonnement n'est actif qu'après le clic dans
+// l'e-mail de confirmation. Désinscription en un clic depuis chaque message.
+publicRouter.post('/email-alerts/subscribe', ipRateLimit('email_sub_ip', 6, 60), async (req, res) => {
+  const { emailAlertsConfigured, subscribeEmail } = await import('../services/emailAlerts.js');
+  if (!emailAlertsConfigured()) return res.status(503).json({ error: msg(req, 'email_alerts_unavailable') });
+  const email = String(req.body?.email || '').trim();
+  if (!isEmail(email)) return res.status(400).json({ error: msg(req, 'invalid_params') });
+  const lat = Number(req.body?.lat), lng = Number(req.body?.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return res.status(400).json({ error: msg(req, 'invalid_params') });
+  const radiusKm = Math.max(5, Math.min(50, Number(req.body?.radiusKm) || 20));
+  const lang = req.body?.lang === 'ar' ? 'ar' : 'fr';
+  try {
+    const r = await subscribeEmail({
+      email, lat, lng, radiusKm, country: requestCountry(req),
+      types: String(req.body?.types || '').slice(0, 60), lang,
+    });
+    res.json({ ok: true, status: r.status, message: msg(req, r.status === 'already_confirmed'
+      ? 'email_already_confirmed' : 'email_check_inbox') });
+  } catch (e) {
+    console.error('[email-alerts]', String(e.message).replace(process.env.RESEND_API_KEY || '§', '***'));
+    res.status(502).json({ error: msg(req, 'email_send_failed') });
+  }
+});
+
+publicRouter.get('/email-alerts/confirm', ipRateLimit('email_confirm_ip', 30, 60), async (req, res) => {
+  const { confirmEmail } = await import('../services/emailAlerts.js');
+  const okConfirm = confirmEmail(req.query.token);
+  res.set('Content-Type', 'text/html; charset=utf-8');
+  res.send(`<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">
+    <body style="font-family:sans-serif;max-width:480px;margin:3rem auto;text-align:center">
+    <h2>${okConfirm ? msg(req, 'email_confirmed_title') : msg(req, 'email_link_invalid')}</h2>
+    <p>${okConfirm ? msg(req, 'email_confirmed_body') : ''}</p>
+    <p><a href="/">Kifeh</a></p></body>`);
+});
+
+publicRouter.get('/email-alerts/unsubscribe', ipRateLimit('email_unsub_ip', 30, 60), async (req, res) => {
+  const { unsubscribeEmail } = await import('../services/emailAlerts.js');
+  const okUnsub = unsubscribeEmail(req.query.token);
+  res.set('Content-Type', 'text/html; charset=utf-8');
+  res.send(`<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">
+    <body style="font-family:sans-serif;max-width:480px;margin:3rem auto;text-align:center">
+    <h2>${okUnsub ? msg(req, 'email_unsub_done') : msg(req, 'email_link_invalid')}</h2>
+    <p><a href="/">Kifeh</a></p></body>`);
+});

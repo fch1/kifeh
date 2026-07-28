@@ -375,8 +375,11 @@ async function publishIncident(incidentId, reporterId, ip, lang = 'fr') {
   if (status === 'active') {
     broadcast('incident', { publicId: incident.public_id, status: 'active', type: incident.type,
                             country: incident.country_code || 'TN' });
-    // Alertes de zone (Web Push) : jamais bloquant pour la publication.
+    // Alertes de zone (Web Push + e-mail) : jamais bloquant pour la publication.
     notifyIncidentPublished(incident).catch(() => {});
+    import('../services/emailAlerts.js')
+      .then((m) => m.emailNotifyIncidentPublished(incident))
+      .catch(() => {});
   }
 
   return {

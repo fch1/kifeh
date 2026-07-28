@@ -90,7 +90,15 @@ app.get('/healthz', (req, res) => {
       hasError: Boolean(g('vigilance_last_error')),
     };
   } catch { /* idem */ }
-  res.json({ ok: true, backupAt, incidents, firms, offsite, vigilance });
+  // Alertes e-mail : configurées ? combien d'abonnés confirmés ? (aucune adresse exposée)
+  let emailAlerts = null;
+  try {
+    emailAlerts = {
+      configured: Boolean(process.env.RESEND_API_KEY),
+      confirmed: db.prepare(`SELECT COUNT(*) AS n FROM email_alert_subscriptions WHERE confirmed_at IS NOT NULL`).get().n,
+    };
+  } catch { /* idem */ }
+  res.json({ ok: true, backupAt, incidents, firms, offsite, vigilance, emailAlerts });
 });
 
 // ── Sandbox (/sandbox) — environnement de test totalement cloisonné ─────────

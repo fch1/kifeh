@@ -198,6 +198,9 @@ export const defaultSettings = {
   safety_safe_expiry_h: '6',            // « Je suis en sécurité »
   safety_left_expiry_h: '12',           // « J'ai quitté la zone »
   safety_share_expiry_h: '48',          // durée de vie du lien partagé
+  // Alertes de zone par e-mail (Resend) — inactives sans RESEND_API_KEY.
+  email_alerts_enabled: '1',
+  email_alerts_daily_max: '5',          // plafond STRICT par abonné et par jour
 };
 
 function devSecret(label) {

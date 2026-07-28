@@ -42,6 +42,8 @@ export async function tick() {
   }
   // Purge RGPD des abonnements d'alertes dormants (voir services/push.js).
   try { prunePushSubscriptions(); } catch { /* jamais bloquant */ }
+  // Purge des abonnements e-mail jamais confirmés (double consentement, 48 h).
+  try { (await import('./emailAlerts.js')).pruneEmailSubscriptions(); } catch { /* idem */ }
   // Purge RGPD des statuts de sécurité : contenu personnel effacé 24 h après
   // expiration ; lignes supprimées après 30 jours (aucune conservation longue).
   try {

@@ -516,6 +516,31 @@ db.transaction(() => {
       expires_at TEXT NOT NULL,
       revoked_at TEXT
     );
+    -- Alertes de zone par E-MAIL (Resend) : double consentement, adresse
+    -- chiffrée au repos, jeton de désinscription à capacité unique, plafond
+    -- quotidien. Centre de zone arrondi ~1 km (vie privée).
+    CREATE TABLE IF NOT EXISTS email_alert_subscriptions (
+      id TEXT PRIMARY KEY,
+      email_hash TEXT UNIQUE NOT NULL,
+      email_encrypted TEXT NOT NULL,
+      country_code TEXT NOT NULL DEFAULT 'TN',
+      center_lat REAL NOT NULL,
+      center_lng REAL NOT NULL,
+      radius_km REAL NOT NULL DEFAULT 20,
+      types TEXT NOT NULL DEFAULT '',
+      lang TEXT NOT NULL DEFAULT 'fr',
+      confirm_token_hash TEXT,
+      confirmed_at TEXT,
+      unsub_token TEXT NOT NULL,
+      failures INTEGER NOT NULL DEFAULT 0,
+      day TEXT,
+      day_count INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      last_notified_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_email_alert_country
+      ON email_alert_subscriptions(country_code, confirmed_at);
+
     CREATE INDEX IF NOT EXISTS idx_safety_device
       ON safety_checkins(device_hash, incident_id, satellite_event_id);
     CREATE INDEX IF NOT EXISTS idx_safety_share ON safety_checkins(sharing_token_hash);

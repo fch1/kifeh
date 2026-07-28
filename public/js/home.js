@@ -522,6 +522,15 @@ async function openVigilanceSheet() {
     <p><a href="https://vigilance.meteofrance.fr" target="_blank" rel="noopener">${esc(t('vig_official_map'))} ↗</a></p>
     ${monitored && v.checkedAt ? `<p class="muted small">${esc(t('vig_checked_at', { t: fmtDate(v.checkedAt) }))}</p>` : ''}
     ${pushSupported() ? `<button class="btn secondary" id="vigAlertsBtn" type="button">🔔 ${esc(t('vig_enable_alerts'))}</button>` : ''}
+    <div class="email-alert-block">
+      <label for="emailAlertInput" class="small">${esc(t('email_alerts_label'))}</label>
+      <div class="row" style="gap:.5rem">
+        <input type="email" id="emailAlertInput" autocomplete="email" inputmode="email"
+               placeholder="${esc(t('email_alerts_ph'))}" style="flex:1;min-height:44px">
+        <button class="btn secondary small-btn" id="emailAlertBtn" type="button" style="flex:0 0 auto">✉️ ${esc(t('email_alerts_btn'))}</button>
+      </div>
+      <p class="muted small" id="emailAlertMsg" role="status" aria-live="polite"></p>
+    </div>
     <button class="btn ghost small-btn" id="vigFollowZone" type="button">☆ ${esc(t('follow_zone_btn'))}</button>`;
   document.getElementById('vigAlertsBtn')?.addEventListener('click', (e) => {
     closeSheets();
@@ -529,6 +538,23 @@ async function openVigilanceSheet() {
   });
   document.getElementById('vigFollowZone')?.addEventListener('click', (e) =>
     saveCurrentZone(e.currentTarget));
+  // Alertes par e-mail (double consentement — l'e-mail de confirmation fait foi).
+  document.getElementById('emailAlertBtn')?.addEventListener('click', (e) => withButton(e.currentTarget, async () => {
+    const input = document.getElementById('emailAlertInput');
+    const msgEl = document.getElementById('emailAlertMsg');
+    const email = input.value.trim();
+    if (!email || !email.includes('@')) { msgEl.textContent = t('email_alerts_invalid'); return; }
+    try {
+      const c = map.getCenter();
+      const r = await API.post('/api/public/email-alerts/subscribe', {
+        email, lat: c.lat, lng: c.lng, radiusKm: 20,
+        country: currentCountry(), lang: LANG,
+      });
+      msgEl.textContent = r.message;
+      input.value = '';
+      window.track?.('email_alerts_subscribed', {});
+    } catch (ex) { msgEl.textContent = ex.message; }
+  }));
 }
 
 // Marqueurs ⚠️ des départements en alerte — un point honnête au centre du
