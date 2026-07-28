@@ -269,6 +269,42 @@ ok(await pc.evaluate(() => localStorage.getItem('kifeh_country')) === 'FR',
   'changer de langue ne change pas le pays');
 await ctx2.close();
 
+// ── Garde anti-chevauchement GRAND ÉCRAN (régression du 28/07 : des enfants
+// position:fixed sous un ancêtre transformé se dessinaient PAR-DESSUS les
+// actions). On MESURE le rendu réel à 900 et 1440 px : aucun recouvrement
+// entre situation, légende météo, rangée d'actions et « Déclarer ».
+for (const width of [900, 1440]) {
+  const ctxD = await browser.newContext({ viewport: { width, height: 860 }, locale: 'fr-FR' });
+  const pd = await ctxD.newPage();
+  await pd.addInitScript(() => {
+    localStorage.setItem('lang', 'fr');
+    localStorage.setItem('kifeh_country', 'FR');
+    localStorage.setItem('kifeh_consent', 'denied');
+  });
+  await pd.goto(`${BASE}/?country=FR`, { waitUntil: 'load' });
+  await pd.waitForTimeout(1800);
+  const bad = await pd.evaluate(() => {
+    const get = (sel) => {
+      const el = document.querySelector(sel);
+      if (!el || el.hidden) return null;
+      const r = el.getBoundingClientRect();
+      return r.width && r.height ? { x: r.x, y: r.y, w: r.width, h: r.height } : null;
+    };
+    const boxes = {
+      counter: get('#counter'), legend: get('#wxLegend'),
+      row: get('.home-bottom .row'), declare: get('.btn-declare'),
+    };
+    const overlap = (a, b) => a && b
+      && a.x < b.x + b.w - 2 && a.x + a.w - 2 > b.x
+      && a.y < b.y + b.h - 2 && a.y + a.h - 2 > b.y;
+    return [['counter', 'row'], ['counter', 'declare'], ['legend', 'row'],
+      ['legend', 'declare'], ['counter', 'legend']]
+      .filter(([p, q]) => overlap(boxes[p], boxes[q])).map((x) => x.join('/'));
+  });
+  ok(bad.length === 0, `grand écran ${width} px : aucun chevauchement (${bad.join(', ') || 'propre'})`);
+  await ctxD.close();
+}
+
 await browser.close();
 server.kill();
 for (const f of [DB, `${DB}-wal`, `${DB}-shm`]) fs.rmSync(f, { force: true });

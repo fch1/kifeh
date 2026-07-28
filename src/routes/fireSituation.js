@@ -12,6 +12,7 @@ import { ipRateLimit } from '../middleware/rateLimit.js';
 import { getWind, getHeat, getWeatherGrid, windIsStale, downwindContext, distanceKm } from '../services/wind.js';
 import { requestCountry, inCountry } from '../countries/index.js';
 import { publicConfidenceList } from '../services/firms.js';
+import { burntAreasInBbox } from '../services/effis.js';
 import { msg } from '../i18n.js';
 
 export const fireSituationRouter = Router();
@@ -182,6 +183,24 @@ fireSituationRouter.get('/weather-grid', ipRateLimit('firesit_ip', 60, 5), async
   // affichée sur l'Algérie ou l'Italie).
   if (grid?.cells) grid.cells = grid.cells.filter((c) => inCountry(c.lat, c.lng, country));
   res.json({ enabled: true, grid }); // grid null = météo indisponible (honnête)
+});
+
+// ── Zones brûlées récentes — Copernicus EFFIS (France) ───────────────────────
+// Contours APPROXIMATIFS estimés par satellite du périmètre déjà brûlé,
+// simplifiés côté serveur (services/effis.js). Jamais un périmètre officiel,
+// jamais une prévision. Cache serveur : EFFIS n'est JAMAIS appelé ici.
+fireSituationRouter.get('/burnt-areas', ipRateLimit('firesit_ip', 60, 5), (req, res) => {
+  const country = requestCountry(req);
+  if (!enabledFor(country)) return res.json({ enabled: false });
+  const q = req.query;
+  const hasBbox = ['minLat', 'maxLat', 'minLng', 'maxLng'].every((k) => isFiniteNum(q[k], -180, 180));
+  if (!hasBbox) return res.status(400).json({ error: msg(req, 'invalid_params') });
+  const { updatedAt, areas } = burntAreasInBbox({
+    minLat: +q.minLat, maxLat: +q.maxLat, minLng: +q.minLng, maxLng: +q.maxLng,
+  });
+  // updatedAt null = cache pas encore constitué (première synchro à venir) —
+  // l'interface n'affiche simplement rien, jamais une erreur.
+  res.json({ enabled: true, source: 'Copernicus EFFIS', updatedAt, areas });
 });
 
 // ── Vent contextuel d'un foyer + contexte « sous le vent » ───────────────────

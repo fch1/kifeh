@@ -13,6 +13,7 @@ import { syncFirms } from './firms.js';
 import { offsiteBackup } from './offsite.js';
 import { prunePushSubscriptions } from './push.js';
 import { syncVigilance } from './vigilance.js';
+import { syncEffis } from './effis.js';
 import { msg } from '../i18n.js';
 
 export function startScheduler() {
@@ -39,6 +40,10 @@ export async function tick() {
   // Vigilance Météo-France (inactif sans METEOFRANCE_API_KEY).
   if (!config.isSandbox) {
     try { await syncVigilance(); } catch (e) { console.error('[vigilance]', e.message); }
+  }
+  // Copernicus EFFIS : zones brûlées récentes (aucune clé requise, cadence 6 h).
+  if (!config.isSandbox) {
+    try { await syncEffis(); } catch (e) { console.error('[effis]', e.message); }
   }
   // Purge RGPD des abonnements d'alertes dormants (voir services/push.js).
   try { prunePushSubscriptions(); } catch { /* jamais bloquant */ }

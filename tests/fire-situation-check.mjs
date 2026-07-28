@@ -78,6 +78,56 @@ const vigiSrv = http.createServer((req, res) => {
 await new Promise((r) => vigiSrv.listen(VIGI_PORT, r));
 
 for (const f of [DB, `${DB}-wal`, `${DB}-shm`]) fs.rmSync(f, { force: true });
+// ── Serveur Copernicus EFFIS SIMULÉ : zones brûlées paginées (format DRF).
+//    Page 1 : Corse (anneau de 200 points → décimation) + enregistrement
+//    malformé (shape null → ignoré sans erreur) ; page 2 : Gironde.
+const EFFIS_PORT = 3970;
+function effisRing(clat, clng, n, r = 0.01) {
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const a = (2 * Math.PI * i) / n;
+    pts.push([clng + r * Math.cos(a), clat + r * Math.sin(a)]);
+  }
+  pts.push(pts[0]);
+  return pts;
+}
+const effisSrv = http.createServer((req, res) => {
+  const u = new URL(req.url, 'http://x');
+  const page2 = u.searchParams.has('offset');
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  if (!page2) {
+    res.end(JSON.stringify({
+      count: 3,
+      next: `http://127.0.0.1:${EFFIS_PORT}/rest/2/burntareas/current/?country=FR&limit=100&offset=100`,
+      results: [
+        {
+          id: 900001, commune: 'Biguglia', province: 'Haute-Corse', country: 'FR',
+          area_ha: 228, firedate: new Date(Date.now() - 2 * 24 * 3600_000).toISOString(),
+          lastupdate: new Date().toISOString(),
+          centroid: { type: 'Point', coordinates: [9.403, 42.627] },
+          bbox: [9.3938, 42.6169, 9.4134, 42.637],
+          shape: { type: 'MultiPolygon', coordinates: [[effisRing(42.627, 9.403, 200)]] },
+        },
+        { id: 900002, commune: 'Malformée', country: 'FR', area_ha: 3, shape: null },
+      ],
+    }));
+  } else {
+    res.end(JSON.stringify({
+      count: 3, next: null,
+      results: [{
+        id: 900003, commune: 'La Teste-de-Buch', province: 'Gironde', country: 'FR',
+        area_ha: 40, firedate: new Date(Date.now() - 9 * 24 * 3600_000).toISOString(),
+        lastupdate: new Date().toISOString(),
+        centroid: { type: 'Point', coordinates: [-1.15, 44.62] },
+        bbox: [-1.17, 44.6, -1.13, 44.64],
+        shape: { type: 'MultiPolygon', coordinates: [[effisRing(44.62, -1.15, 12)]] },
+      }],
+    }));
+  }
+});
+await new Promise((r) => effisSrv.listen(EFFIS_PORT, r));
+fs.rmSync('data/effis-cache.json', { force: true }); // cache d'un passage précédent
+
 const server = spawn('node', ['server.js'], {
   env: {
     ...process.env, NODE_ENV: 'development', PORT: String(PORT), DB_PATH: DB,
@@ -87,11 +137,12 @@ const server = spawn('node', ['server.js'], {
     WIND_URL: `http://127.0.0.1:${WIND_PORT}`, WIND_CACHE_MIN: '0',
     METEOFRANCE_API_KEY: 'cle-de-test-vigilance',
     VIGILANCE_URL: `http://127.0.0.1:${VIGI_PORT}`,
+    EFFIS_URL: `http://127.0.0.1:${EFFIS_PORT}`,
   },
   stdio: ['ignore', 'pipe', 'inherit'],
 });
 server.stdout.on('data', () => {});
-process.on('exit', () => { try { server.kill(); windSrv.close(); vigiSrv.close(); } catch {} });
+process.on('exit', () => { try { server.kill(); windSrv.close(); vigiSrv.close(); effisSrv.close(); } catch {} });
 // Attente de disponibilité réelle (le premier démarrage crée les tables).
 for (let i = 0; i < 30; i++) {
   try { await fetch(`${BASE}/healthz`); break; } catch { await new Promise((r) => setTimeout(r, 500)); }
@@ -386,6 +437,48 @@ async function main() {
   ok(sDel.status === 200, 'suppression du statut par son auteur');
   const sDelAgain = await api('POST', '/api/safety/checkins/update', { managementToken: sc1.data.managementToken });
   ok(sDelAgain.status === 404, 'statut supprimé → jeton de gestion inerte');
+
+  // ── Zones brûlées Copernicus EFFIS (serveur simulé) ──
+  section('Zones brûlées EFFIS : synchro, simplification, bbox, honnêteté');
+  // La synchro part au premier tick du planificateur (démarrage) — on attend
+  // qu'elle aboutisse réellement plutôt que d'espérer un délai fixe.
+  let ba = null;
+  for (let i = 0; i < 30; i++) {
+    ba = await api('GET', '/api/fire-situation/burnt-areas?minLat=41&maxLat=51&minLng=-5&maxLng=10&country=FR');
+    if (ba.data?.areas?.length) break;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  ok(ba.data.enabled === true && Array.isArray(ba.data.areas), 'route active côté France');
+  ok(ba.data.areas.length === 2, 'pagination suivie + enregistrement malformé ignoré (2 zones)');
+  ok(ba.data.source === 'Copernicus EFFIS' && ba.data.updatedAt, 'attribution Copernicus EFFIS + horodatage');
+  const corse = ba.data.areas.find((a) => a.commune === 'Biguglia');
+  const gironde = ba.data.areas.find((a) => a.commune === 'La Teste-de-Buch');
+  ok(Boolean(corse && gironde), 'les deux zones réelles présentes (Corse + Gironde)');
+  ok(ba.data.areas[0].commune === 'Biguglia', 'tri par date de feu décroissante (plus récente d’abord)');
+  ok(corse.rings.length >= 1 && corse.rings.every((r) => r.length <= 40),
+    'anneau de 200 points décimé à ≤ 40 (contour approximatif assumé)');
+  ok(Math.abs(corse.rings[0][0][0] - 42.6) < 0.2 && Math.abs(corse.rings[0][0][1] - 9.4) < 0.2,
+    'points en [lat, lng] (prêts pour Leaflet)');
+  ok(corse.areaHa === 228 && corse.province === 'Haute-Corse', 'surface et département transmis');
+  const baSize = JSON.stringify(ba.data).length;
+  ok(baSize < 30_000, `charge utile compacte (${baSize} o < 30 Ko)`);
+  // Filtrage par zone visible : la Corse seule, puis la Gironde seule.
+  const baCorse = await api('GET', '/api/fire-situation/burnt-areas?minLat=41.5&maxLat=43.5&minLng=8.5&maxLng=10&country=FR');
+  ok(baCorse.data.areas.length === 1 && baCorse.data.areas[0].commune === 'Biguglia',
+    'bbox Corse → zone corse uniquement');
+  const baGir = await api('GET', '/api/fire-situation/burnt-areas?minLat=44&maxLat=45.5&minLng=-2&maxLng=0&country=FR');
+  ok(baGir.data.areas.length === 1 && baGir.data.areas[0].commune === 'La Teste-de-Buch',
+    'bbox Gironde → zone girondine uniquement');
+  // Garde-fous : pays non couvert, paramètres manquants.
+  const baTn = await api('GET', '/api/fire-situation/burnt-areas?minLat=41&maxLat=51&minLng=-5&maxLng=10&country=TN');
+  ok(baTn.data.enabled === false, 'Tunisie → expérience désactivée (aucune donnée française)');
+  const baBad = await api('GET', '/api/fire-situation/burnt-areas?country=FR');
+  ok(baBad.status === 400, 'bbox manquante → 400');
+  // État sur /healthz + cache disque (reprise après redémarrage).
+  const hz = await (await fetch(`${BASE}/healthz`)).json();
+  ok(hz.effis && hz.effis.count === 2 && Boolean(hz.effis.lastSuccess) && hz.effis.hasError === false,
+    'healthz : effis {count: 2, lastSuccess, hasError: false}');
+  ok(fs.existsSync('data/effis-cache.json'), 'cache persisté sur disque (survit au redémarrage)');
 
   console.log('\n────────────────────────────');
   console.log(`${passed} réussis · ${failed} échoués`);
