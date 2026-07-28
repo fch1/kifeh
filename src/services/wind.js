@@ -65,26 +65,35 @@ export async function getHeat(lat, lng) {
   if (hit && Date.now() - hit.at < ttlMs) return hit.data;
   try {
     const url = `${BASE()}/v1/meteofrance?latitude=${lat.toFixed(3)}&longitude=${lng.toFixed(3)}`
-      + `&current=temperature_2m,apparent_temperature&hourly=temperature_2m`
+      + `&current=temperature_2m,apparent_temperature,cloud_cover`
+      + `&hourly=temperature_2m,visibility`
       + `&forecast_days=1&timezone=UTC`;
     const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
     if (!res.ok) throw new Error(`meteo ${res.status}`);
     const j = await res.json();
     const c = j.current || {};
     if (!Number.isFinite(c.temperature_2m)) return null;
-    // Maximum du jour et son heure (UTC → le client affiche en heure locale).
-    let maxC = null, maxAt = null;
+    // Maximum du jour et son heure (UTC → le client affiche en heure locale) ;
+    // visibilité de l'heure courante (m) si le modèle la fournit.
+    let maxC = null, maxAt = null, visibilityM = null;
     const hours = j.hourly?.time || [], temps = j.hourly?.temperature_2m || [];
+    const vis = j.hourly?.visibility || [];
     for (let k = 0; k < hours.length; k++) {
       if (Number.isFinite(temps[k]) && (maxC === null || temps[k] > maxC)) {
         maxC = temps[k]; maxAt = hours[k];
       }
+      if (c.time && hours[k] === c.time.slice(0, 13) + ':00' && Number.isFinite(vis[k])) {
+        visibilityM = vis[k];
+      }
     }
+    if (visibilityM === null && vis.length && Number.isFinite(vis[0])) visibilityM = vis[0];
     const data = {
       tempC: Math.round(c.temperature_2m),
       feelsC: Number.isFinite(c.apparent_temperature) ? Math.round(c.apparent_temperature) : null,
       maxC: maxC !== null ? Math.round(maxC) : null,
       maxAt: maxAt ? (/Z$/.test(maxAt) ? maxAt : `${maxAt}:00Z`) : null,
+      cloudPct: Number.isFinite(c.cloud_cover) ? Math.round(c.cloud_cover) : null,
+      visibilityKm: visibilityM !== null ? Math.round(visibilityM / 100) / 10 : null,
       observedAt: c.time ? (/Z$/.test(c.time) ? c.time : `${c.time}:00Z`) : new Date().toISOString(),
       provider: getSetting('wind_provider') || 'open_meteo_meteofrance',
     };

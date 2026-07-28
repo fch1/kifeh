@@ -45,18 +45,31 @@ function emailTemplate({ lang, heading, bodyHtml, ctaLabel, ctaUrl, footHtml }) 
 
 export function emailAlertsConfigured() { return Boolean(KEY()); }
 
-async function sendEmailViaResend(to, subject, html) {
+async function sendOnce(from, to, subject, html) {
   const res = await fetch(`${API()}/emails`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${KEY()}` },
-    body: JSON.stringify({ from: FROM(), to: [to], subject, html }),
+    body: JSON.stringify({ from, to: [to], subject, html }),
     signal: AbortSignal.timeout(10_000),
   });
-  if (!res.ok) {
-    const detail = await res.text().catch(() => '');
-    throw new Error(`resend ${res.status} ${detail.slice(0, 120).replace(KEY(), '***')}`);
+  const body = await res.text().catch(() => '');
+  if (!res.ok) throw new Error(`resend ${res.status} ${body.slice(0, 140).replace(KEY(), '***')}`);
+  try { return JSON.parse(body); } catch { return {}; }
+}
+
+async function sendEmailViaResend(to, subject, html) {
+  try {
+    return await sendOnce(FROM(), to, subject, html);
+  } catch (e) {
+    // Domaine pas (encore) vérifié chez Resend → repli automatique sur
+    // l'expéditeur bac-à-sable. Dès que kifeh.app est vérifié, l'expéditeur
+    // officiel reprend tout seul — aucune reconfiguration nécessaire.
+    if (/not verified|validation_error/i.test(String(e.message))
+        && !FROM().includes('resend.dev')) {
+      return sendOnce('Kifeh <onboarding@resend.dev>', to, subject, html);
+    }
+    throw e;
   }
-  return res.json();
 }
 
 // ── Abonnement (double consentement) ─────────────────────────────────────────

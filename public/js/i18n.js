@@ -16,6 +16,7 @@ const I18N = {
     err_offline: 'Connexion internet indisponible. Vos saisies sont conservées, réessayez.',
     err_server: 'Le serveur ne répond pas. Vérifiez votre connexion et réessayez.',
     lang_button: 'العربية',
+    lang_button_aria: 'Choisir la langue — العربية / français',
     sandbox_banner: '🧪 Environnement de test (sandbox) — les données sont fictives et effacées automatiquement.',
     // Types / statuts / gravité
     type_electricity: 'Électricité', type_water: 'Eau', type_fire: 'Incendie',
@@ -195,6 +196,22 @@ const I18N = {
     email_alerts_ph: 'vous@exemple.org',
     email_alerts_btn: 'M’alerter',
     email_alerts_invalid: 'Adresse e-mail invalide.',
+    alerts_sheet_title: 'M’alerter dans cette zone',
+    alerts_sheet_intro: 'Choisissez comment être prévenu quand un incident est signalé autour de la zone affichée. Uniquement les incidents de votre zone — jamais de message générique.',
+    alerts_push_title: 'Notifications sur cet appareil',
+    alerts_push_desc: 'Gratuites et instantanées, via le navigateur — sans adresse ni compte.',
+    alerts_push_on: 'Activer les notifications',
+    alerts_push_off: 'Activées ✓ — désactiver',
+    alerts_email_title: 'Par e-mail',
+    alerts_ethics_note: 'Désinscription en un clic à tout moment. Plafond strict : jamais plus de quelques alertes par jour.',
+    wx_sky_clear: 'dégagé',
+    wx_sky_partly: 'peu nuageux',
+    wx_sky_cloudy: 'nuageux',
+    wx_sky_overcast: 'couvert',
+    wx_cloud_pct: '{p} % de nuages',
+    wx_visibility: 'Visibilité',
+    wx_vis_km: '{km} km',
+    wx_vis_reduced: 'réduite',
     safety_ctx_fire: 'Feu à environ {km} km — votre statut peut y être rattaché.',
     safety_ctx_zone: 'Statut rattaché à la zone que vous consultez.',
     list_confirmed_one: 'Confirmé par 1 personne',
@@ -433,6 +450,7 @@ const I18N = {
     err_offline: 'لا يوجد اتصال بالإنترنت. مدخلاتك محفوظة، حاول مرة أخرى.',
     err_server: 'الخادم لا يستجيب. تحقق من اتصالك وحاول مرة أخرى.',
     lang_button: 'Français',
+    lang_button_aria: 'اختر اللغة — français / العربية',
     sandbox_banner: '🧪 بيئة تجريبية (Sandbox) — البيانات وهمية وتُحذف تلقائيًا.',
     type_electricity: 'كهرباء', type_water: 'ماء', type_fire: 'حريق',
     type_internet: 'إنترنت', type_other: 'أخرى',
@@ -605,6 +623,22 @@ const I18N = {
     email_alerts_ph: 'you@example.org',
     email_alerts_btn: 'نبّهني',
     email_alerts_invalid: 'عنوان بريد إلكتروني غير صالح.',
+    alerts_sheet_title: 'نبّهني في هذه المنطقة',
+    alerts_sheet_intro: 'اختر كيف تُنبَّه عند التبليغ عن حادث حول المنطقة المعروضة. حوادث منطقتك فقط — لا رسائل عامة أبدًا.',
+    alerts_push_title: 'إشعارات على هذا الجهاز',
+    alerts_push_desc: 'مجانية وفورية عبر المتصفح — دون عنوان أو حساب.',
+    alerts_push_on: 'تفعيل الإشعارات',
+    alerts_push_off: 'مفعّلة ✓ — إيقاف',
+    alerts_email_title: 'عبر البريد الإلكتروني',
+    alerts_ethics_note: 'إلغاء الاشتراك بنقرة واحدة في أي وقت. سقف صارم: بضعة تنبيهات في اليوم كحد أقصى.',
+    wx_sky_clear: 'صافٍ',
+    wx_sky_partly: 'غيوم قليلة',
+    wx_sky_cloudy: 'غائم جزئيًا',
+    wx_sky_overcast: 'غائم',
+    wx_cloud_pct: '{p} % غيوم',
+    wx_visibility: 'الرؤية',
+    wx_vis_km: '{km} كلم',
+    wx_vis_reduced: 'منخفضة',
     safety_ctx_fire: 'حريق على بعد نحو {km} كلم — يمكن ربط حالتك به.',
     safety_ctx_zone: 'الحالة مرتبطة بالمنطقة التي تتصفحها.',
     list_confirmed_one: 'أكّده شخص واحد',
@@ -879,9 +913,13 @@ function applyI18n(root = document) {
   root.querySelectorAll('[data-country-block]').forEach((el) => { el.hidden = el.dataset.countryBlock !== currentCountry(); });
   // Marque : « Kifeh كيفاه » en Tunisie, « Kifeh » seul en France.
   root.querySelectorAll('.brand-arabic').forEach((el) => { el.hidden = currentCountry() === 'FR'; });
-  // Bouton de langue générique.
+  // Bouton de langue : le globe 🌐 rend l'affordance ÉVIDENTE (« c'est un
+  // choix de langue »), et l'étiquette accessible l'explicite dans les deux
+  // langues pour les lecteurs d'écran.
   root.querySelectorAll('.lang-switch').forEach((btn) => {
-    btn.textContent = t('lang_button');
+    btn.textContent = `🌐 ${t('lang_button')}`;
+    btn.setAttribute('aria-label', t('lang_button_aria'));
+    btn.setAttribute('title', t('lang_button_aria'));
     if (!btn.dataset.bound) {
       btn.dataset.bound = '1';
       btn.addEventListener('click', () => setLang(LANG === 'ar' ? 'fr' : 'ar'));

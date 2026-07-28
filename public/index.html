@@ -174,6 +174,30 @@
   <div id="detailContent"></div>
 </div>
 
+<!-- Feuille : « M'alerter dans cette zone » — CHOIX du canal parmi ce qui
+     est réellement en place : notifications navigateur (Web Push) ou e-mail. -->
+<div class="sheet" id="alertSheet" role="dialog" aria-modal="true" data-i18n-aria="alerts_aria">
+  <div class="handle"></div>
+  <h2 data-i18n="alerts_sheet_title"></h2>
+  <p class="muted small" data-i18n="alerts_sheet_intro"></p>
+  <div class="card">
+    <h3 style="margin:0 0 .25rem">🔔 <span data-i18n="alerts_push_title"></span></h3>
+    <p class="muted small" data-i18n="alerts_push_desc"></p>
+    <button class="btn secondary" id="alertPushBtn" type="button" aria-pressed="false"></button>
+  </div>
+  <div class="card">
+    <h3 style="margin:0 0 .25rem">✉️ <span data-i18n="alerts_email_title"></span></h3>
+    <p class="muted small" data-i18n="email_alerts_label"></p>
+    <div class="row" style="gap:.5rem">
+      <input type="email" id="emailAlertInput" autocomplete="email" inputmode="email"
+             data-i18n-ph="email_alerts_ph" style="flex:1;min-height:44px">
+      <button class="btn secondary small-btn" id="emailAlertBtn" type="button" style="flex:0 0 auto">✉️ <span data-i18n="email_alerts_btn"></span></button>
+    </div>
+    <p class="muted small" id="emailAlertMsg" role="status" aria-live="polite"></p>
+  </div>
+  <p class="muted small" data-i18n="alerts_ethics_note"></p>
+</div>
+
 <!-- Feuille : « Mon statut de sécurité » accessible depuis l'accueil —
      rattaché au feu le plus proche (< 30 km) sinon à la zone consultée. -->
 <div class="sheet" id="safetySheet" role="dialog" aria-modal="true" data-i18n-aria="safety_title">

@@ -132,11 +132,15 @@ class GridCluster {
 }
 
 // Marqueur « détection satellite » (contour pointillé, icône satellite).
+// UNE SEULE donnée feu sur la carte : un feu observé par satellite est un
+// FEU (même pin 🔥 que les signalements) — la SOURCE est portée par la
+// pastille 🛰️ et le contour pointillé, jamais par une iconographie à part.
 function satelliteIcon(confidence) {
   return L.divIcon({
     className: '',
-    html: `<div class="marker-sat ${confidence === 'high' ? 'high' : ''}"><span>🛰️</span></div>`,
+    html: `<div class="marker-pin fire marker-sat-pin ${confidence === 'high' ? 'high' : ''}">
+      <span>🔥</span><em class="sat-dot" aria-hidden="true">🛰️</em></div>`,
     iconSize: [34, 34],
-    iconAnchor: [17, 17],
+    iconAnchor: [17, 30],
   });
 }

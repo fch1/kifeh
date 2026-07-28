@@ -613,39 +613,12 @@ if (!db.prepare(`SELECT 1 FROM settings WHERE key = 'migr_fr_firms_202607'`).get
   db.prepare(`UPDATE settings SET value = '1' WHERE key = 'fr_nasa_firms_enabled'`).run();
 }
 
-// Purge des données sur demande : incrémenter WIPE_GENERATION et déployer
-// suffit à remettre la base à zéro UNE fois (admin + configuration conservés).
-const WIPE_GENERATION = '2026-07-23-2';
-const lastWipe = db.prepare(`SELECT value FROM settings WHERE key = 'wipe_generation'`).get()?.value;
-if (!lastWipe) {
-  // Première rencontre avec cette base (neuve ou héritée) : on enregistre la
-  // génération SANS rien effacer — une purge n'a lieu que sur demande explicite.
-  db.prepare(`INSERT INTO settings(key, value) VALUES ('wipe_generation', ?)`).run(WIPE_GENERATION);
-} else if (lastWipe !== WIPE_GENERATION) {
-  db.prepare(`UPDATE settings SET value = ? WHERE key = 'wipe_generation'`).run(WIPE_GENERATION);
-  db.exec(`
-    DELETE FROM confirmations;
-    DELETE FROM resolution_reports;
-    DELETE FROM location_corrections;
-    DELETE FROM satellite_event_feedback;
-    DELETE FROM satellite_detections;
-    DELETE FROM satellite_events;
-    DELETE FROM attachments;
-    DELETE FROM verifications;
-    DELETE FROM manage_tokens;
-    DELETE FROM reports;
-    DELETE FROM incidents;
-    DELETE FROM reporters;
-    DELETE FROM rate_events;
-  `);
-  try {
-    for (const sub of ['private', 'public']) {
-      const dir = path.join(config.uploadsDir, sub);
-      if (fs.existsSync(dir)) for (const f of fs.readdirSync(dir)) fs.rmSync(path.join(dir, f), { force: true });
-    }
-  } catch { /* fichiers absents : rien à faire */ }
-  console.log(`Purge des données effectuée (génération ${WIPE_GENERATION}).`);
-}
+// SÉCURITÉ DES DONNÉES : l'ancien mécanisme « WIPE_GENERATION » (purge de la
+// base au démarrage quand une constante changeait, hérité d'avant-lancement)
+// a été DÉFINITIVEMENT RETIRÉ. Le démarrage normal de l'application ne peut
+// JAMAIS effacer de données de production — c'est une garantie du projet.
+// Toute maintenance destructrice doit passer par une commande hors ligne,
+// explicite et auditée, avec sauvegarde vérifiée au préalable.
 
 export function getSetting(key) {
   // Priorité aux variables d'environnement (ex. VERIFICATION_REQUIRED=0 dans

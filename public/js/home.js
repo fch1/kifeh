@@ -95,7 +95,45 @@ async function toggleAlerts() {
     transientBanner(t(ex.message === 'denied' ? 'alerts_denied' : 'search_error'));
   }
 }
-document.getElementById('btnAlerts').addEventListener('click', (e) => withButton(e.currentTarget, toggleAlerts));
+// « M'alerter » ouvre le CHOIX du canal (notifications navigateur / e-mail)
+// parmi ce qui est réellement en place — jamais un simple interrupteur opaque.
+async function refreshAlertSheetPush() {
+  const btn = document.getElementById('alertPushBtn');
+  if (!btn) return;
+  if (!pushSupported()) {
+    btn.textContent = t('alerts_unsupported');
+    btn.disabled = true;
+    return;
+  }
+  const existing = await currentPushSubscription().catch(() => null);
+  btn.textContent = existing ? t('alerts_push_off') : t('alerts_push_on');
+  btn.setAttribute('aria-pressed', String(Boolean(existing)));
+}
+function openAlertSheet() {
+  openSheet('alertSheet');
+  refreshAlertSheetPush();
+  window.track?.('alert_sheet_opened', {});
+}
+document.getElementById('btnAlerts').addEventListener('click', openAlertSheet);
+document.getElementById('alertPushBtn')?.addEventListener('click', (e) =>
+  withButton(e.currentTarget, async () => { await toggleAlerts(); await refreshAlertSheetPush(); }));
+// Alertes par e-mail (double consentement — l'e-mail de confirmation fait foi).
+document.getElementById('emailAlertBtn')?.addEventListener('click', (e) => withButton(e.currentTarget, async () => {
+  const input = document.getElementById('emailAlertInput');
+  const msgEl = document.getElementById('emailAlertMsg');
+  const email = input.value.trim();
+  if (!email || !email.includes('@')) { msgEl.textContent = t('email_alerts_invalid'); return; }
+  try {
+    const c = map.getCenter();
+    const r = await API.post('/api/public/email-alerts/subscribe', {
+      email, lat: c.lat, lng: c.lng, radiusKm: 20,
+      country: currentCountry(), lang: LANG,
+    });
+    msgEl.textContent = r.message;
+    input.value = '';
+    window.track?.('email_alerts_subscribed', {});
+  } catch (ex) { msgEl.textContent = ex.message; }
+}));
 // État initial du bouton (abonnement déjà actif ?) — sans demander de permission.
 if (pushSupported()) {
   currentPushSubscription().then((s) => alertsBtnState(Boolean(s))).catch(() => {});
@@ -496,8 +534,7 @@ async function openVigilanceSheet() {
   const h = fireSit?.heat;
   const w = fireSit?.wind && !fireSit.wind.stale ? fireSit.wind : null;
   const local = (h || w) ? `
-    ${heatVisualHtml(h)}
-    ${windVisualHtml(w)}
+    ${weatherTilesHtml(h, w)}
     <hr style="border:none;border-top:1px solid var(--border,#e5e0d8);margin:.75rem 0">` : '';
   const head = `<h2>${alerts.length ? '🟠' : '🟢'} ${esc(t('cond_title'))}</h2>${local}`
     + (!monitored ? `<p class="muted small">${esc(t('vig_unavailable'))}</p>`
@@ -521,40 +558,11 @@ async function openVigilanceSheet() {
     ${alerts.length ? `<p class="muted small">${esc(t('fs_fr_alert_note'))}</p>` : ''}
     <p><a href="https://vigilance.meteofrance.fr" target="_blank" rel="noopener">${esc(t('vig_official_map'))} ↗</a></p>
     ${monitored && v.checkedAt ? `<p class="muted small">${esc(t('vig_checked_at', { t: fmtDate(v.checkedAt) }))}</p>` : ''}
-    ${pushSupported() ? `<button class="btn secondary" id="vigAlertsBtn" type="button">🔔 ${esc(t('vig_enable_alerts'))}</button>` : ''}
-    <div class="email-alert-block">
-      <label for="emailAlertInput" class="small">${esc(t('email_alerts_label'))}</label>
-      <div class="row" style="gap:.5rem">
-        <input type="email" id="emailAlertInput" autocomplete="email" inputmode="email"
-               placeholder="${esc(t('email_alerts_ph'))}" style="flex:1;min-height:44px">
-        <button class="btn secondary small-btn" id="emailAlertBtn" type="button" style="flex:0 0 auto">✉️ ${esc(t('email_alerts_btn'))}</button>
-      </div>
-      <p class="muted small" id="emailAlertMsg" role="status" aria-live="polite"></p>
-    </div>
+    <button class="btn secondary" id="vigAlertsBtn" type="button">🔔 ${esc(t('vig_enable_alerts'))}</button>
     <button class="btn ghost small-btn" id="vigFollowZone" type="button">☆ ${esc(t('follow_zone_btn'))}</button>`;
-  document.getElementById('vigAlertsBtn')?.addEventListener('click', (e) => {
-    closeSheets();
-    withButton(document.getElementById('btnAlerts'), toggleAlerts);
-  });
+  document.getElementById('vigAlertsBtn')?.addEventListener('click', () => openAlertSheet());
   document.getElementById('vigFollowZone')?.addEventListener('click', (e) =>
     saveCurrentZone(e.currentTarget));
-  // Alertes par e-mail (double consentement — l'e-mail de confirmation fait foi).
-  document.getElementById('emailAlertBtn')?.addEventListener('click', (e) => withButton(e.currentTarget, async () => {
-    const input = document.getElementById('emailAlertInput');
-    const msgEl = document.getElementById('emailAlertMsg');
-    const email = input.value.trim();
-    if (!email || !email.includes('@')) { msgEl.textContent = t('email_alerts_invalid'); return; }
-    try {
-      const c = map.getCenter();
-      const r = await API.post('/api/public/email-alerts/subscribe', {
-        email, lat: c.lat, lng: c.lng, radiusKm: 20,
-        country: currentCountry(), lang: LANG,
-      });
-      msgEl.textContent = r.message;
-      input.value = '';
-      window.track?.('email_alerts_subscribed', {});
-    } catch (ex) { msgEl.textContent = ex.message; }
-  }));
 }
 
 // Marqueurs ⚠️ des départements en alerte — un point honnête au centre du
@@ -1006,6 +1014,50 @@ function heatVisualHtml(h) {
   </div>`;
 }
 
+// ── Grille météo « comme une app météo » : tuiles colorées lisibles en un
+// coup d'œil — température (fond nuancé par la chaleur), vent (boussole),
+// ciel (nuages) et visibilité. Jamais de rouge « danger » pour de la météo.
+function tempTone(c) {
+  if (c == null) return '';
+  if (c >= 35) return ' wx-hot'; if (c >= 28) return ' wx-warm';
+  if (c >= 18) return ' wx-mild'; return ' wx-cool';
+}
+function skyInfo(pct) {
+  if (pct == null) return null;
+  if (pct < 20) return { icon: '☀️', label: t('wx_sky_clear') };
+  if (pct < 55) return { icon: '🌤️', label: t('wx_sky_partly') };
+  if (pct < 85) return { icon: '☁️', label: t('wx_sky_cloudy') };
+  return { icon: '☁️', label: t('wx_sky_overcast') };
+}
+function weatherTilesHtml(h, w) {
+  if (!h && !w) return '';
+  const sky = skyInfo(h?.cloudPct);
+  const visLow = h?.visibilityKm != null && h.visibilityKm < 5;
+  return `
+  <div class="wx-grid">
+    ${h ? `<div class="wx-tile${tempTone(h.tempC)}">
+      <span class="wx-big">${esc(String(h.tempC))}°</span>
+      <span class="wx-label">${h.feelsC != null ? esc(t('heat_feels', { c: h.feelsC })) : '🌡️'}</span>
+      ${h.maxC != null && h.maxC > h.tempC ? `<span class="wx-sub">${esc(t('heat_max', { c: h.maxC, h: heatHourLabel(h.maxAt) }))}</span>` : ''}
+    </div>` : ''}
+    ${w ? `<div class="wx-tile">
+      <span class="wx-compass"><span class="wx-needle" style="transform:rotate(${((Number(w.directionToDeg) || 0) - 90 + 360) % 360}deg)">➤</span></span>
+      <span class="wx-label"><strong>${esc(String(w.speedKmh))} km/h</strong> → ${esc(windDirName(w.directionToDeg))}</span>
+      ${w.gustsKmh ? `<span class="wx-sub">${esc(t('fs_wind_gusts', { g: w.gustsKmh }))}</span>` : ''}
+    </div>` : ''}
+    ${sky ? `<div class="wx-tile">
+      <span class="wx-big">${sky.icon}</span>
+      <span class="wx-label">${esc(sky.label)}</span>
+      <span class="wx-sub">${esc(t('wx_cloud_pct', { p: h.cloudPct }))}</span>
+    </div>` : ''}
+    ${h?.visibilityKm != null ? `<div class="wx-tile${visLow ? ' wx-vis-low' : ''}">
+      <span class="wx-big">👁️</span>
+      <span class="wx-label">${esc(t('wx_visibility'))}</span>
+      <span class="wx-sub">${esc(t('wx_vis_km', { km: h.visibilityKm >= 10 ? Math.round(h.visibilityKm) : h.visibilityKm }))}${visLow ? ` · ${esc(t('wx_vis_reduced'))}` : ''}</span>
+    </div>` : ''}
+  </div>`;
+}
+
 // --- Détail + confirmation + fin d'incident + corrections --------------------
 // Toutes les actions s'appliquent à l'incident EXISTANT : aucune ne crée de
 // doublon d'incident ni de nouveau marqueur.
@@ -1190,8 +1242,7 @@ async function renderFireSituationSections(host, fireLat, fireLng) {
           : (w.downwind === 'crosswind' || w.downwind === 'upwind') ? t('fs_not_downwind')
           : w.downwind === 'unknown' ? t('fs_downwind_unknown') : '';
         inner = `
-          ${windVisualHtml(w.wind)}
-          ${fireSit?.heat ? heatVisualHtml(fireSit.heat) : ''}
+          ${weatherTilesHtml(w.heat || fireSit?.heat, w.wind)}
           ${ctx ? `<p>${esc(ctx)}</p>` : ''}
           <p class="muted small">${esc(t('fs_wind_note'))}<br>${esc(t('fs_wind_at', { t: fmtDate(w.wind.observedAt) }))}</p>`;
       }

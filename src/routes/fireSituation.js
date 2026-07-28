@@ -177,8 +177,8 @@ fireSituationRouter.get('/wind', ipRateLimit('firesit_ip', 60, 5), async (req, r
     return res.status(400).json({ error: msg(req, 'invalid_params') });
   }
   const fire = { lat: +q.fireLat, lng: +q.fireLng };
-  const wind = await getWind(fire.lat, fire.lng);
-  if (!wind) return res.json({ enabled: true, wind: null }); // panne indépendante
+  const [wind, heat] = await Promise.all([getWind(fire.lat, fire.lng), getHeat(fire.lat, fire.lng)]);
+  if (!wind) return res.json({ enabled: true, wind: null, heat }); // pannes indépendantes
   const user = isFiniteNum(q.userLat, -90, 90) && isFiniteNum(q.userLng, -180, 180)
     ? { lat: +q.userLat, lng: +q.userLng } : null;
   res.json({
@@ -188,6 +188,7 @@ fireSituationRouter.get('/wind', ipRateLimit('firesit_ip', 60, 5), async (req, r
       directionFromDeg: wind.directionFromDeg, directionToDeg: wind.directionToDeg,
       observedAt: wind.observedAt, stale: windIsStale(wind), provider: wind.provider,
     },
+    heat, // chaleur au foyer (tuiles météo complètes même via lien profond)
     // Contexte conservateur — jamais une prévision de propagation.
     downwind: user ? downwindContext(fire, user, wind) : null,
     distanceKm: user ? Math.round(distanceKm(fire.lat, fire.lng, user.lat, user.lng) * 10) / 10 : null,

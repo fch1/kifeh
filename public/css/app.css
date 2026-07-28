@@ -1,4 +1,4 @@
-/* Houma حومة — design system (direction « communautaire et chaleureuse »)
+/* Kifeh Design System (ex-Houma) — système de design (direction « communautaire et chaleureuse »)
    Palette, typographies et composants : voir docs/BRAND.md */
 
 /* Polices vendorisées (aucun appel réseau — WebView & réseaux lents) */
@@ -292,6 +292,14 @@ html[dir="rtl"] .topbar .back .arrow { display: inline-block; transform: scaleX(
   box-shadow: 0 1px 6px rgba(0,0,0,.25);
 }
 .marker-sat.high { border-style: solid; border-width: 3px; }
+/* Feu observé par satellite : MÊME pin que les feux signalés, contour
+   pointillé + pastille 🛰️ = la source, pas une autre catégorie. */
+.marker-sat-pin { border-style: dashed; position: relative; }
+.marker-sat-pin .sat-dot {
+  position: absolute; top: -7px; inset-inline-end: -7px; font-style: normal;
+  font-size: 11px; background: #fff; border-radius: 50%; padding: 1px 2px;
+  box-shadow: 0 1px 3px rgb(0 0 0 / .25); transform: rotate(45deg);
+}
 .badge.sat { background: #FFF4E6; color: #8A4514; border: 1px dashed #C4622D; }
 .notice.sat { background: #FFF4E6; border-inline-start: 4px solid #C4622D; }
 
@@ -537,6 +545,29 @@ html, body { overscroll-behavior: none; }
   width: 14px; height: 14px; border-radius: 50%; background: #fff;
   border: 3px solid var(--primary, #1E2A4D);
 }
+
+/* Grille météo : tuiles lisibles en un coup d'œil, teintes douces par
+   température — jamais de rouge « danger » pour de la météo */
+.wx-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin: .6rem 0; }
+.wx-tile {
+  background: var(--sand, #FAF7F1); border-radius: 12px; padding: .6rem .7rem;
+  display: flex; flex-direction: column; gap: .15rem; min-height: 74px;
+  border: 1px solid #efe9dd;
+}
+.wx-big { font-size: 1.45rem; font-weight: 700; color: var(--primary, #1E2A4D); line-height: 1.1; }
+.wx-label { font-size: .85rem; }
+.wx-sub { font-size: .75rem; color: var(--muted, #8a8578); }
+.wx-cool { background: #EAF2F7; border-color: #d8e6ef; }
+.wx-mild { background: #F6F1E4; }
+.wx-warm { background: #F9E9D8; border-color: #f0dcc4; }
+.wx-hot  { background: #F6DFD2; border-color: #ecccb8; }
+.wx-vis-low { border-color: #E8A34D; }
+.wx-compass {
+  position: relative; width: 40px; height: 40px; border-radius: 50%;
+  border: 2px solid var(--primary, #1E2A4D); background: #fff;
+  display: flex; align-items: center; justify-content: center;
+}
+.wx-needle { display: inline-block; transform-origin: 50% 50%; color: var(--primary, #1E2A4D); font-size: .95rem; }
 
 /* Liens d'action secondaires de la fiche : une grille cohérente */
 .detail-links { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; }
