@@ -482,6 +482,7 @@ async function loadIncidents() {
     } else fireSit = null;
     cluster.setItems(visibleItems());
     renderSummary(false);
+    renderWxStrip(); // bandeau météo permanent (France)
     refreshVigilanceMarkers(); // marqueurs ⚠️ vigilance (asynchrone, jamais bloquant)
     // « Depuis votre dernière visite » : une seule vérification par session.
     if (!sinceChecked) { sinceChecked = true; sinceLastVisit().catch(() => {}); }
@@ -647,18 +648,30 @@ function maybeShowFireProximityBanner(active, satsShown) {
 // sur une seule ligne tappable — les détails vivent dans la fiche dédiée,
 // jamais empilés dans la bulle de résumé (lisibilité mobile d'abord).
 function condLineHtml() {
-  if (!fireSit) return '';
-  const parts = [];
-  if (fireSit.heat) parts.push(`🌡️ ${esc(String(fireSit.heat.tempC))}°`);
-  if (fireSit.wind && !fireSit.wind.stale) parts.push(`💨 ${esc(String(fireSit.wind.speedKmh))} km/h`);
-  const alert = fireSit.vigilance?.activeDepartments > 0;
-  if (fireSit.vigilance) {
-    parts.push(alert ? `🟠 ${esc(t('cond_vig_n', { n: fireSit.vigilance.activeDepartments }))}`
-      : `🟢 ${esc(t('cond_vig_ok'))}`);
-  }
-  if (!parts.length) return '';
+  // La météo vit désormais dans le BANDEAU permanent du haut (wxStrip) —
+  // la bulle ne garde que l'état Vigilance (pas de doublon).
+  if (!fireSit?.vigilance) return '';
+  const alert = fireSit.vigilance.activeDepartments > 0;
+  const label = alert ? `🟠 ${esc(t('fs_vigilance_active', { n: fireSit.vigilance.activeDepartments }))}`
+    : `🟢 ${esc(t('fs_vigilance_none'))}`;
   return `<span id="condLine" class="summary-types vig-line${alert ? ' summary-official-active vig-active' : ''}"
-    role="button" tabindex="0" aria-haspopup="dialog" aria-label="${esc(t('cond_title'))}">${parts.join(' · ')} ›</span>`;
+    role="button" tabindex="0" aria-haspopup="dialog" aria-label="${esc(t('cond_title'))}">${label} ›</span>`;
+}
+
+// Bandeau météo permanent (France) : visible AU PREMIER REGARD, sans ouvrir
+// quoi que ce soit — température + ressenti, vent avec flèche orientée, ciel.
+function renderWxStrip() {
+  const el = document.getElementById('wxStrip');
+  if (!el) return;
+  if (currentCountry() !== 'FR' || (!fireSit?.heat && !fireSit?.wind)) { el.hidden = true; return; }
+  const h = fireSit.heat, w = fireSit.wind && !fireSit.wind.stale ? fireSit.wind : null;
+  const sky = skyInfo(h?.cloudPct);
+  el.hidden = false;
+  el.innerHTML = `
+    ${h ? `<span class="wx-s-item"><strong>${esc(String(h.tempC))}°</strong>${h.feelsC != null && h.feelsC !== h.tempC ? ` <span class="muted">${esc(t('wx_feels_short', { c: h.feelsC }))}</span>` : ''}</span>` : ''}
+    ${w ? `<span class="wx-s-item"><span class="wx-s-arrow" style="transform:rotate(${((Number(w.directionToDeg) || 0) - 90 + 360) % 360}deg)">➤</span> ${esc(String(w.speedKmh))} km/h${w.gustsKmh ? ` <span class="muted">(${esc(String(w.gustsKmh))})</span>` : ''}</span>` : ''}
+    ${sky ? `<span class="wx-s-item">${sky.icon} ${esc(sky.label)}</span>` : ''}
+    <span class="wx-s-more" aria-hidden="true">›</span>`;
 }
 
 // Le résumé ouvre la liste correspondante (même jeu de données) ; la ligne
@@ -2242,5 +2255,8 @@ function toggleWeatherLayer() {
   });
   let saved = null;
   try { saved = localStorage.getItem('kifeh_weather_layer'); } catch {}
-  if (saved === '1' && !LITE) toggleWeatherLayer(); // choix mémorisé (jamais en mode léger)
+  // Visible AU PREMIER REGARD : le voile météo est ACTIF par défaut en France
+  // (jamais en mode léger) ; le choix de le couper est respecté et mémorisé.
+  if (saved !== '0' && !LITE) toggleWeatherLayer();
+  document.getElementById('wxStrip')?.addEventListener('click', openVigilanceSheet);
 })();

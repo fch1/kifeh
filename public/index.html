@@ -75,6 +75,11 @@
   <!-- Les feux d'abord : « Incendie » est la PREMIÈRE catégorie. Elle réunit
        en une seule donnée les signalements citoyens ET les observations
        satellite (dédupliqués quand un signalement est corroboré). -->
+  <!-- Bandeau météo (France) : la réponse « quel temps autour de moi ? »
+       visible AU PREMIER REGARD — température, ressenti, vent orienté, ciel.
+       Tappable → fiche « Conditions autour de moi ». -->
+  <button class="wx-strip" id="wxStrip" type="button" hidden aria-haspopup="dialog"
+          data-i18n-aria="cond_title"></button>
   <div class="chips" role="group" data-i18n-aria="filters_aria">
     <button class="chip" data-type="fire" aria-pressed="false">🔥 <span data-i18n="type_fire"></span></button>
     <button class="chip" data-type="electricity" aria-pressed="false">⚡ <span data-i18n="type_electricity"></span></button>
