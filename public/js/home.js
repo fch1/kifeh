@@ -220,7 +220,14 @@ function visibleSats() {
   if (filters.source === 'citizen' || filters.source === 'corroborated') return [];
   if (filters.types.size && !filters.types.has('satellite') && !filters.types.has('fire')) return [];
   const cutoff = Date.now() - satWindowH() * 3600_000;
-  return satEvents.filter((e) => Date.parse(e.last_detected_at) >= cutoff);
+  // UNE SEULE donnée feu : un événement satellite déjà rattaché à un
+  // signalement citoyen corroboré (< 2 km) n'affiche pas de second marqueur —
+  // le signalement principal porte les deux sources.
+  const corrobFires = incidents.filter((i) => i.type === 'fire'
+    && i.status === 'active' && i.satellite_last_seen);
+  return satEvents.filter((e) => Date.parse(e.last_detected_at) >= cutoff)
+    .filter((e) => !corrobFires.some((i) =>
+      map.distance([i.lat, i.lng], [e.lat, e.lng]) < 2000));
 }
 
 // Jeu d'éléments affichés (carte + liste + compteurs = MÊME jeu, cohérence garantie).
@@ -328,6 +335,9 @@ function renderSummary(degraded, snapshotAt) {
   // ne sont jamais additionnés dans un même chiffre ambigu.
   const byType = {};
   for (const i of active) byType[i.type] = (byType[i.type] || 0) + 1;
+  // Feux = UNE donnée : signalements citoyens + événements satellite réunis
+  // dans le même compte (dédupliqués), la part satellite précisée à part.
+  if (satsShown.length) byType.fire = (byType.fire || 0) + satsShown.length;
   const typeParts = Object.entries(byType).map(([ty, n]) => `${TYPE_ICONS[ty]} ${n}`);
   // Incidents terminés récents affichés (grisés) : comptés à part, jamais
   // mélangés au chiffre principal « en cours ».
@@ -335,8 +345,7 @@ function renderSummary(degraded, snapshotAt) {
   let mainLine;
   // Mode Feux : l'absence de détection ne prouve JAMAIS l'absence de feu —
   // formulation honnête + rappel des limites satellite.
-  const fireEmptyMode = typeof fireMode !== 'undefined' && fireMode
-    && active.length === 0 && satsShown.length === 0;
+  const fireEmptyMode = fireFilterActive() && active.length === 0 && satsShown.length === 0;
   if (fireEmptyMode) mainLine = t('fire_none');
   else if (active.length === 0 && satsShown.length === 0) mainLine = t('counter_none');
   else if (active.length > 0) mainLine = active.length === 1 ? t('counter_one') : t('counter_n', { n: active.length });
@@ -347,7 +356,7 @@ function renderSummary(degraded, snapshotAt) {
     <strong>${mainLine}</strong>
     ${active.length > 0 && typeParts.length ? `<span class="summary-types">${typeParts.join(' · ')}</span>` : ''}
     ${ended > 0 ? `<span class="summary-types">✓ ${ended === 1 ? t('summary_ended_one') : t('summary_ended_n', { n: ended })}</span>` : ''}
-    ${active.length > 0 && satsShown.length ? `<span class="summary-sat">🛰️ ${t('summary_sat_n', { n: satsShown.length })} · ${satWindowH()} h</span>` : ''}
+    ${satsShown.length && (active.length > 0 || byType.fire) ? `<span class="summary-sat muted small">${t('fire_sat_part', { n: satsShown.length })}</span>` : ''}
     ${fireSit?.latestOfficialAt && fireSit.safetyActive ? `<span class="summary-types summary-official-active">🏛️ ${esc(t('fs_latest_official', { t: timeAgo(fireSit.latestOfficialAt) }))}</span>` : ''}
     ${fireEmptyMode ? `<span class="summary-types muted">${esc(t('fire_none_note'))}</span>` : ''}
     ${nearestFireLineHtml(active, satsShown)}
@@ -588,9 +597,22 @@ document.addEventListener('visibilitychange', () => {
     scheduleRefresh(200);
   }
 });
+// « Suivi en direct » : la fiche OUVERTE se rafraîchit d'elle-même quand
+// l'incident change (confirmation, fin, réouverture…) — sans rechargement
+// manuel, uniquement sur changement réel (jamais de polling).
+let openIncidentId = null;
 try {
   const es = new EventSource(`${API_BASE}/api/events`);
-  es.addEventListener('incident', () => scheduleRefresh(500));
+  es.addEventListener('incident', (ev) => {
+    scheduleRefresh(500);
+    try {
+      const d = JSON.parse(ev.data || '{}');
+      if (d.publicId && d.publicId === openIncidentId
+          && document.getElementById('detailSheet').classList.contains('open')) {
+        openDetail(d.publicId);
+      }
+    } catch { /* données d'événement absentes : simple rafraîchissement carte */ }
+  });
 } catch { /* repli : rechargement au déplacement de carte */ }
 
 // --- Géolocalisation (consentement explicite : uniquement sur action) -------
@@ -710,52 +732,13 @@ document.getElementById('fSatLayer')?.addEventListener('change', (e) => {
 });
 syncTypeControls(); // état initial (confiance satellite masquée par défaut)
 
-// ── France « feu d'abord » : sélecteur Feux / Tous les incidents ─────────────
-// Les incendies sont l'expérience principale côté France (signalements
-// citoyens + observations satellite + conditions). « Tous les incidents »
-// garde l'expérience multi-catégories complète. La Tunisie est INCHANGÉE.
-// Le choix est mémorisé par pays ; défaut France : Feux.
-let fireMode = false;
-function applyFireMode() {
-  document.getElementById('modeFires').setAttribute('aria-selected', String(fireMode));
-  document.getElementById('modeAll').setAttribute('aria-selected', String(!fireMode));
-  // En mode Feux : les puces de catégories disparaissent (elles vivent dans
-  // « Tous les incidents ») — l'écran reste simple.
-  document.querySelector('.chips').hidden = fireMode;
-  const declare = document.querySelector('.btn-declare');
-  if (declare) {
-    // data-i18n mis à jour AUSSI : applyI18n (changement de langue, premier
-    // rendu) conserve alors le bon libellé au lieu de l'écraser.
-    declare.setAttribute('data-i18n', fireMode ? 'declare_fire_btn' : 'declare_btn');
-    declare.textContent = fireMode ? t('declare_fire_btn') : t('declare_btn');
-    declare.href = fireMode ? 'declare.html?type=fire' : 'declare.html';
-  }
-  filters.types = fireMode ? new Set(['fire']) : new Set();
-  syncTypeControls();
+// ── Les feux d'abord, en une seule donnée ────────────────────────────────────
+// « Incendie » est la première catégorie et RÉUNIT signalements citoyens et
+// observations satellite (dédupliqués quand un signalement est corroboré).
+// Le filtre feu actif seul déclenche l'état vide honnête (limites satellite).
+function fireFilterActive() {
+  return filters.types.size === 1 && filters.types.has('fire');
 }
-function initFireFirst() {
-  const seg = document.getElementById('modeSeg');
-  if (currentCountry() !== 'FR') { seg.hidden = true; return; }
-  seg.hidden = false;
-  let saved = null;
-  try { saved = localStorage.getItem('kifeh_mode_FR'); } catch {}
-  fireMode = saved ? saved === 'fires' : true; // défaut France : Feux
-  applyFireMode();
-  // Le premier chargement (déclenché plus haut) est parti sans le filtre feu :
-  // on recharge aussitôt avec le bon mode.
-  if (fireMode) scheduleRefresh(50);
-}
-for (const [id, mode] of [['modeFires', true], ['modeAll', false]]) {
-  document.getElementById(id).addEventListener('click', () => {
-    if (fireMode === mode) return;
-    fireMode = mode;
-    try { localStorage.setItem('kifeh_mode_FR', mode ? 'fires' : 'all'); } catch {}
-    window.track?.('fire_mode_switched', { mode: mode ? 'fires' : 'all' });
-    applyFireMode();
-    loadIncidents();
-  });
-}
-initFireFirst();
 for (const chip of document.querySelectorAll('.chip[data-type]')) {
   chip.addEventListener('click', () => {
     const ty = chip.dataset.type;
@@ -983,6 +966,7 @@ async function openDetail(publicId) {
   try { i = await API.get(`/api/public/incidents/${encodeURIComponent(publicId)}`); }
   catch (e) { el.innerHTML = `<p class="field-error">${esc(e.message)}</p>`; return; }
 
+  openIncidentId = i.public_id; // suivi en direct de la fiche ouverte (SSE)
   const confirmed = isDone('confirmed', i.public_id);
   const endedReported = isDone('ended', i.public_id);
   const isFire = i.type === 'fire';
@@ -992,6 +976,7 @@ async function openDetail(publicId) {
     <h2><span class="badge ${esc(i.type)}">${TYPE_ICONS[i.type]} ${esc(TYPE_LABELS[i.type])}</span>
         <span class="badge status ${esc(i.status)}">${esc(STATUS_LABELS[i.status] || i.status)}</span></h2>
     <p class="muted">${esc(i.area || t('area_approx'))} · ${t('ref')} ${esc(i.public_id)}</p>
+    ${i.status === 'active' ? `<p class="muted small">⟳ ${esc(t('live_note'))}</p>` : ''}
     ${trustCapsuleHtml(i)}
     ${i.satellite_last_seen ? `<p class="notice sat">🛰️ <strong>${t('sat_corroborated')} — NASA FIRMS</strong><br>
       <span class="small">${t('sat_last_seen')} ${esc(fmtDate(i.satellite_last_seen))} · ${t('sat_source')}</span></p>` : ''}
@@ -1176,7 +1161,8 @@ async function openSatDetail(id) {
     ${ev.detection_count > 1 ? t('sat_detections_n', { n: ev.detection_count }) : t('sat_detections_one')}
     ${ev.satellites ? `<br><strong>${t('sat_satellites')}</strong> ${esc(ev.satellites)}` : ''}
     ${ev.max_frp ? `<br><strong>${t('sat_frp')}</strong> ${esc(String(Math.round(ev.max_frp)))} MW` : ''}
-    ${ev.lastSyncAt ? `<br><span class="muted small">${t('sat_last_sync', { t: fmtDate(ev.lastSyncAt) })}</span>` : ''}</p>
+    ${ev.lastSyncAt ? `<br><span class="muted small">${t('sat_last_sync', { t: fmtDate(ev.lastSyncAt) })}
+      · ${t('sat_next_sync', { t: fmtDate(new Date(Date.parse(ev.lastSyncAt) + 15 * 60_000).toISOString()) })}</span>` : ''}</p>
     ${ev.confirmations_count > 0 ? `<p class="notice ok">${ev.confirmations_count > 1 ? t('affected_n', { n: ev.confirmations_count }) : t('affected_one')}</p>` : ''}
     <p class="notice warn small">${t('sat_disclaimer')}</p>
     <p class="notice danger small">${t(currentCountry() === 'FR' ? 'sat_danger_fr' : 'sat_danger')}</p>

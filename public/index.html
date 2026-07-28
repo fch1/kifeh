@@ -69,17 +69,13 @@
            data-i18n-ph="search_ph" data-i18n-aria="search_aria">
     <div id="searchResults" class="search-results" role="listbox" hidden></div>
   </div>
-  <!-- France : les incendies sont l'expérience PRINCIPALE — sélecteur simple
-       « Feux / Tous les incidents ». Les autres catégories restent complètes
-       derrière « Tous les incidents ». Invisible côté Tunisie (inchangée). -->
-  <div class="mode-seg" id="modeSeg" role="tablist" hidden>
-    <button class="mode-tab" id="modeFires" role="tab" aria-selected="true" type="button">🔥 <span data-i18n="mode_fires"></span></button>
-    <button class="mode-tab" id="modeAll" role="tab" aria-selected="false" type="button" data-i18n="mode_all"></button>
-  </div>
+  <!-- Les feux d'abord : « Incendie » est la PREMIÈRE catégorie. Elle réunit
+       en une seule donnée les signalements citoyens ET les observations
+       satellite (dédupliqués quand un signalement est corroboré). -->
   <div class="chips" role="group" data-i18n-aria="filters_aria">
+    <button class="chip" data-type="fire" aria-pressed="false">🔥 <span data-i18n="type_fire"></span></button>
     <button class="chip" data-type="electricity" aria-pressed="false">⚡ <span data-i18n="type_electricity"></span></button>
     <button class="chip" data-type="water" aria-pressed="false">💧 <span data-i18n="type_water"></span></button>
-    <button class="chip" data-type="fire" aria-pressed="false">🔥 <span data-i18n="type_fire"></span></button>
     <button class="chip" data-type="internet" aria-pressed="false">📶 <span data-i18n="type_internet"></span></button>
     <button class="chip" id="chipOngoing" aria-pressed="true" data-i18n="chip_ongoing"></button>
     <button class="chip" id="chipFilters" aria-pressed="false"><span data-i18n="chip_filters"></span><span class="chip-badge" id="filterBadge" hidden></span></button>
@@ -104,9 +100,9 @@
   <h2 data-i18n="filters_title"></h2>
   <label data-i18n="filter_types"></label>
   <div class="filter-types" role="group" data-i18n-aria="filter_types">
+    <label class="checkbox-row"><input type="checkbox" class="fType" value="fire"> 🔥 <span data-i18n="type_fire"></span></label>
     <label class="checkbox-row"><input type="checkbox" class="fType" value="electricity"> ⚡ <span data-i18n="type_electricity"></span></label>
     <label class="checkbox-row"><input type="checkbox" class="fType" value="water"> 💧 <span data-i18n="type_water"></span></label>
-    <label class="checkbox-row"><input type="checkbox" class="fType" value="fire"> 🔥 <span data-i18n="type_fire"></span></label>
     <label class="checkbox-row"><input type="checkbox" class="fType" value="internet"> 📶 <span data-i18n="type_internet"></span></label>
   </div>
   <!-- Le satellite est une SOURCE d'information, jamais un type d'incident :

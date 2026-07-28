@@ -89,16 +89,16 @@ de localisation, supervision des synchronisations NASA, annuaire de contacts
 d'urgence, journal d'audit, export CSV — et chaque réglage (seuils, fenêtres,
 drapeaux de fonctionnalités, pays activés) modifiable à chaud.
 
-**La France ouvre sur les feux.** En France, les incendies sont l'expérience
-principale : l'accueil s'ouvre en mode **« Feux »** (signalements citoyens +
-observations satellite, action principale « Signaler un feu », distance et
-direction du feu le plus proche à vol d'oiseau), tandis que « Tous les
-incidents » garde l'expérience multi-catégories complète — électricité, eau,
-internet ne perdent rien. Quand un feu récent est à moins de 10 km, une
-bannière contextuelle refermable propose « Voir la situation » ; à 200 km,
-aucune interface anxiogène. Et l'absence de détection n'est jamais présentée
-comme une absence de feu : « les satellites ne détectent pas tous les feux ».
-La Tunisie garde son expérience multi-incidents inchangée.
+**Les feux d'abord, en une seule donnée.** « Incendie » est la première
+catégorie, et elle réunit **signalements citoyens et observations satellite
+NASA dans une seule donnée feu** : un signalement corroboré par satellite
+n'affiche qu'un marqueur (porteur des deux sources), le compteur de zone
+additionne les deux en précisant la part satellite, et le résumé indique la
+distance et la direction du feu le plus proche — à vol d'oiseau, jamais un
+trajet. Quand un feu récent est à moins de 10 km, une bannière contextuelle
+refermable propose « Voir la situation » ; à 200 km, aucune interface
+anxiogène. Et l'absence de détection n'est jamais présentée comme une absence
+de feu : « les satellites ne détectent pas tous les feux ».
 
 **Comprendre la situation, pas seulement les points.** Côté France, la carte
 affiche des « Conditions autour de moi » : chaleur locale (température,

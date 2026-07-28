@@ -459,19 +459,6 @@ html, body { overscroll-behavior: none; }
    est signalée par le poids typographique, jamais par la couleur seule. */
 .summary-official-active { font-weight: 700; }
 
-/* France « feu d'abord » : sélecteur Feux / Tous les incidents */
-.mode-seg {
-  display: flex; gap: .25rem; background: #fff; border-radius: 999px;
-  padding: .25rem; margin: 0 0 .5rem; width: fit-content;
-  box-shadow: 0 1px 4px rgb(30 42 77 / .12);
-}
-.mode-tab {
-  border: none; background: none; border-radius: 999px; cursor: pointer;
-  padding: .45rem .9rem; min-height: 40px; font-weight: 600; color: var(--text);
-  font-size: .9rem;
-}
-.mode-tab[aria-selected="true"] { background: var(--primary, #1E2A4D); color: #fff; }
-
 /* Micro-interactions : chaque geste répond immédiatement (150–250 ms),
    désactivées quand l'utilisateur préfère réduire les animations. */
 .btn, .chip, .list-item { transition: transform .15s ease, background-color .15s ease, box-shadow .15s ease; }
