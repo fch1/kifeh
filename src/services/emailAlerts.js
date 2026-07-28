@@ -12,9 +12,36 @@ import { msg } from '../i18n.js';
 
 const API = () => process.env.RESEND_URL || 'https://api.resend.com';
 const KEY = () => process.env.RESEND_API_KEY || '';
-// Tant que le domaine n'est pas vérifié chez Resend, seul l'expéditeur
-// onboarding@resend.dev fonctionne (et uniquement vers l'adresse du compte).
-const FROM = () => process.env.RESEND_FROM || 'Kifeh <onboarding@resend.dev>';
+// Domaine kifeh.app vérifié chez Resend : expéditeur officiel par défaut
+// (surchargeable via RESEND_FROM si besoin).
+const FROM = () => process.env.RESEND_FROM || 'Kifeh <alertes@kifeh.app>';
+
+// ── Gabarit de marque (navy #1E2A4D, crème #FAF7F1, action #E8432E) ─────────
+// Un e-mail Kifeh se lit en 3 secondes : quoi + où dans le titre, UN bouton,
+// un pied honnête (désinscription + rappel « initiative citoyenne »).
+// Styles en ligne uniquement (clients mail) ; RTL complet pour l'arabe.
+function emailTemplate({ lang, heading, bodyHtml, ctaLabel, ctaUrl, footHtml }) {
+  const rtl = lang === 'ar';
+  return `<!doctype html><html dir="${rtl ? 'rtl' : 'ltr'}" lang="${lang}"><body style="margin:0;padding:0;background:#FAF7F1">
+  <div dir="${rtl ? 'rtl' : 'ltr'}" style="background:#FAF7F1;padding:28px 12px;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif">
+    <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #eee6d9">
+      <div style="background:#1E2A4D;padding:16px 22px">
+        <span style="color:#ffffff;font-weight:700;font-size:19px">Kifeh</span>
+        <span style="color:#ffffff;opacity:.85;font-size:17px"> كيفاه</span>
+      </div>
+      <div style="padding:22px">
+        <h2 style="margin:0 0 10px;color:#1E2A4D;font-size:19px;line-height:1.35">${heading}</h2>
+        <div style="color:#333;font-size:15px;line-height:1.55">${bodyHtml}</div>
+        ${ctaUrl ? `<p style="margin:22px 0 6px"><a href="${ctaUrl}"
+          style="background:#E8432E;color:#ffffff;text-decoration:none;padding:13px 26px;border-radius:999px;font-weight:700;font-size:15px;display:inline-block">${ctaLabel}</a></p>` : ''}
+      </div>
+      <div style="padding:14px 22px;background:#FAF7F1;color:#8a8578;font-size:12px;line-height:1.5">
+        ${footHtml || ''}
+        <div style="margin-top:6px"><a href="https://kifeh.app" style="color:#8a8578">kifeh.app</a></div>
+      </div>
+    </div>
+  </div></body></html>`;
+}
 
 export function emailAlertsConfigured() { return Boolean(KEY()); }
 
@@ -66,9 +93,14 @@ async function sendConfirmation(email, lang, token) {
   const url = `${getBaseUrl()}/api/public/email-alerts/confirm?token=${encodeURIComponent(token)}`;
   await sendEmailViaResend(email,
     msg(lang, 'email_confirm_subject'),
-    `<p>${msg(lang, 'email_confirm_body')}</p>
-     <p><a href="${url}">${msg(lang, 'email_confirm_link')}</a></p>
-     <p style="color:#777;font-size:13px">${msg(lang, 'email_ignore_note')}</p>`);
+    emailTemplate({
+      lang,
+      heading: msg(lang, 'email_confirm_subject'),
+      bodyHtml: `<p style="margin:0">${msg(lang, 'email_confirm_body')}</p>`,
+      ctaLabel: msg(lang, 'email_confirm_link'),
+      ctaUrl: url,
+      footHtml: msg(lang, 'email_ignore_note'),
+    }));
 }
 
 export function confirmEmail(token) {
@@ -115,11 +147,20 @@ export async function emailNotifyIncidentPublished(incident) {
       const lang = s.lang === 'ar' ? 'ar' : 'fr';
       const url = `${getBaseUrl()}/?incident=${encodeURIComponent(incident.public_id)}&src=email`;
       const unsubUrl = `${getBaseUrl()}/api/public/email-alerts/unsubscribe?token=${encodeURIComponent(s.unsub_token)}`;
+      const title = msg(lang, `push_title_${incident.type}`) || msg(lang, 'push_title_generic');
+      const area = incident.public_area || msg(lang, 'push_near_you');
       await sendEmailViaResend(email,
-        msg(lang, `push_title_${incident.type}`) || msg(lang, 'push_title_generic'),
-        `<p><strong>${msg(lang, 'push_body', { area: incident.public_area || msg(lang, 'push_near_you') })}</strong></p>
-         <p><a href="${url}">${msg(lang, 'email_view_link')}</a></p>
-         <p style="color:#777;font-size:13px"><a href="${unsubUrl}">${msg(lang, 'email_unsub_note')}</a></p>`);
+        `${title} — ${area}`, // objet = quoi + où, lisible sans ouvrir
+        emailTemplate({
+          lang,
+          heading: title,
+          bodyHtml: `<p style="margin:0 0 6px"><strong>📍 ${area}</strong></p>
+            <p style="margin:0">${msg(lang, 'email_alert_body')}</p>`,
+          ctaLabel: msg(lang, 'email_view_link'),
+          ctaUrl: url,
+          footHtml: `${msg(lang, 'email_footer_notice')}<br>
+            <a href="${unsubUrl}" style="color:#8a8578">${msg(lang, 'email_unsub_note')}</a>`,
+        }));
       db.prepare(`UPDATE email_alert_subscriptions SET last_notified_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
                   day = ?, day_count = CASE WHEN day = ? THEN day_count + 1 ELSE 1 END, failures = 0
                   WHERE id = ?`).run(today, today, s.id);
