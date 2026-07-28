@@ -67,6 +67,9 @@
   <div class="searchbox">
     <input id="search" type="text" inputmode="search" autocomplete="off"
            data-i18n-ph="search_ph" data-i18n-aria="search_aria">
+    <!-- Ma position en un geste, directement depuis la barre de recherche
+         (géolocalisation UNIQUEMENT sur action explicite, jamais en continu) -->
+    <button class="search-locate" id="searchLocate" type="button" data-i18n-aria="my_position">📍</button>
     <div id="searchResults" class="search-results" role="listbox" hidden></div>
   </div>
   <!-- Les feux d'abord : « Incendie » est la PREMIÈRE catégorie. Elle réunit
@@ -77,7 +80,7 @@
     <button class="chip" data-type="electricity" aria-pressed="false">⚡ <span data-i18n="type_electricity"></span></button>
     <button class="chip" data-type="water" aria-pressed="false">💧 <span data-i18n="type_water"></span></button>
     <button class="chip" data-type="internet" aria-pressed="false">📶 <span data-i18n="type_internet"></span></button>
-    <button class="chip" id="chipOngoing" aria-pressed="true" data-i18n="chip_ongoing"></button>
+    <button class="chip" id="chipOngoing" aria-pressed="false" data-i18n="chip_ongoing"></button>
     <button class="chip" id="chipFilters" aria-pressed="false"><span data-i18n="chip_filters"></span><span class="chip-badge" id="filterBadge" hidden></span></button>
   </div>
 </div>
@@ -89,6 +92,8 @@
     <button class="btn secondary small-btn" id="btnList" style="flex:0 0 auto" data-i18n="list_btn"></button>
     <button class="btn secondary small-btn" id="btnAlerts" style="flex:0 0 auto" aria-pressed="false"
             data-i18n="alerts_btn" data-i18n-aria="alerts_aria"></button>
+    <button class="btn secondary small-btn" id="btnSafety" style="flex:0 0 auto"
+            data-i18n-aria="safety_title">🤍 <span data-i18n="safety_shortcut"></span></button>
     <a class="btn secondary small-btn" href="legal.html" style="flex:0 0 auto" data-i18n-aria="legal_aria">ⓘ</a>
   </div>
   <a class="btn btn-declare" href="declare.html" data-i18n="declare_btn"></a>
@@ -167,6 +172,15 @@
 <div class="sheet" id="detailSheet" role="dialog" aria-modal="true" data-i18n-aria="detail_aria">
   <div class="handle"></div>
   <div id="detailContent"></div>
+</div>
+
+<!-- Feuille : « Mon statut de sécurité » accessible depuis l'accueil —
+     rattaché au feu le plus proche (< 30 km) sinon à la zone consultée. -->
+<div class="sheet" id="safetySheet" role="dialog" aria-modal="true" data-i18n-aria="safety_title">
+  <div class="handle"></div>
+  <h2 data-i18n="safety_title"></h2>
+  <p class="muted small" id="safetyCtxLine"></p>
+  <div id="safetySheetBody"></div>
 </div>
 
 <!-- Feuille : vigilance Météo-France (France) — état de la veille météo

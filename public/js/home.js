@@ -496,8 +496,8 @@ async function openVigilanceSheet() {
   const h = fireSit?.heat;
   const w = fireSit?.wind && !fireSit.wind.stale ? fireSit.wind : null;
   const local = (h || w) ? `
-    ${h ? `<p>🌡️ <strong>${esc(t('heat_now', { c: h.tempC }))}</strong>${h.feelsC != null && h.feelsC !== h.tempC ? ` · ${esc(t('heat_feels', { c: h.feelsC }))}` : ''}${h.maxC != null && h.maxC > h.tempC ? `<br><span class="muted small">${esc(t('heat_max', { c: h.maxC, h: heatHourLabel(h.maxAt) }))}</span>` : ''}</p>` : ''}
-    ${w ? `<p>💨 <strong>${esc(t('fs_wind_line', { v: w.speedKmh, dir: windDirName(w.directionToDeg) }))}</strong>${w.gustsKmh ? ` · ${esc(t('fs_wind_gusts', { g: w.gustsKmh }))}` : ''}</p>` : ''}
+    ${heatVisualHtml(h)}
+    ${windVisualHtml(w)}
     <hr style="border:none;border-top:1px solid var(--border,#e5e0d8);margin:.75rem 0">` : '';
   const head = `<h2>${alerts.length ? '🟠' : '🟢'} ${esc(t('cond_title'))}</h2>${local}`
     + (!monitored ? `<p class="muted small">${esc(t('vig_unavailable'))}</p>`
@@ -616,10 +616,11 @@ try {
 } catch { /* repli : rechargement au déplacement de carte */ }
 
 // --- Géolocalisation (consentement explicite : uniquement sur action) -------
-document.getElementById('btnLocate').addEventListener('click', () => {
-  // Bannière non bloquante (jamais d'alert() qui gèle la page) ; précision
-  // standard suffisante pour centrer la carte — la haute précision GPS
-  // consomme inutilement la batterie.
+// Bannière non bloquante (jamais d'alert() qui gèle la page) ; précision
+// standard suffisante pour centrer la carte — la haute précision GPS
+// consomme inutilement la batterie. Accessible depuis le bouton « Ma
+// position » ET le pin 📍 de la barre de recherche.
+function locateMe() {
   if (!navigator.geolocation) return transientBanner(t('geo_unavailable'));
   navigator.geolocation.getCurrentPosition(
     (pos) => {
@@ -627,10 +628,35 @@ document.getElementById('btnLocate').addEventListener('click', () => {
       map.setView([userPos.lat, userPos.lng], 14);
       L.circleMarker([userPos.lat, userPos.lng], { radius: 8, color: '#17557E', fillOpacity: .9 })
         .addTo(map).bindPopup(esc(t('you_are_here')));
+      window.track?.('locate_used', {});
     },
     () => transientBanner(t('geo_not_found')),
     { enableHighAccuracy: false, timeout: 8000 }
   );
+}
+document.getElementById('btnLocate').addEventListener('click', locateMe);
+document.getElementById('searchLocate')?.addEventListener('click', locateMe);
+
+// « Mon statut de sécurité » depuis l'ACCUEIL : plus besoin d'ouvrir un
+// incident — le statut se rattache au feu le plus proche (< 30 km) sinon à
+// la zone consultée. Produit : la fonctionnalité vit là où sont les gens.
+document.getElementById('btnSafety')?.addEventListener('click', () => {
+  const active = citizenVisible() ? incidents.filter((i) => i.status === 'active') : [];
+  const n = nearestFire(active, visibleSats());
+  const ctx = { active: true, show: true };
+  if (n && n.d < 30_000) {
+    if (n.sat) ctx.satelliteEventId = n.item.id; else ctx.incidentId = n.item.public_id;
+  }
+  // Un seul conteneur #safetyZone dans le document à la fois.
+  document.getElementById('detailContent').innerHTML = '';
+  const body = document.getElementById('safetySheetBody');
+  body.innerHTML = '<div id="safetyZone"></div>';
+  document.getElementById('safetyCtxLine').textContent = (n && n.d < 30_000)
+    ? t('safety_ctx_fire', { km: Math.max(1, Math.round(n.d / 1000)) })
+    : t('safety_ctx_zone');
+  openSheet('safetySheet');
+  renderSafetyCard(ctx);
+  window.track?.('safety_shortcut_opened', { linked: Boolean(n && n.d < 30_000) });
 });
 
 // --- Recherche d'adresse ----------------------------------------------------
@@ -902,21 +928,56 @@ function renderList() {
     btn.addEventListener('click', () => openDetail(i.public_id));
     el.appendChild(btn);
   }
-  // Détections satellite : accessibles aussi depuis la liste (sans carte).
+  // Feux observés par satellite : MÊME apparence que les feux signalés
+  // (une seule donnée feu), seule la SOURCE change — badge 🛰️ explicite,
+  // jamais d'amalgame avec un signalement citoyen.
   if (showSat) {
     for (const ev of visibleSats()) {
       const btn = document.createElement('button');
       btn.className = 'list-item';
       btn.innerHTML = `
-        <div class="type-dot fire">🛰️</div>
+        <div class="type-dot fire">${TYPE_ICONS.fire}</div>
         <div style="flex:1">
-          <strong>${t('sat_detection')}</strong> <span class="badge sat">NASA FIRMS</span><br>
-          <span class="muted">${t('sat_potential_fire')} · ${t('sat_last_seen')} ${esc(fmtDate(ev.last_detected_at))}</span>
-        </div>`;
+          <strong>${esc(TYPE_LABELS.fire)}</strong>
+          <span class="badge sat">🛰️ ${t('sat_source_badge')}</span><br>
+          <span class="list-place">${t('area_approx')}</span><br>
+          <span class="muted small">${t('sat_last_seen')} ${timeAgo(ev.last_detected_at)} · NASA FIRMS</span>
+        </div>
+        <span class="list-chevron" aria-hidden="true">›</span>`;
       btn.addEventListener('click', () => openSatDetail(ev.id));
       el.appendChild(btn);
     }
   }
+}
+
+// ── Visuels météo : le vent SE VOIT (boussole orientée), la chaleur SE LIT
+// (échelle colorée) — jamais de rouge « danger » pour une simple température.
+function windVisualHtml(w) {
+  if (!w) return '';
+  return `
+  <div class="wind-visual">
+    <span class="wind-compass" aria-hidden="true">
+      <span class="wind-north">N</span>
+      <span class="wind-needle" style="transform:rotate(${((Number(w.directionToDeg) || 0) - 90 + 360) % 360}deg)">➤</span>
+    </span>
+    <span class="wind-data">
+      <strong>💨 ${esc(String(w.speedKmh))} km/h → ${esc(windDirName(w.directionToDeg))}</strong>
+      ${w.gustsKmh ? `<span class="small">${esc(t('fs_wind_gusts', { g: w.gustsKmh }))}</span>` : ''}
+    </span>
+  </div>`;
+}
+function heatVisualHtml(h) {
+  if (!h) return '';
+  const pct = Math.max(2, Math.min(98, ((h.tempC + 5) / 50) * 100)); // échelle −5…45 °C
+  return `
+  <div class="heat-visual">
+    <span class="wind-data">
+      <strong>🌡️ ${esc(t('heat_now', { c: h.tempC }))}</strong>
+      ${h.feelsC != null && h.feelsC !== h.tempC ? `<span class="small">${esc(t('heat_feels', { c: h.feelsC }))}</span>` : ''}
+      ${h.maxC != null && h.maxC > h.tempC ? `<span class="small muted">${esc(t('heat_max', { c: h.maxC, h: heatHourLabel(h.maxAt) }))}</span>` : ''}
+    </span>
+    <span class="heat-scale" aria-hidden="true"><span class="heat-dot" style="inset-inline-start:${pct}%"></span></span>
+  </div>`;
 }
 
 // --- Détail + confirmation + fin d'incident + corrections --------------------
@@ -959,6 +1020,7 @@ function trustCapsuleHtml(i) {
 }
 
 async function openDetail(publicId) {
+  document.getElementById('safetySheetBody')?.replaceChildren(); // un seul #safetyZone
   const el = document.getElementById('detailContent');
   el.innerHTML = '<div class="skeleton" style="height:120px"></div>';
   openSheet('detailSheet');
@@ -1003,11 +1065,13 @@ async function openDetail(publicId) {
     ${i.status === 'resolved' && (!i.resolved_at || Date.now() - Date.parse(i.resolved_at) < 24 * 3600_000)
     ? `<button class="btn secondary" id="btnReopen" style="margin-top:.5rem">${t('reopen_btn')}</button>
     <div id="reopenZone"></div>` : ''}
-    <button class="btn ghost small-btn" id="btnShare" style="margin-top:.5rem">${t('share_btn')}</button>
-    <button class="btn ghost small-btn" id="btnFollow" style="margin-top:.5rem" aria-pressed="${isFollowed(i.public_id)}">${isFollowed(i.public_id) ? `★ ${t('follow_on')}` : `☆ ${t('follow_btn')}`}</button>
-    <button class="btn ghost small-btn" id="btnLocCorrect" style="margin-top:.5rem">${t('loc_correct_title')}</button>
+    <div class="detail-links">
+      <button class="btn ghost small-btn" id="btnShare">${t('share_btn')}</button>
+      <button class="btn ghost small-btn" id="btnFollow" aria-pressed="${isFollowed(i.public_id)}">${isFollowed(i.public_id) ? `★ ${t('follow_on')}` : `☆ ${t('follow_btn')}`}</button>
+      <button class="btn ghost small-btn" id="btnLocCorrect">${t('loc_correct_title')}</button>
+      <button class="btn ghost small-btn" id="btnReport">${t('report_content')}</button>
+    </div>
     <div id="locCorrectZone"></div>
-    <button class="btn ghost small-btn" id="btnReport" style="margin-top:.5rem">${t('report_content')}</button>
     <div id="reportZone"></div>`;
 
   ensureMarkerVisibleAboveSheet(i.lat, i.lng);
@@ -1096,26 +1160,26 @@ async function renderFireSituationSections(host, fireLat, fireLng) {
       if (!w.wind) inner = `<p class="muted small">${esc(t('fs_wind_unavailable'))}</p>`;
       else if (w.wind.stale) inner = `<p class="muted small">${esc(t('fs_wind_stale'))}</p>`;
       else {
-        const dirTxt = windDirName(w.wind.directionToDeg);
         const ctx = w.downwind === 'downwind' ? t('fs_downwind')
           : (w.downwind === 'crosswind' || w.downwind === 'upwind') ? t('fs_not_downwind')
           : w.downwind === 'unknown' ? t('fs_downwind_unknown') : '';
         inner = `
-          <p><strong>💨 ${esc(t('fs_wind_line', { v: w.wind.speedKmh, dir: dirTxt }))}</strong>
-          ${w.wind.gustsKmh ? `· ${esc(t('fs_wind_gusts', { g: w.wind.gustsKmh }))}` : ''}</p>
+          ${windVisualHtml(w.wind)}
+          ${fireSit?.heat ? heatVisualHtml(fireSit.heat) : ''}
           ${ctx ? `<p>${esc(ctx)}</p>` : ''}
           <p class="muted small">${esc(t('fs_wind_note'))}<br>${esc(t('fs_wind_at', { t: fmtDate(w.wind.observedAt) }))}</p>`;
       }
       zone.insertAdjacentHTML('beforeend', `<h2 style="margin-top:1rem">${esc(t('fs_wind_head'))}</h2>${inner}`);
     }
   } catch { /* le vent tombe en panne sans bloquer la fiche */ }
-  // B. Consignes officielles (source la plus spécifique d'abord)
+  // B. Consignes officielles (source la plus spécifique d'abord).
+  // AUCUNE consigne → la section n'apparaît pas du tout : une rubrique vide
+  // n'informe personne et alourdit la fiche.
   try {
     const o = await API.get(`/api/fire-situation/official?lat=${fireLat.toFixed(3)}&lng=${fireLng.toFixed(3)}`);
-    if (o.enabled) {
+    if (o.enabled && o.updates.length) {
       let inner;
-      if (!o.updates.length) inner = `<p class="muted small">${esc(t('fs_official_none'))}</p>`;
-      else {
+      {
         const u = o.updates[0];
         const summary = LANG === 'ar' && u.summaryAr
           ? `${esc(u.summaryAr)}<br><span class="muted small">${esc(t('fs_ar_summary_note'))}</span>`
@@ -1141,6 +1205,7 @@ async function renderFireSituationSections(host, fireLat, fireLng) {
 // Anomalie thermique détectée par satellite : présentation distincte des
 // signalements citoyens, jamais comme confirmation officielle d'incendie.
 async function openSatDetail(id) {
+  document.getElementById('safetySheetBody')?.replaceChildren(); // un seul #safetyZone
   const el = document.getElementById('detailContent');
   el.innerHTML = '<div class="skeleton" style="height:120px"></div>';
   openSheet('detailSheet');
@@ -1545,7 +1610,9 @@ function renderReportForm(i) {
 // « J'ai besoin d'aide » affiche IMMÉDIATEMENT les numéros d'urgence du bon
 // pays, sans formulaire ; le partage vers un proche est facultatif.
 // ═════════════════════════════════════════════════════════════════════════════
-function safetyCtxKey(ctx) { return ctx.incidentId || `sat:${ctx.satelliteEventId}`; }
+function safetyCtxKey(ctx) {
+  return ctx.incidentId || (ctx.satelliteEventId ? `sat:${ctx.satelliteEventId}` : `zone:${currentCountry()}`);
+}
 function safetyStore() {
   try { return JSON.parse(localStorage.getItem('kifeh_safety') || '{}'); } catch { return {}; }
 }
@@ -1593,7 +1660,7 @@ async function submitSafety(ctx, status) {
     const r = await API.post('/api/safety/checkins', {
       status, deviceId: getDeviceId(), country: currentCountry(),
       incidentId: ctx.incidentId || undefined,
-      satelliteEventId: ctx.satelliteEventId || undefined,
+      satelliteEventId: ctx.satelliteEventId || undefined, // ni l'un ni l'autre = statut de zone
     });
     const prev = safetyStore()[safetyCtxKey(ctx)];
     const entry = {

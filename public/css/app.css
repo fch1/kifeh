@@ -499,6 +499,49 @@ html, body { overscroll-behavior: none; }
 }
 [dir="rtl"] .since-banner { padding: .75rem 1rem .75rem 2.2rem; }
 
+/* Pin « ma position » intégré à la barre de recherche */
+.searchbox { position: relative; }
+.search-locate {
+  position: absolute; top: 50%; inset-inline-end: .4rem; transform: translateY(-50%);
+  border: none; background: none; font-size: 1.15rem; cursor: pointer;
+  min-width: 40px; min-height: 40px; border-radius: 50%;
+}
+.search-locate:hover { background: var(--sand, #F3EFE7); }
+#search { padding-inline-end: 3rem; }
+
+/* Visuels météo : boussole du vent + échelle de chaleur (jamais du rouge
+   « danger » pour une simple température de l'air) */
+.wind-visual, .heat-visual { display: flex; align-items: center; gap: .75rem; margin: .5rem 0; }
+.heat-visual { flex-wrap: wrap; }
+.wind-compass {
+  position: relative; flex: 0 0 auto; width: 52px; height: 52px; border-radius: 50%;
+  border: 2px solid var(--primary, #1E2A4D); background: #fff;
+  display: flex; align-items: center; justify-content: center;
+}
+.wind-needle {
+  font-size: 1.15rem; color: var(--primary, #1E2A4D); line-height: 1;
+  display: inline-block; transform-origin: 50% 50%; margin-top: -2px;
+}
+.wind-north {
+  position: absolute; top: 1px; left: 50%; transform: translateX(-50%);
+  font-size: .55rem; font-weight: 700; color: var(--muted, #999);
+}
+.wind-data { display: flex; flex-direction: column; gap: .1rem; }
+.heat-scale {
+  position: relative; flex: 1 1 120px; min-width: 110px; height: 8px; border-radius: 4px;
+  background: linear-gradient(90deg, #7FB3D5 0%, #F7D774 45%, #E8A34D 70%, #C4622D 100%);
+}
+[dir="rtl"] .heat-scale { background: linear-gradient(-90deg, #7FB3D5 0%, #F7D774 45%, #E8A34D 70%, #C4622D 100%); }
+.heat-dot {
+  position: absolute; top: 50%; transform: translate(-50%, -50%);
+  width: 14px; height: 14px; border-radius: 50%; background: #fff;
+  border: 3px solid var(--primary, #1E2A4D);
+}
+
+/* Liens d'action secondaires de la fiche : une grille cohérente */
+.detail-links { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; }
+.detail-links .btn { flex: 1 1 45%; }
+
 /* Bannière de proximité feu : sérieuse sans être anxiogène */
 .fire-banner { border-inline-start: 4px solid var(--brand-red); }
 
