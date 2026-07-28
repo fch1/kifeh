@@ -1658,6 +1658,12 @@ async function openDetail(publicId) {
         <span class="badge status ${esc(i.status)}">${esc(STATUS_LABELS[i.status] || i.status)}</span></h2>
     <p class="muted">${esc(i.area || t('area_approx'))} · ${t('ref')} ${esc(i.public_id)}</p>
     ${userPos ? `<p class="muted small">📍 ${esc(t('detail_distance', { km: Math.max(1, Math.round(map.distance([userPos.lat, userPos.lng], [i.lat, i.lng]) / 1000)) }))}</p>` : ''}
+    ${i.dfci?.code ? `<div class="dfci-block">
+      <span class="small"><strong>${esc(t('dfci_label'))}</strong> · ${esc(t('dfci_precision'))}${i.dfci.indicative ? ` · ${esc(t('dfci_indicative'))}` : ''}</span>
+      <span class="dfci-code" dir="ltr">${esc(i.dfci.code)}</span>
+      <button class="btn ghost small-btn" id="dfciCopy" type="button">${esc(t('dfci_copy'))}</button>
+      <span class="muted small">${esc(t('dfci_help'))}</span>
+    </div>` : ''}
     ${i.status === 'active' ? `<p class="muted small">⟳ ${esc(t('live_note'))}</p>` : ''}
     ${trustCapsuleHtml(i)}
     ${i.satellite_last_seen ? `<p class="notice sat">🛰️ <strong>${t('sat_corroborated')} — NASA FIRMS</strong><br>
@@ -1695,6 +1701,13 @@ async function openDetail(publicId) {
     <div id="locCorrectZone"></div>
     <div id="reportZone"></div>`;
 
+  document.getElementById('dfciCopy')?.addEventListener('click', async (e) => {
+    try {
+      await navigator.clipboard.writeText(i.dfci.code);
+      e.currentTarget.textContent = t('dfci_copied');
+      window.track?.('dfci_copied', {});
+    } catch { /* presse-papiers indisponible : le code reste sélectionnable */ }
+  });
   ensureMarkerVisibleAboveSheet(i.lat, i.lng);
   // « Situation incendie » (France) : vent + consignes officielles sur les feux.
   if (i.type === 'fire') renderFireSituationSections(el, i.lat, i.lng);

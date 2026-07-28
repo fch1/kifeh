@@ -8,6 +8,7 @@ import { createSession, destroySession, requireAdmin, can } from '../middleware/
 import { ipRateLimit, clientIp } from '../middleware/rateLimit.js';
 import { mergeAsDuplicate } from '../services/dedup.js';
 import { anonymizeCoords } from '../services/anonymize.js';
+import { applyDfciToIncident } from '../services/dfci.js';
 import { cleanText, isFiniteNum } from '../middleware/security.js';
 import { broadcast } from './events.js';
 import { audit } from '../services/audit.js';
@@ -355,6 +356,11 @@ adminRouter.post('/corrections/:id/approve', requireAdmin('moderate'), (req, res
       .run(c.new_lat, c.new_lng, pub.lat, pub.lng, c.new_address, i.id);
     db.prepare(`UPDATE location_corrections SET status = 'applied',
                 reviewed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`).run(c.id);
+    // Recalcul DFCI depuis la nouvelle position exacte (atomique, non bloquant).
+    applyDfciToIncident(db, i.id, {
+      lat: c.new_lat, lng: c.new_lng,
+      countryCode: i.country_code || 'TN', incidentType: i.type, gpsAccuracy: null,
+    });
   })();
   touchIncident(i.id);
   audit(req.admin.username, 'correction_approved', i.id, { correction: c.id }, clientIp(req));

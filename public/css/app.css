@@ -278,6 +278,18 @@ button.brand-name { appearance: none; border: 0; cursor: pointer; font: inherit;
 /* « En bref — situation feu » : bloc réuni, jamais anxiogène. */
 .fire-brief { margin: .5rem 0; border-inline-start: 3px solid var(--brand-red); }
 
+/* Repère DFCI (feux français) : code en évidence, toujours en LTR. */
+.dfci-block {
+  margin: .5rem 0; padding: .625rem .75rem; border-radius: 12px;
+  background: rgba(30, 42, 77, .05); border-inline-start: 3px solid var(--primary-dark);
+  display: flex; flex-wrap: wrap; align-items: center; gap: .375rem .625rem;
+}
+.dfci-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.25rem; font-weight: 700; letter-spacing: .08em;
+  color: var(--primary-dark); unicode-bidi: isolate;
+}
+
 /* Marqueur d'entrave routière (Bison Futé) — sobre, lisible, jamais criard. */
 .road-pin {
   width: 26px; height: 26px; border-radius: 8px; background: var(--surface);

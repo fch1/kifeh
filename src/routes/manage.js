@@ -5,6 +5,7 @@ import { db, getSetting, getSettingNum, touchIncident } from '../db.js';
 import { sha256, uuid } from '../services/crypto.js';
 import { isIsoDate, isFiniteNum, cleanText, containsSuspiciousContent } from '../middleware/security.js';
 import { anonymizeCoords } from '../services/anonymize.js';
+import { applyDfciToIncident } from '../services/dfci.js';
 import { ipRateLimit, clientIp } from '../middleware/rateLimit.js';
 import { schedulePurge } from '../services/scheduler.js';
 import { broadcast } from './events.js';
@@ -133,6 +134,13 @@ manageRouter.post('/update-location', (req, res) => {
     db.prepare(`UPDATE incidents SET lat = ?, lng = ?, public_lat = ?, public_lng = ?,
                 address = ?, public_area = COALESCE(?, public_area) WHERE id = ?`)
       .run(lat, lng, pub.lat, pub.lng, address, publicArea, i.id);
+    // Le repère DFCI suit TOUJOURS la position exacte (recalcul atomique).
+    const prev = Boolean(i.dfci_code);
+    const r = applyDfciToIncident(db, i.id, {
+      lat, lng, countryCode: i.country_code || 'TN', incidentType: i.type, gpsAccuracy: null,
+    });
+    audit('reporter', 'dfci_recomputed_after_location_change', i.id,
+      { hadPreviousCode: prev, hasNewCode: Boolean(r?.available) });
   })();
   touchIncident(i.id);
   audit('reporter', 'location_corrected', i.id);

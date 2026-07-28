@@ -18,6 +18,7 @@ import { devRouter } from './src/routes/dev.js';
 import { startScheduler } from './src/services/scheduler.js';
 import { effisStatus } from './src/services/effis.js';
 import { roadsStatus } from './src/services/roads.js';
+import { dfciEnabled, dfciReferenceLoaded, dfciReferenceVersion } from './src/services/dfci.js';
 import { msg } from './src/i18n.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -106,7 +107,16 @@ app.get('/healthz', (req, res) => {
   // Bison Futé : routes barrées & entraves (indicateurs seuls).
   let roads = null;
   try { roads = roadsStatus(); } catch { /* idem */ }
-  res.json({ ok: true, backupAt, incidents, firms, offsite, vigilance, emailAlerts, effis, roads });
+  // Repère DFCI : activé ? référence chargée ? version ? (jamais le chemin local)
+  let dfci = null;
+  try {
+    dfci = {
+      enabled: dfciEnabled(),
+      referenceLoaded: dfciReferenceLoaded(),
+      version: dfciReferenceVersion(),
+    };
+  } catch { /* idem */ }
+  res.json({ ok: true, backupAt, incidents, firms, offsite, vigilance, emailAlerts, effis, roads, dfci });
 });
 
 // ── Sandbox (/sandbox) — environnement de test totalement cloisonné ─────────

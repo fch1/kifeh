@@ -8,6 +8,7 @@ import { uuid, publicId, randomToken, sha256, hmac, encrypt, decrypt } from '../
 import { isEmail, isFiniteNum, isIsoDate, cleanText, containsSuspiciousContent } from '../middleware/security.js';
 import { clientIp, countEvents, recordEvent } from '../middleware/rateLimit.js';
 import { anonymizeCoords } from '../services/anonymize.js';
+import { applyDfciToIncident } from '../services/dfci.js';
 import { findSimilar, isRepeatedText } from '../services/dedup.js';
 import { computeTrustScore } from '../services/trust.js';
 import { createVerification, verifyCode, resend } from '../services/otp.js';
@@ -179,6 +180,14 @@ declareRouter.post('/draft', async (req, res) => {
     cleanText(b.address, 300) || null, cleanText(b.publicArea, 200) || null,
     ['gps', 'address', 'manual'].includes(b.locationSource) ? b.locationSource : 'manual',
     isFiniteNum(b.gpsAccuracy, 0, 100_000) ? Number(b.gpsAccuracy) : null, cty.country);
+
+  // Repère DFCI (feux français) — depuis la position EXACTE, côté serveur
+  // uniquement (toute valeur reçue du navigateur est IGNORÉE) ; l'échec du
+  // calcul n'empêche jamais la déclaration.
+  applyDfciToIncident(db, id, {
+    lat, lng, countryCode: cty.country, incidentType: b.type,
+    gpsAccuracy: isFiniteNum(b.gpsAccuracy, 0, 100_000) ? Number(b.gpsAccuracy) : null,
+  });
 
   // Jeton de brouillon (mêmes mécanismes que le lien de gestion, TTL court).
   const draftToken = randomToken(32);

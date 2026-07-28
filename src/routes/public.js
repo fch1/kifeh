@@ -9,6 +9,7 @@ import { uuid, hmac, encrypt } from '../services/crypto.js';
 import { isEmail, isFiniteNum, isIsoDate, cleanText } from '../middleware/security.js';
 import { clientIp, countEvents, recordEvent, ipRateLimit } from '../middleware/rateLimit.js';
 import { searchAddress, reverseGeocode } from '../services/geocode.js';
+import { lookupDfci, dfciPublicDisplay } from '../services/dfci.js';
 import { createVerification, verifyCode } from '../services/otp.js';
 import { broadcast } from './events.js';
 import { audit } from '../services/audit.js';
@@ -150,12 +151,45 @@ publicRouter.get('/incidents/:publicId', (req, res) => {
   ).get(String(req.params.publicId)).n;
   const fireThreshold = getSettingNum('fire_confirm_threshold');
 
+  // Repère DFCI : PUBLIC uniquement pour un feu français avec un code valide
+  // ET le drapeau d'affichage actif (déploiement progressif). Jamais la
+  // version du référentiel ni l'horodatage — juste le code et sa précision.
+  let dfci = null;
+  if (row.type === 'fire' && dfciPublicDisplay()) {
+    const d = db.prepare(`SELECT dfci_code, dfci_precision, dfci_ambiguous, country_code
+                          FROM incidents WHERE public_id = ?`).get(String(req.params.publicId));
+    if (d?.dfci_code && (d.country_code || 'TN') === 'FR') {
+      dfci = { code: d.dfci_code, precision: d.dfci_precision || '2km', indicative: Boolean(d.dfci_ambiguous) };
+    }
+  }
+
   res.json({
     ...row, attachments,
     resolutionReports,
     resolutionThreshold: getSettingNum('resolution_threshold'),
     fireThreshold,
     communityConfirmed: row.type === 'fire' ? row.confirmations_count >= fireThreshold : row.confirmations_count >= 1,
+    dfci,
+  });
+});
+
+// ── Prévisualisation du repère DFCI (étape de localisation d'un feu FR) ─────
+// AUCUNE persistance ; le serveur RECALCULE toujours pendant la création du
+// brouillon — cette API ne sert qu'à afficher le repère avant la soumission.
+publicRouter.post('/location/dfci', ipRateLimit('dfci_ip', 30, 5), (req, res) => {
+  const b = req.body || {};
+  if (!isFiniteNum(b.lat, -90, 90) || !isFiniteNum(b.lng, -180, 180)) {
+    return res.status(400).json({ error: msg(req, 'invalid_params') });
+  }
+  const r = lookupDfci({
+    lat: Number(b.lat), lng: Number(b.lng),
+    countryCode: String(b.country || ''), incidentType: String(b.type || ''),
+    gpsAccuracy: isFiniteNum(b.gpsAccuracy, 0, 100_000) ? Number(b.gpsAccuracy) : null,
+  });
+  if (!r.available) return res.json({ available: false });
+  res.json({
+    available: true,
+    dfci: { code: r.code, precision: r.precision, indicative: Boolean(r.ambiguous || r.lowAccuracy) },
   });
 });
 

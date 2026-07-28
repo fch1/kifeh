@@ -583,6 +583,17 @@ db.transaction(() => {
     }
   }
   db.exec(`CREATE INDEX IF NOT EXISTS idx_satevents_country ON satellite_events(country_code, status, last_detected_at)`);
+
+  // 3g. Repère DFCI (feux français) — colonnes ADDITIVES, null par défaut :
+  //     l'ancien code les ignore, aucune donnée existante n'est modifiée.
+  const dfciCols = db.prepare(`PRAGMA table_info(incidents)`).all().map((c) => c.name);
+  if (!dfciCols.includes('dfci_code')) {
+    db.exec(`ALTER TABLE incidents ADD COLUMN dfci_code TEXT`);
+    db.exec(`ALTER TABLE incidents ADD COLUMN dfci_precision TEXT`);
+    db.exec(`ALTER TABLE incidents ADD COLUMN dfci_source_version TEXT`);
+    db.exec(`ALTER TABLE incidents ADD COLUMN dfci_computed_at TEXT`);
+    db.exec(`ALTER TABLE incidents ADD COLUMN dfci_ambiguous INTEGER NOT NULL DEFAULT 0`);
+  }
 })();
 
 // Réglages par défaut (sans écraser les valeurs administrées).
