@@ -43,10 +43,11 @@ prononcé *ki-FÈH*) — le « comment ? / qu'est-ce qui se passe ? » du parler
 tunisien : exactement la question à laquelle l'application répond en ouvrant la
 carte. Court (5 lettres), très facile à écrire en latin, compris dans tout le
 pays et sans aucune connotation institutionnelle. Toute l'identité ci-dessous
-(palette, typographies, logo « pin-quartier », ton) s'applique à Kifeh ;
-slogan retenu : **« اللي صاير حواليك، لحظة بلحظة » — « Ce qui se passe autour
-de vous, en temps réel »**. Avant lancement : vérifier la disponibilité INNORPI
-(marque), kifeh.tn (ATI) et les stores.
+(palette, typographies, logo « pin-quartier », ton) s'applique à Kifeh.
+Le nom porte le message à lui seul : la communication publique s'appuie sur
+l'explication du nom (« Kifeh, c'est la question qu'on pose au voisin quand la
+lumière saute ») plutôt que sur un slogan figé. Avant lancement : vérifier la
+disponibilité INNORPI (marque), kifeh.tn (ATI) et les stores.
 
 *Pour mémoire, la recommandation initiale de l'agence :* **Houma — حومة**
 

@@ -107,3 +107,23 @@ Connexion (rôles : admin · moderator · operator · analyst)
  ├─ Export des incidents (CSV)
  └─ Tableau de bord statistique agrégé
 ```
+
+## France « feu d'abord » (ajout 2026-07)
+
+En France, l'accueil s'ouvre en mode **Feux** (mémorisé par pays,
+`kifeh_mode_FR`) : seuls les incendies citoyens et les observations satellite
+sont affichés, l'action principale devient « Signaler un feu »
+(`declare.html?type=fire`, type pré-sélectionné, avertissement incendie
+conservé), et le résumé de zone indique la distance et la direction du feu le
+plus proche — toujours « à vol d'oiseau », jamais un trajet. « Tous les
+incidents » restaure l'expérience multi-catégories complète. La Tunisie est
+strictement inchangée (pas de sélecteur).
+
+Règles d'honnêteté verrouillées :
+- état vide en mode Feux : « Aucune activité de feu récente **visible** » +
+  rappel des limites satellite — jamais « il n'y a aucun incendie » ;
+- bannière de proximité uniquement si l'événement est à **moins de 10 km ET
+  moins de 3 h** — refermable, une seule fois par événement et par session ;
+- le mode « Danger de feu » (Météo des forêts) n'est **pas** implémenté :
+  aucune API publique vérifiée à ce jour — on n'affiche jamais une donnée dont
+  la source n'existe pas.

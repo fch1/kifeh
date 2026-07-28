@@ -69,6 +69,13 @@
            data-i18n-ph="search_ph" data-i18n-aria="search_aria">
     <div id="searchResults" class="search-results" role="listbox" hidden></div>
   </div>
+  <!-- France : les incendies sont l'expérience PRINCIPALE — sélecteur simple
+       « Feux / Tous les incidents ». Les autres catégories restent complètes
+       derrière « Tous les incidents ». Invisible côté Tunisie (inchangée). -->
+  <div class="mode-seg" id="modeSeg" role="tablist" hidden>
+    <button class="mode-tab" id="modeFires" role="tab" aria-selected="true" type="button">🔥 <span data-i18n="mode_fires"></span></button>
+    <button class="mode-tab" id="modeAll" role="tab" aria-selected="false" type="button" data-i18n="mode_all"></button>
+  </div>
   <div class="chips" role="group" data-i18n-aria="filters_aria">
     <button class="chip" data-type="electricity" aria-pressed="false">⚡ <span data-i18n="type_electricity"></span></button>
     <button class="chip" data-type="water" aria-pressed="false">💧 <span data-i18n="type_water"></span></button>

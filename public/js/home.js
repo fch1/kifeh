@@ -271,6 +271,11 @@ async function loadIncidents() {
     refreshVigilanceMarkers(); // marqueurs ⚠️ vigilance (asynchrone, jamais bloquant)
     // « Depuis votre dernière visite » : une seule vérification par session.
     if (!sinceChecked) { sinceChecked = true; sinceLastVisit().catch(() => {}); }
+    // Bannière de proximité feu (< 10 km et < 3 h) — refermable, jamais répétée.
+    try {
+      maybeShowFireProximityBanner(
+        citizenVisible() ? incidents.filter((i) => i.status === 'active') : [], visibleSats());
+    } catch { /* jamais bloquant */ }
     // Instantané local : la dernière situation chargée reste consultable
     // hors connexion (avec son horodatage, jamais présentée comme actuelle).
     try {
@@ -328,7 +333,12 @@ function renderSummary(degraded, snapshotAt) {
   // mélangés au chiffre principal « en cours ».
   const ended = citizenVisible() ? incidents.filter((i) => i.status !== 'active').length : 0;
   let mainLine;
-  if (active.length === 0 && satsShown.length === 0) mainLine = t('counter_none');
+  // Mode Feux : l'absence de détection ne prouve JAMAIS l'absence de feu —
+  // formulation honnête + rappel des limites satellite.
+  const fireEmptyMode = typeof fireMode !== 'undefined' && fireMode
+    && active.length === 0 && satsShown.length === 0;
+  if (fireEmptyMode) mainLine = t('fire_none');
+  else if (active.length === 0 && satsShown.length === 0) mainLine = t('counter_none');
   else if (active.length > 0) mainLine = active.length === 1 ? t('counter_one') : t('counter_n', { n: active.length });
   else mainLine = `🛰️ ${t('summary_sat_n', { n: satsShown.length })}`;
 
@@ -339,9 +349,82 @@ function renderSummary(degraded, snapshotAt) {
     ${ended > 0 ? `<span class="summary-types">✓ ${ended === 1 ? t('summary_ended_one') : t('summary_ended_n', { n: ended })}</span>` : ''}
     ${active.length > 0 && satsShown.length ? `<span class="summary-sat">🛰️ ${t('summary_sat_n', { n: satsShown.length })} · ${satWindowH()} h</span>` : ''}
     ${fireSit?.latestOfficialAt && fireSit.safetyActive ? `<span class="summary-types summary-official-active">🏛️ ${esc(t('fs_latest_official', { t: timeAgo(fireSit.latestOfficialAt) }))}</span>` : ''}
+    ${fireEmptyMode ? `<span class="summary-types muted">${esc(t('fire_none_note'))}</span>` : ''}
+    ${nearestFireLineHtml(active, satsShown)}
     ${condLineHtml()}
     ${degraded ? `<span class="summary-degraded">${t('api_degraded')}<br>${t('offline_snapshot', { t: timeAgo(new Date(snapshotAt).toISOString()) })}</span>` : ''}`;
 }
+// « Plus proche : ~N km » — distance du feu le plus proche (signalement citoyen
+// actif ou événement satellite) depuis la position de la personne si connue,
+// sinon depuis le centre de la vue. Réponse immédiate à LA question B2C :
+// « à quelle distance ? ». Jamais de fausse précision (~, arrondi).
+function clientBearingDeg(a, b) {
+  const rad = (d) => (d * Math.PI) / 180;
+  const dLng = rad(b.lng - a.lng);
+  const y = Math.sin(dLng) * Math.cos(rad(b.lat));
+  const x = Math.cos(rad(a.lat)) * Math.sin(rad(b.lat))
+    - Math.sin(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.cos(dLng);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+// Événement feu le plus proche (réponse à « où et à quelle distance ? »).
+// Distance à vol d'oiseau, jamais présentée comme un trajet. Renvoie aussi
+// l'élément pour la bannière de proximité.
+function nearestFire(active, satsShown) {
+  const from = userPos ? L.latLng(userPos.lat, userPos.lng) : map.getCenter();
+  let best = null;
+  for (const i of active) {
+    if (i.type !== 'fire') continue;
+    const d = map.distance(from, L.latLng(i.lat, i.lng));
+    if (!best || d < best.d) best = { d, item: i, lat: i.lat, lng: i.lng, sat: false };
+  }
+  for (const s of satsShown) {
+    const lat = s.centroid_lat ?? s.lat, lng = s.centroid_lng ?? s.lng;
+    const d = map.distance(from, L.latLng(lat, lng));
+    if (!best || d < best.d) best = { d, item: s, lat, lng, sat: true };
+  }
+  if (best) best.dir = windDirName(clientBearingDeg({ lat: from.lat, lng: from.lng }, best));
+  return best;
+}
+function nearestFireLineHtml(active, satsShown) {
+  if (currentCountry() !== 'FR') return '';
+  const n = nearestFire(active, satsShown);
+  if (!n) return '';
+  const km = n.d / 1000;
+  const label = km < 1 ? t('nearest_fire_close')
+    : t('nearest_fire_km_dir', { km: Math.round(km), dir: n.dir });
+  return `<span class="summary-types">📍 ${esc(label)}</span>`;
+}
+
+// Bannière de proximité « Situation incendie » : UNIQUEMENT quand un feu
+// récent est vraiment proche (< 10 km) — jamais d'interface anxiogène pour un
+// événement lointain ou ancien. Refermable, une seule fois par événement.
+function maybeShowFireProximityBanner(active, satsShown) {
+  if (currentCountry() !== 'FR') return;
+  const n = nearestFire(active, satsShown);
+  if (!n || n.d > 10_000) return;
+  const freshAt = n.sat ? n.item.last_detected_at : n.item.updated_at || n.item.started_at;
+  if (!freshAt || Date.now() - Date.parse(freshAt) > 3 * 3600_000) return; // > 3 h : pas d'urgence affichée
+  const key = `kifeh_fireban_${n.sat ? n.item.id : n.item.public_id}`;
+  try { if (sessionStorage.getItem(key)) return; sessionStorage.setItem(key, '1'); } catch {}
+  const km = Math.max(1, Math.round(n.d / 1000));
+  const b = document.createElement('div');
+  b.className = 'since-banner fire-banner';
+  b.setAttribute('role', 'status');
+  b.innerHTML = `
+    <button class="since-close" aria-label="✕">✕</button>
+    <strong>🔥 ${esc(n.sat ? t('fireban_sat_title') : t('fireban_title'))}</strong>
+    <div class="since-line">${esc(t('nearest_fire_km_dir', { km, dir: n.dir }))} · ${esc(timeAgo(freshAt))}</div>
+    <div class="since-line"><u>${esc(t('fireban_see'))}</u></div>`;
+  document.body.appendChild(b);
+  b.addEventListener('click', (e) => {
+    if (e.target.closest('.since-close')) { b.remove(); return; }
+    b.remove();
+    if (n.sat) openSatDetail(n.item.id); else openDetail(n.item.public_id);
+  });
+  setTimeout(() => b.remove(), 45_000);
+  window.track?.('fire_proximity_banner', { sat: n.sat });
+}
+
 // Ligne « conditions » COMPACTE (France) : chaleur + vent + vigilance réunis
 // sur une seule ligne tappable — les détails vivent dans la fiche dédiée,
 // jamais empilés dans la bulle de résumé (lisibilité mobile d'abord).
@@ -626,6 +709,53 @@ document.getElementById('fSatLayer')?.addEventListener('change', (e) => {
   syncTypeControls();
 });
 syncTypeControls(); // état initial (confiance satellite masquée par défaut)
+
+// ── France « feu d'abord » : sélecteur Feux / Tous les incidents ─────────────
+// Les incendies sont l'expérience principale côté France (signalements
+// citoyens + observations satellite + conditions). « Tous les incidents »
+// garde l'expérience multi-catégories complète. La Tunisie est INCHANGÉE.
+// Le choix est mémorisé par pays ; défaut France : Feux.
+let fireMode = false;
+function applyFireMode() {
+  document.getElementById('modeFires').setAttribute('aria-selected', String(fireMode));
+  document.getElementById('modeAll').setAttribute('aria-selected', String(!fireMode));
+  // En mode Feux : les puces de catégories disparaissent (elles vivent dans
+  // « Tous les incidents ») — l'écran reste simple.
+  document.querySelector('.chips').hidden = fireMode;
+  const declare = document.querySelector('.btn-declare');
+  if (declare) {
+    // data-i18n mis à jour AUSSI : applyI18n (changement de langue, premier
+    // rendu) conserve alors le bon libellé au lieu de l'écraser.
+    declare.setAttribute('data-i18n', fireMode ? 'declare_fire_btn' : 'declare_btn');
+    declare.textContent = fireMode ? t('declare_fire_btn') : t('declare_btn');
+    declare.href = fireMode ? 'declare.html?type=fire' : 'declare.html';
+  }
+  filters.types = fireMode ? new Set(['fire']) : new Set();
+  syncTypeControls();
+}
+function initFireFirst() {
+  const seg = document.getElementById('modeSeg');
+  if (currentCountry() !== 'FR') { seg.hidden = true; return; }
+  seg.hidden = false;
+  let saved = null;
+  try { saved = localStorage.getItem('kifeh_mode_FR'); } catch {}
+  fireMode = saved ? saved === 'fires' : true; // défaut France : Feux
+  applyFireMode();
+  // Le premier chargement (déclenché plus haut) est parti sans le filtre feu :
+  // on recharge aussitôt avec le bon mode.
+  if (fireMode) scheduleRefresh(50);
+}
+for (const [id, mode] of [['modeFires', true], ['modeAll', false]]) {
+  document.getElementById(id).addEventListener('click', () => {
+    if (fireMode === mode) return;
+    fireMode = mode;
+    try { localStorage.setItem('kifeh_mode_FR', mode ? 'fires' : 'all'); } catch {}
+    window.track?.('fire_mode_switched', { mode: mode ? 'fires' : 'all' });
+    applyFireMode();
+    loadIncidents();
+  });
+}
+initFireFirst();
 for (const chip of document.querySelectorAll('.chip[data-type]')) {
   chip.addEventListener('click', () => {
     const ty = chip.dataset.type;
@@ -678,6 +808,18 @@ document.getElementById('filterReset').addEventListener('click', () => {
   syncTypeControls();
   closeSheets(); loadIncidents();
 });
+
+// Garde le point sélectionné VISIBLE au-dessus de la feuille de détail :
+// si le marqueur serait recouvert, la carte glisse doucement pour le placer
+// dans le tiers supérieur de l'écran (le contexte n'est jamais perdu).
+function ensureMarkerVisibleAboveSheet(lat, lng) {
+  try {
+    if (lat == null || lng == null) return;
+    const pt = map.latLngToContainerPoint([lat, lng]);
+    const target = map.getSize().y * 0.30;
+    if (pt.y > target) map.panBy([0, pt.y - target], { animate: true, duration: 0.3 });
+  } catch { /* jamais bloquant */ }
+}
 
 // --- Feuilles (bottom sheets) ----------------------------------------------
 // Gestion du focus (accessibilité) : à l'ouverture, le focus entre dans la
@@ -883,6 +1025,7 @@ async function openDetail(publicId) {
     <button class="btn ghost small-btn" id="btnReport" style="margin-top:.5rem">${t('report_content')}</button>
     <div id="reportZone"></div>`;
 
+  ensureMarkerVisibleAboveSheet(i.lat, i.lng);
   // « Situation incendie » (France) : vent + consignes officielles sur les feux.
   if (i.type === 'fire') renderFireSituationSections(el, i.lat, i.lng);
   // « Comment allez-vous ? » : statut PERSONNEL (feux et incidents graves) —
@@ -1051,6 +1194,7 @@ async function openSatDetail(id) {
     el.insertAdjacentHTML('beforeend',
       `<p class="notice sat small"><strong>${esc(t('fs_sat_zone'))}</strong> · ~${esc(String(Math.round(ev.activityRadiusM / 100) / 10))} km<br>${esc(t('fs_sat_zone_note'))}</p>`);
   }
+  ensureMarkerVisibleAboveSheet(ev.lat, ev.lng);
   renderFireSituationSections(el, ev.lat, ev.lng);
   renderSafetyCard({ satelliteEventId: ev.id, active: ev.status !== 'ended', show: true });
 

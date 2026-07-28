@@ -1,14 +1,26 @@
 # Kifeh كيفاه
 
-**« اللي صاير حواليك، لحظة بلحظة » — Ce qui se passe autour de vous, en temps réel.**
+[![Tests](https://github.com/fch1/kifeh/actions/workflows/ci.yml/badge.svg)](https://github.com/fch1/kifeh/actions/workflows/ci.yml)
+[![Licence MIT](https://img.shields.io/badge/licence-MIT-green.svg)](LICENSE)
+[![FR](https://img.shields.io/badge/langue-fran%C3%A7ais-blue.svg)](#)
+[![AR](https://img.shields.io/badge/%D8%A7%D9%84%D9%84%D8%BA%D8%A9-%D8%A7%D9%84%D8%B9%D8%B1%D8%A8%D9%8A%D8%A9-blue.svg)](#)
+[![PRs bienvenues](https://img.shields.io/badge/PRs-bienvenues-orange.svg)](#contribuer)
 
-En Tunisie, quand l'électricité saute dans un quartier, tout le monde se pose
-la même question : *c'est chez moi ou c'est général ? Depuis quand ? Quelqu'un
-a signalé ?* La réponse existait déjà — dispersée dans des groupes Facebook,
-des messages vocaux et des appels au voisin. Kifeh est née pour la mettre sur
-une carte : une plateforme citoyenne, libre et open source, où chacun peut
-signaler et consulter en temps réel les coupures d'électricité ⚡, coupures
-d'eau 💧, incendies 🔥 et pannes internet 📶 autour de lui.
+**Kifeh (كيفاه), c'est « comment ? » en tunisien.** La question qu'on pose au
+voisin quand la lumière saute : *« kifeh ? c'est chez toi aussi ? »* Ce projet
+est né de cette question-là — et de l'idée qu'un peuple qui s'informe
+lui-même, quartier par quartier, est un peuple plus fort face aux coupures,
+aux pannes et aux incendies.
+
+En Tunisie, quand l'électricité saute dans un quartier, la réponse existait
+déjà — dispersée dans des groupes Facebook, des messages vocaux et des appels
+au voisin. Kifeh la met sur une carte : une plateforme **citoyenne, gratuite,
+libre et open source**, sans compte obligatoire et sans publicité, où chacun
+peut signaler et consulter en temps réel les coupures d'électricité ⚡, les
+coupures d'eau 💧, les incendies 🔥 et les pannes internet 📶 autour de lui.
+Chaque signalement aide un voisin à savoir, une famille à s'organiser, un
+quartier à se faire entendre — c'est ça, aider notre population : rendre
+l'information locale à ceux qui la vivent.
 
 Le projet a démarré comme un outil tunisien, et c'est toujours son cœur. Il
 couvre aujourd'hui **deux pays — la Tunisie et la France métropolitaine** —
@@ -76,6 +88,17 @@ un instantané hors-ligne toujours horodaté — jamais présenté comme actuel.
 de localisation, supervision des synchronisations NASA, annuaire de contacts
 d'urgence, journal d'audit, export CSV — et chaque réglage (seuils, fenêtres,
 drapeaux de fonctionnalités, pays activés) modifiable à chaud.
+
+**La France ouvre sur les feux.** En France, les incendies sont l'expérience
+principale : l'accueil s'ouvre en mode **« Feux »** (signalements citoyens +
+observations satellite, action principale « Signaler un feu », distance et
+direction du feu le plus proche à vol d'oiseau), tandis que « Tous les
+incidents » garde l'expérience multi-catégories complète — électricité, eau,
+internet ne perdent rien. Quand un feu récent est à moins de 10 km, une
+bannière contextuelle refermable propose « Voir la situation » ; à 200 km,
+aucune interface anxiogène. Et l'absence de détection n'est jamais présentée
+comme une absence de feu : « les satellites ne détectent pas tous les feux ».
+La Tunisie garde son expérience multi-incidents inchangée.
 
 **Comprendre la situation, pas seulement les points.** Côté France, la carte
 affiche des « Conditions autour de moi » : chaleur locale (température,
@@ -178,14 +201,22 @@ Détails : [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) ·
 
 ## Contribuer
 
-Les contributions sont bienvenues : corrections, traductions, accessibilité,
-nouvelles sources de données officielles, nouveaux profils pays. Ouvrez une
-issue ou une pull request. Quelques règles simples : tout texte visible doit
-exister en français ET en arabe ; chaque correction s'accompagne d'un test de
-régression (`npm test` doit rester vert) ; aucun secret côté client ; jamais
-un numéro d'urgence non vérifié ou d'un autre pays ; et les données
-satellitaires ou communautaires ne sont **jamais** présentées comme des
-confirmations officielles des autorités.
+Kifeh appartient à ceux qui s'en servent. Pas besoin d'être développeur pour
+aider : **signaler les incidents autour de vous** est déjà la contribution la
+plus précieuse ; en parler autour de vous en est une autre. Ensuite, par ordre
+d'impact : améliorer les traductions arabes (dialecte tunisien bienvenu !),
+tester l'accessibilité sur vos appareils, proposer de nouvelles sources de
+données officielles, ajouter un profil pays, corriger du code.
+
+Ouvrez une issue ou une pull request. Quelques règles simples : tout texte
+visible doit exister en français ET en arabe ; chaque correction s'accompagne
+d'un test de régression (`npm test` doit rester vert) ; aucun secret côté
+client ; jamais un numéro d'urgence non vérifié ou d'un autre pays ; et les
+données satellitaires ou communautaires ne sont **jamais** présentées comme
+des confirmations officielles des autorités.
+
+Sécurité et vie privée : toute réclamation à **contact@kifeh.org** (voir
+[SECURITY.md](SECURITY.md)).
 
 ## Licence
 

@@ -99,6 +99,16 @@ API.get('/api/public/config')
   })
   .catch(() => {});
 
+// Pré-sélection par lien profond (« Signaler un feu » de l'accueil France) :
+// ?type=fire saute l'étape du choix — l'avertissement incendie reste affiché.
+{
+  const preType = new URLSearchParams(location.search).get('type');
+  if (preType && ['electricity', 'water', 'fire', 'internet', 'other'].includes(preType) && !state.type) {
+    const card = document.querySelector(`.type-card[data-type="${preType}"]`);
+    if (card) setTimeout(() => card.click(), 50);
+  }
+}
+
 for (const card of document.querySelectorAll('.type-card')) {
   card.addEventListener('click', () => {
     state.type = card.dataset.type;
