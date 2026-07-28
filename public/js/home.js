@@ -677,10 +677,11 @@ function renderSummary(degraded, snapshotAt) {
   // Mode Feux : l'absence de détection ne prouve JAMAIS l'absence de feu —
   // formulation honnête + rappel des limites satellite.
   const fireEmptyMode = fireFilterActive() && active.length === 0 && satsShown.length === 0;
+  // Le titre parle toujours en INCIDENTS (la notion que les gens cherchent) ;
+  // les détections satellite sont une ligne secondaire, jamais le titre.
   if (fireEmptyMode) mainLine = t('fire_none');
-  else if (active.length === 0 && satsShown.length === 0) mainLine = t('counter_none');
   else if (active.length > 0) mainLine = active.length === 1 ? t('counter_one') : t('counter_n', { n: active.length });
-  else mainLine = `🛰️ ${t('summary_sat_n', { n: satsShown.length })}`;
+  else mainLine = t('counter_none');
 
   const fz = currentFollowedZone?.() || null;
   // ── Carte « campagne » : pastille + titre + flèche, puis détails, puis la
@@ -693,8 +694,13 @@ function renderSummary(degraded, snapshotAt) {
   const heroSub = heroFire
     ? t('hero_km_dir', { km: Math.max(1, Math.round(heroFire.d / 1000)), dir: heroFire.dir })
     : `📍 ${where}`;
+  // Pastille d'état « l'icône qu'il faut » : flamme rouge (feu proche),
+  // alerte marine (incidents en cours), coche verte (rien à signaler).
   const flameSvg = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c1 3-1 4.5-2.2 6C8.4 10.8 8 12.2 8 13.5a4.5 4.5 0 0 0 9 0c0-1.1-.3-2.1-1-3.2-.5 1-1.2 1.6-2 1.9.6-2.4-.2-5.6-2-9.2Z" fill="currentColor"/></svg>';
-  const pinSvg = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-5.4-6.5-10a6.5 6.5 0 1 1 13 0C18.5 15.6 12 21 12 21Z" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="12" cy="10.6" r="2.3" fill="currentColor"/></svg>';
+  const alertSvg = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 2.8 20h18.4L12 4Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" fill="none"/><path d="M12 10.2v4.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17.2" r="1.1" fill="currentColor"/></svg>';
+  const checkSvg = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" fill="none"/><path d="m8 12.3 2.7 2.7L16 9.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>';
+  const heroBadgeClass = heroFire ? ' hero-badge-fire' : (active.length ? ' hero-badge-alert' : ' hero-badge-ok');
+  const heroSvg = heroFire ? flameSvg : (active.length ? alertSvg : checkSvg);
   // Statistiques locales (France) : mêmes données que la fiche conditions.
   const h = fireSit?.heat, w = fireSit?.wind && !fireSit.wind.stale ? fireSit.wind : null;
   const stats = [];
@@ -703,7 +709,7 @@ function renderSummary(degraded, snapshotAt) {
   if (h?.humidityPct != null) stats.push({ l: t('stat_hum'), v: `${h.humidityPct} %` });
   counter.innerHTML = `
     <span class="hero-head" id="heroHead" role="button" tabindex="0" aria-haspopup="dialog">
-      <span class="hero-badge${heroFire ? ' hero-badge-fire' : ''}" aria-hidden="true">${heroFire ? flameSvg : pinSvg}</span>
+      <span class="hero-badge${heroBadgeClass}" aria-hidden="true">${heroSvg}</span>
       <span class="hero-txt">
         <strong>${heroTitle}</strong>
         <span class="muted small">${esc(heroSub)}</span>
@@ -711,6 +717,7 @@ function renderSummary(degraded, snapshotAt) {
       <span class="hero-arrow" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h13m-5.5-5.5L18 12l-5.5 5.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>
     </span>
     ${heroFire ? `<span class="summary-where muted small">📍 ${esc(where)}</span>` : ''}
+    ${satsShown.length && !active.some((i) => i.type === 'fire') ? `<span class="summary-types">🛰️ ${t('summary_sat_n', { n: satsShown.length })}</span>` : ''}
     ${active.length > 0 && typeParts.length ? `<span class="summary-types">${typeParts.join(' · ')}</span>` : ''}
     ${ended > 0 ? `<span class="summary-types">✓ ${ended === 1 ? t('summary_ended_one') : t('summary_ended_n', { n: ended })}</span>` : ''}
     ${satsShown.length && active.some((i) => i.type === 'fire') ? `<span class="summary-sat muted small">${t('fire_sat_part', { n: satsShown.length })}</span>` : ''}
@@ -1041,7 +1048,7 @@ function renderAide() {
       <a class="btn secondary" href="a-propos.html">💡 ${esc(t('aide_how'))}</a>
       <a class="btn secondary" href="faq.html">❓ ${esc(t('aide_faq'))}</a>
       <button class="btn secondary" id="aideCountry">${esc(countryProfile().flag)} ${esc(t('aide_country'))}</button>
-      <button class="btn secondary" id="aideLang">🌐 ${esc(t('lang_button'))}</button>
+      <button class="btn secondary" id="aideLang">🌐 ${esc(t('aide_lang'))} <bdi>(${LANG === 'ar' ? 'Français' : 'العربية'})</bdi></button>
       <button class="btn secondary" id="aideLite">🌿 ${esc(t('aide_lite'))}</button>
       <a class="btn secondary" href="legal.html">ⓘ ${esc(t('aide_legal'))}</a>
     </div>`;

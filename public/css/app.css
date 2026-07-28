@@ -92,10 +92,17 @@ a { color: var(--primary); }
   background: var(--primary); color: #fff; width: 100%; text-decoration: none;
   font-family: inherit; transition: background .15s;
 }
-.btn:hover, .btn:active { background: var(--primary-dark); }
 .btn:disabled { opacity: .55; cursor: not-allowed; }
 .btn.secondary { background: var(--surface); color: var(--text); border-color: var(--border); }
-.btn.secondary:hover { background: #F1EDE4; }
+/* États de survol UNIQUEMENT sur les appareils qui survolent vraiment : sur
+   mobile, :hover « colle » après un tap et laissait des boutons faussement
+   grisés (retour du 28/07 : bouton langue beige à côté du bouton pays). */
+@media (hover: hover) {
+  .btn:hover { background: var(--primary-dark); }
+  .btn.secondary:hover { background: #F1EDE4; }
+}
+.btn:active { background: var(--primary-dark); }
+.btn.secondary:active { background: #F1EDE4; }
 .btn.danger { background: var(--danger); }
 .btn.ghost { background: transparent; color: var(--primary); width: auto; }
 .btn.small-btn { min-height: 40px; font-size: var(--fs-sm); width: auto; padding: 0 .875rem; }
@@ -345,6 +352,8 @@ button.brand-name { appearance: none; border: 0; cursor: pointer; font: inherit;
 }
 .hero-badge svg { width: 1.375rem; height: 1.375rem; }
 .hero-badge-fire { background: var(--brand-red); color: #fff; }
+.hero-badge-alert { background: var(--info-bg); color: var(--primary-dark); }
+.hero-badge-ok { background: #E8F4EC; color: var(--ok); }
 .hero-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .hero-txt strong { font-size: var(--fs-md); line-height: 1.3; }
 .hero-arrow {
