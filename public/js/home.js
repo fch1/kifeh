@@ -686,6 +686,101 @@ document.getElementById('counter').addEventListener('keydown', (e) => {
   else if (e.target.closest('#followZoneCta')) { e.preventDefault(); openFollowSheet(); }
 });
 
+// ═════════════════════════════════════════════════════════════════════════════
+// Navigation principale FIXE : Carte · Situation · Signaler · Suivis · Aide.
+// Cinq destinations toujours visibles (fini la rangée défilante qui cachait
+// des fonctions) ; « Ma position » et « Couches » deviennent des boutons
+// flottants SUR la carte — des actions de carte, pas des destinations.
+// ═════════════════════════════════════════════════════════════════════════════
+function setNavCurrent(id) {
+  ['navMap', 'navSituation', 'navAide'].forEach((b) => {
+    const el = document.getElementById(b);
+    if (el) {
+      if (b === id) el.setAttribute('aria-current', 'page');
+      else el.removeAttribute('aria-current');
+    }
+  });
+}
+document.getElementById('navMap')?.addEventListener('click', () => {
+  closeSheets(); setNavCurrent('navMap'); window.track?.('nav_map', {});
+});
+document.getElementById('navSituation')?.addEventListener('click', () => {
+  renderSituationHub(); openSheet('situationSheet'); setNavCurrent('navSituation');
+  window.track?.('nav_situation', {});
+});
+document.getElementById('navAide')?.addEventListener('click', () => {
+  renderAide(); openSheet('aideSheet'); setNavCurrent('navAide'); window.track?.('nav_aide', {});
+});
+document.getElementById('btnLayers')?.addEventListener('click', () => {
+  openSheet('filterSheet'); window.track?.('layers_opened', {});
+});
+
+// « Situation autour de vous » — le hub qui répond, dans l'ordre, à : que se
+// passe-t-il ? suis-je concerné(e) ? que puis-je faire ? Données déjà
+// chargées uniquement (aucun appel réseau bloquant). La version panneau
+// enrichie arrive avec la refonte dédiée.
+function renderSituationHub() {
+  const el = document.getElementById('situationBody');
+  if (!el) return;
+  const active = citizenVisible() ? incidents.filter((i) => i.status === 'active') : [];
+  const sats = visibleSats();
+  let snapAt = null;
+  try { snapAt = JSON.parse(localStorage.getItem('kifeh_snapshot') || 'null')?.at || null; } catch {}
+  const calm = !active.length && !sats.length;
+  const fz = currentFollowedZone?.() || null;
+  let mainLine = '';
+  if (active.length) mainLine = active.length === 1 ? t('counter_one') : t('counter_n', { n: active.length });
+  if (sats.length) mainLine += `${mainLine ? ' · ' : ''}🛰️ ${t('summary_sat_n', { n: sats.length })}`;
+  // Vigilance : même information que la bulle, identifiant DISTINCT (jamais
+  // deux fois le même id dans le document).
+  let vigLine = '';
+  if (fireSit?.vigilance) {
+    const alert = fireSit.vigilance.activeDepartments > 0;
+    vigLine = `<button class="btn secondary small-btn" id="situCond">${alert
+      ? `🟠 ${esc(t('fs_vigilance_active', { n: fireSit.vigilance.activeDepartments }))}`
+      : `🟢 ${esc(t('fs_vigilance_none'))}`} ›</button>`;
+  }
+  el.innerHTML = `
+    ${calm
+    ? `<p><strong>${esc(t('situation_calm'))}</strong></p>
+       <p class="muted small">${esc(t('situation_calm_note'))}</p>
+       <a class="btn secondary small-btn" href="declare.html">${esc(t('declare_btn'))}</a>`
+    : `<p><strong>${mainLine}</strong></p>${nearestFireLineHtml(active, sats)}`}
+    <div class="detail-links">
+      ${vigLine}
+      <button class="btn secondary small-btn" id="situFollow">${fz
+    ? `★ ${esc(t('zone_followed_short'))}` : `☆ ${esc(t('follow_zone_btn'))}`} ›</button>
+    </div>
+    ${snapAt ? `<p class="muted small">${esc(t('situation_updated', { t: timeAgo(new Date(snapAt).toISOString()) }))}</p>` : ''}`;
+  el.querySelector('#situCond')?.addEventListener('click', openVigilanceSheet);
+  el.querySelector('#situFollow')?.addEventListener('click', openFollowSheet);
+}
+
+// « Aide » — urgences d'abord (avec l'honnêteté habituelle : Kifeh n'appelle
+// jamais les secours à votre place), puis comprendre, régler, légal.
+function renderAide() {
+  const el = document.getElementById('aideBody');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="follow-list">
+      <button class="btn safety-btn" id="aideEmergency">🚨 ${esc(t('aide_emergency'))}</button>
+      <p class="muted small">${esc(t('aide_emergency_note'))}</p>
+      <a class="btn secondary" href="a-propos.html">💡 ${esc(t('aide_how'))}</a>
+      <button class="btn secondary" id="aideCountry">${esc(countryProfile().flag)} ${esc(t('aide_country'))}</button>
+      <a class="btn secondary" href="legal.html">ⓘ ${esc(t('aide_legal'))}</a>
+    </div>`;
+  el.querySelector('#aideEmergency')?.addEventListener('click', () => {
+    const ctx = { active: true, show: true };
+    document.getElementById('detailContent').innerHTML = '';
+    document.getElementById('safetySheetBody').innerHTML = '<div id="safetyZone"></div>';
+    document.getElementById('safetyCtxLine').textContent = t('safety_ctx_zone');
+    openSheet('safetySheet');
+    renderSafetyCard(ctx);
+    renderSafetyHelp(ctx);
+  });
+  el.querySelector('#aideCountry')?.addEventListener('click', () => openSheet('countrySheet'));
+}
+
 // Heure locale (fuseau du pays consulté) d'un horodatage — ex. « 16 h ».
 function heatHourLabel(iso) {
   if (!iso) return '';
@@ -1069,6 +1164,8 @@ function closeSheets(restoreFocus = true) {
     try { sheetOpener.focus({ preventScroll: true }); } catch { /* élément disparu */ }
     sheetOpener = null;
   }
+  // Feuilles fermées = on est « sur la carte » (état de la navigation).
+  try { setNavCurrent('navMap'); } catch { /* page sans navigation */ }
 }
 // Fermeture visible et cohérente sur TOUTES les feuilles (accessibilité :
 // la poignée seule n'est pas une affordance suffisante).

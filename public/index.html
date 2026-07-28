@@ -93,19 +93,25 @@
 <div class="home-bottom">
   <div class="wx-legend" id="wxLegend" hidden></div>
   <div class="counter" id="counter" role="status" aria-live="polite" data-i18n="loading"></div>
-  <div class="row">
-    <button class="btn secondary small-btn" id="btnLocate" style="flex:0 0 auto" data-i18n="my_position"></button>
-    <button class="btn secondary small-btn" id="btnList" style="flex:0 0 auto" data-i18n="list_btn"></button>
-    <button class="btn secondary small-btn" id="btnAlerts" style="flex:0 0 auto" aria-pressed="false"
-            data-i18n="suivis_btn" data-i18n-aria="suivis_title"></button>
-    <button class="btn secondary small-btn" id="btnSafety" style="flex:0 0 auto"
-            data-i18n-aria="safety_title">🤍 <span data-i18n="safety_shortcut"></span></button>
-    <button class="btn secondary small-btn" id="btnWeather" style="flex:0 0 auto" hidden
-            aria-pressed="false" data-i18n-aria="wx_layer_btn_aria">🌡️ <span data-i18n="wx_layer_btn"></span></button>
-    <a class="btn secondary small-btn" href="legal.html" style="flex:0 0 auto" data-i18n-aria="legal_aria">ⓘ</a>
-  </div>
-  <a class="btn btn-declare" href="declare.html" data-i18n="declare_btn"></a>
 </div>
+
+<!-- Boutons flottants sur la carte : position + couches d'information.
+     Des ACTIONS DE CARTE, pas des destinations — elles vivent sur la carte. -->
+<div class="map-fabs">
+  <button class="fab" id="btnLocate" data-i18n-aria="my_position_aria">📍</button>
+  <button class="fab" id="btnLayers" data-i18n-aria="layers_btn_aria">🗺️</button>
+</div>
+
+<!-- Navigation principale FIXE : cinq destinations, toujours visibles, jamais
+     de défilement horizontal (revue UX : une rangée défilante cache ce qu'on
+     ne fait pas glisser). « Signaler » au centre = l'action de la marque. -->
+<nav class="bottom-nav" id="bottomNav" data-i18n-aria="nav_main_aria">
+  <button class="nav-item" id="navMap" aria-current="page"><span class="nav-ico" aria-hidden="true">🗺️</span><span data-i18n="nav_map"></span></button>
+  <button class="nav-item" id="navSituation"><span class="nav-ico" aria-hidden="true">🧭</span><span data-i18n="nav_situation"></span></button>
+  <a class="nav-declare" id="navDeclare" href="declare.html" data-i18n-aria="declare_btn"><span class="nav-declare-plus" aria-hidden="true">＋</span><span data-i18n="nav_declare"></span></a>
+  <button class="nav-item" id="btnAlerts" aria-pressed="false" data-i18n-aria="suivis_title"><span class="nav-ico" aria-hidden="true">⭐</span><span data-i18n="nav_suivis"></span></button>
+  <button class="nav-item" id="navAide"><span class="nav-ico" aria-hidden="true">❓</span><span data-i18n="nav_aide"></span></button>
+</nav>
 
 <!-- Feuille : filtres avancés -->
 <div class="sheet" id="filterSheet" role="dialog" aria-modal="true" data-i18n-aria="sheet_filters_aria">
@@ -123,6 +129,8 @@
   <label data-i18n="filter_layers"></label>
   <div role="group">
     <label class="checkbox-row"><input type="checkbox" id="fSatLayer"> 🛰️ <span data-i18n="layer_sat"></span></label>
+    <button class="btn secondary small-btn" id="btnWeather" hidden
+            aria-pressed="false" data-i18n-aria="wx_layer_btn_aria">🌡️ <span data-i18n="wx_layer_btn"></span></button>
   </div>
   <label for="fStatus" data-i18n="filter_status"></label>
   <select id="fStatus">
@@ -213,6 +221,26 @@
 <div class="sheet" id="vigSheet" role="dialog" aria-modal="true" data-i18n-aria="vig_sheet_aria">
   <div class="handle"></div>
   <div id="vigContent"></div>
+</div>
+
+<!-- Feuille : Situation autour de vous — le hub qui répond à « que se
+     passe-t-il, suis-je concerné(e), que puis-je faire ? ». Contenu vivant
+     rendu par renderSituationHub() (résumé, conditions, sécurité, liste). -->
+<div class="sheet" id="situationSheet" role="dialog" aria-modal="true" data-i18n-aria="situation_title">
+  <div class="handle"></div>
+  <h2 data-i18n="situation_title"></h2>
+  <div id="situationBody"></div>
+  <div class="detail-links">
+    <button class="btn secondary small-btn" id="btnList" data-i18n="list_btn"></button>
+    <button class="btn secondary small-btn" id="btnSafety" data-i18n-aria="safety_title">🤍 <span data-i18n="safety_shortcut"></span></button>
+  </div>
+</div>
+
+<!-- Feuille : Aide — urgences d'abord, puis comprendre, régler, légal. -->
+<div class="sheet" id="aideSheet" role="dialog" aria-modal="true" data-i18n-aria="nav_aide">
+  <div class="handle"></div>
+  <h2 data-i18n="aide_title"></h2>
+  <div id="aideBody"></div>
 </div>
 
 <!-- Feuille : choix du pays (première visite et bouton pays).

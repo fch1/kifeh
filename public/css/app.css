@@ -196,21 +196,64 @@ html[dir="rtl"] .topbar .back .arrow { display: inline-block; transform: scaleX(
   box-shadow: var(--shadow); font-family: inherit; color: var(--text);
 }
 .chip[aria-pressed="true"] { background: var(--primary-dark); color: #fff; border-color: var(--primary-dark); }
+/* Zone d'information au-dessus de la navigation (légende météo + situation).
+   TOUJOURS en flux normal : rien de fixe à l'intérieur (voir la régression du
+   28/07 : transform + position:fixed = superpositions). */
 .home-bottom {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 1000;
-  padding: .75rem 1rem calc(.75rem + env(safe-area-inset-bottom));
+  position: fixed; left: 0; right: 0; z-index: 1000;
+  bottom: calc(3.75rem + env(safe-area-inset-bottom));
+  padding: .5rem 1rem;
   display: flex; flex-direction: column; gap: .5rem; pointer-events: none;
 }
 .home-bottom > * { pointer-events: auto; }
-/* Rangée d'actions : défilement horizontal fluide quand l'écran est étroit —
-   plus JAMAIS un bouton hors champ (revue UX : le 5e bouton était invisible
-   à 400 px). Barre de défilement masquée, geste naturel au doigt. */
-.home-bottom .row {
-  flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
-  scrollbar-width: none; justify-content: flex-start; max-width: 100%;
+
+/* ── Navigation principale fixe : 5 destinations, zéro défilement ───────────
+   Au-dessus des feuilles (z-index 1500) : changer de destination est possible
+   À TOUT MOMENT — c'est une navigation, pas un simple raccourci. */
+.bottom-nav {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 1600;
+  display: grid; grid-template-columns: 1fr 1fr auto 1fr 1fr; align-items: end;
+  background: var(--surface); border-top: 1px solid var(--border, #e5e0d8);
+  padding: .25rem .25rem calc(.25rem + env(safe-area-inset-bottom));
+  box-shadow: 0 -2px 12px rgba(20, 30, 55, .08);
 }
-.home-bottom .row::-webkit-scrollbar { display: none; }
-.home-bottom .row .btn { white-space: nowrap; }
+.nav-item {
+  appearance: none; background: none; border: 0; font-family: inherit;
+  display: flex; flex-direction: column; align-items: center; gap: .125rem;
+  padding: .375rem .25rem; color: var(--muted, #6b7280); font-size: .6875rem;
+  font-weight: 600; cursor: pointer; border-radius: 10px; min-width: 0;
+}
+.nav-item .nav-ico { font-size: 1.25rem; line-height: 1; }
+.nav-item[aria-current="page"], .nav-item[aria-pressed="true"] { color: var(--primary-dark); }
+.nav-item:active { background: rgba(0, 0, 0, .05); }
+/* « Signaler » : l'action centrale de la marque — cercle rouge surélevé. */
+.nav-declare {
+  display: flex; flex-direction: column; align-items: center; gap: .125rem;
+  padding: 0 .625rem .375rem; color: var(--brand-red); text-decoration: none;
+  font-size: .6875rem; font-weight: 700;
+}
+.nav-declare-plus {
+  display: flex; align-items: center; justify-content: center;
+  width: 3rem; height: 3rem; margin-top: -1.125rem; border-radius: 50%;
+  background: var(--brand-red); color: #fff; font-size: 1.5rem; font-weight: 700;
+  box-shadow: 0 4px 14px rgba(232, 67, 46, .4); border: 3px solid var(--surface);
+}
+.nav-declare:active .nav-declare-plus { background: var(--brand-red-dark); }
+
+/* ── Boutons flottants de carte (position, couches) ───────────────────────── */
+.map-fabs {
+  position: fixed; z-index: 1000;
+  inset-inline-end: .875rem;
+  bottom: calc(4.5rem + env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; gap: .5rem;
+}
+.fab {
+  appearance: none; border: 1px solid var(--border, #e5e0d8); cursor: pointer;
+  width: 2.75rem; height: 2.75rem; border-radius: 50%;
+  background: var(--surface); box-shadow: var(--shadow);
+  font-size: 1.25rem; display: flex; align-items: center; justify-content: center;
+}
+.fab:active { transform: scale(.96); }
 .counter {
   align-self: center; background: var(--surface); border-radius: 20px; padding: .375rem .875rem;
   font-size: .8125rem; font-weight: 600; box-shadow: var(--shadow);
@@ -233,7 +276,9 @@ html[dir="rtl"] .topbar .back .arrow { display: inline-block; transform: scaleX(
   max-height: 80vh;
   max-height: calc(100dvh - 5.5rem - env(safe-area-inset-top));
   overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
-  padding: 1rem 1rem calc(1.5rem + env(safe-area-inset-bottom));
+  /* La navigation principale reste AU-DESSUS et cliquable : le bas de chaque
+     feuille est rembourré de sa hauteur pour ne jamais cacher de contenu. */
+  padding: 1rem 1rem calc(4.75rem + env(safe-area-inset-bottom));
   transform: translateY(105%); transition: transform .25s ease;
 }
 .sheet.open { transform: translateY(0); }
@@ -382,8 +427,9 @@ html[dir="rtl"] .topbar .back .arrow { display: inline-block; transform: scaleX(
   font-size: .8125rem; font-weight: 600;
 }
 .consent-banner {
-  /* Sous les feuilles (z 1500) : la bannière ne bloque jamais Appliquer/Confirmer. */
-  position: fixed; bottom: 0; left: 0; right: 0; z-index: 1400;
+  /* Sous les feuilles (z 1500) : la bannière ne bloque jamais Appliquer/Confirmer.
+     Et AU-DESSUS de la barre de navigation (jamais l'une sur l'autre). */
+  position: fixed; bottom: calc(3.75rem + env(safe-area-inset-bottom)); left: 0; right: 0; z-index: 1400;
   background: var(--primary); color: #fff;
   padding: .75rem 1rem calc(.75rem + env(safe-area-inset-bottom));
   font-size: .8125rem; line-height: 1.45;
@@ -471,13 +517,24 @@ html, body { overscroll-behavior: none; }
 @media (min-width: 700px) {
   .sheet { max-width: 480px; left: auto; right: 1rem; border-radius: 18px; bottom: 1rem; }
   html[dir="rtl"] .sheet { right: auto; left: 1rem; }
-  /* Grand écran — UNE colonne centrée, en flux normal : légende météo,
-     situation, actions puis « Déclarer ». Rien n'est positionné en fixe à
-     l'intérieur (un ancêtre transformé fait d'un enfant fixe un enfant
-     positionné PAR RAPPORT À LA BOÎTE, pas à l'écran → superpositions).
-     Le panneau latéral reviendra avec la refonte de la navigation. */
-  .home-bottom { max-width: 520px; left: 50%; right: auto; transform: translateX(-50%); align-items: stretch; }
+  /* Grand écran : navigation en pilule flottante centrée, information dans
+     une colonne centrée au-dessus — AUCUN enfant position:fixed sous un
+     ancêtre transformé (régression du 28/07). */
+  .bottom-nav {
+    max-width: 480px; left: 50%; right: auto; transform: translateX(-50%);
+    bottom: 1rem; border-radius: 999px; border: 1px solid var(--border, #e5e0d8);
+    padding: .25rem .75rem; box-shadow: 0 6px 24px rgba(20, 30, 55, .16);
+  }
+  .home-bottom {
+    max-width: 520px; left: 50%; right: auto; transform: translateX(-50%);
+    align-items: stretch; bottom: 5.5rem;
+  }
   .home-bottom .counter { max-width: 480px; }
+  .map-fabs { inset-inline-end: 1.25rem; bottom: 1.25rem; }
+  /* Feuilles latérales : la pilule de navigation ne les recouvre pas — le
+     grand rembourrage bas mobile redevient inutile. */
+  .sheet { padding-bottom: 1.5rem; }
+  .consent-banner { bottom: 5rem; }
   /* Barre du bas centrée sur grand écran : le coin de la carte redevient libre. */
   #map .leaflet-bottom.leaflet-right { margin-bottom: .5rem; margin-right: .5rem; }
 }

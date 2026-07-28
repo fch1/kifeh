@@ -269,6 +269,58 @@ ok(await pc.evaluate(() => localStorage.getItem('kifeh_country')) === 'FR',
   'changer de langue ne change pas le pays');
 await ctx2.close();
 
+// ── Navigation principale fixe : 5 destinations, boutons flottants ──────────
+{
+  const ctxN = await browser.newContext({ viewport: { width: 400, height: 820 }, locale: 'fr-FR' });
+  const pn = await ctxN.newPage();
+  await pn.addInitScript(() => {
+    localStorage.setItem('lang', 'fr');
+    localStorage.setItem('kifeh_country', 'FR');
+    localStorage.setItem('kifeh_consent', 'denied');
+  });
+  await pn.goto(`${BASE}/?country=FR`, { waitUntil: 'load' });
+  await pn.waitForTimeout(1500);
+  try { await pn.locator('.consent-refuse').first().click({ timeout: 1500 }); } catch {}
+  ok(await pn.evaluate(() => Boolean(document.querySelector('.bottom-nav'))
+    && [...document.querySelectorAll('.bottom-nav .nav-item, .bottom-nav .nav-declare')].length === 5),
+  'barre fixe : 5 destinations, zéro défilement horizontal');
+  ok(await pn.evaluate(() => {
+    const r = document.querySelector('.bottom-nav').getBoundingClientRect();
+    return r.width <= window.innerWidth + 1 && document.querySelector('.bottom-nav').scrollWidth <= r.width + 1;
+  }), 'la barre tient entièrement dans l’écran à 400 px');
+  await pn.locator('#navSituation').click();
+  await pn.waitForTimeout(500);
+  ok(await pn.evaluate(() => document.getElementById('situationSheet').classList.contains('open')
+    && document.getElementById('situationBody').textContent.length > 10),
+  '« Situation » ouvre le panneau Situation autour de vous');
+  ok(await pn.evaluate(() => /actualisation|تحديث/i.test(document.getElementById('situationBody').textContent)),
+    'le panneau situation affiche l’heure de dernière actualisation');
+  await pn.locator('#navAide').click();
+  await pn.waitForTimeout(500);
+  ok(await pn.evaluate(() => document.getElementById('aideSheet').classList.contains('open')),
+    '« Aide » ouvre la feuille d’aide');
+  await pn.locator('#aideEmergency').click();
+  await pn.waitForTimeout(700);
+  ok(await pn.evaluate(() => document.getElementById('safetySheet').classList.contains('open')
+    && /18|112|198|190/.test(document.getElementById('safetySheetBody').textContent)),
+  'Aide → urgences : numéros de secours affichés');
+  // La navigation reste cliquable AU-DESSUS des feuilles : « Carte » referme tout.
+  await pn.locator('#navMap').click();
+  await pn.waitForTimeout(400);
+  ok(await pn.evaluate(() => !document.querySelector('.sheet.open')
+    && document.getElementById('navMap').getAttribute('aria-current') === 'page'),
+  '« Carte » referme les feuilles même quand l’une est ouverte (navigation toujours accessible)');
+  await pn.locator('#btnLayers').click();
+  await pn.waitForTimeout(500);
+  ok(await pn.evaluate(() => document.getElementById('filterSheet').classList.contains('open')),
+    'bouton flottant Couches → feuille des couches et filtres');
+  ok(await pn.evaluate(() => {
+    const f = document.querySelectorAll('.map-fabs .fab');
+    return f.length === 2 && [...f].every((b) => b.getBoundingClientRect().width >= 40);
+  }), 'deux boutons flottants (position, couches) à taille tactile');
+  await ctxN.close();
+}
+
 // ── Garde anti-chevauchement GRAND ÉCRAN (régression du 28/07 : des enfants
 // position:fixed sous un ancêtre transformé se dessinaient PAR-DESSUS les
 // actions). On MESURE le rendu réel à 900 et 1440 px : aucun recouvrement
@@ -292,16 +344,19 @@ for (const width of [900, 1440]) {
     };
     const boxes = {
       counter: get('#counter'), legend: get('#wxLegend'),
-      row: get('.home-bottom .row'), declare: get('.btn-declare'),
+      nav: get('.bottom-nav'), fabs: get('.map-fabs'),
     };
     const overlap = (a, b) => a && b
       && a.x < b.x + b.w - 2 && a.x + a.w - 2 > b.x
       && a.y < b.y + b.h - 2 && a.y + a.h - 2 > b.y;
-    return [['counter', 'row'], ['counter', 'declare'], ['legend', 'row'],
-      ['legend', 'declare'], ['counter', 'legend']]
+    const missing = ['nav'].filter((k) => !boxes[k]);
+    const bads = [['counter', 'nav'], ['legend', 'nav'], ['counter', 'legend'],
+      ['counter', 'fabs'], ['legend', 'fabs']]
       .filter(([p, q]) => overlap(boxes[p], boxes[q])).map((x) => x.join('/'));
+    return { bads, missing };
   });
-  ok(bad.length === 0, `grand écran ${width} px : aucun chevauchement (${bad.join(', ') || 'propre'})`);
+  ok(bad.missing.length === 0 && bad.bads.length === 0,
+    `grand écran ${width} px : navigation présente, aucun chevauchement (${bad.bads.join(', ') || 'propre'})`);
   await ctxD.close();
 }
 
