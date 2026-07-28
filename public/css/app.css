@@ -471,21 +471,13 @@ html, body { overscroll-behavior: none; }
 @media (min-width: 700px) {
   .sheet { max-width: 480px; left: auto; right: 1rem; border-radius: 18px; bottom: 1rem; }
   html[dir="rtl"] .sheet { right: auto; left: 1rem; }
-  /* Grand écran — deux zones distinctes :
-     · les ACTIONS (Déclarer, Ma position, Liste, Suivis…) restent CENTRÉES ;
-     · l'INFORMATION (situation + légende météo) vit en panneau à GAUCHE
-       (à droite en arabe) — la carte garde son centre dégagé. */
-  .home-bottom { max-width: 480px; left: 50%; right: auto; transform: translateX(-50%); align-items: stretch; }
-  .home-bottom .counter {
-    position: fixed; left: 1rem; bottom: calc(1rem + env(safe-area-inset-bottom) + 92px);
-    max-width: 330px; text-align: start; align-self: auto; margin: 0;
-  }
-  .home-bottom .wx-legend {
-    position: fixed; left: 1rem; bottom: calc(1rem + env(safe-area-inset-bottom));
-    max-width: 330px; margin: 0;
-  }
-  html[dir="rtl"] .home-bottom .counter,
-  html[dir="rtl"] .home-bottom .wx-legend { left: auto; right: 1rem; }
+  /* Grand écran — UNE colonne centrée, en flux normal : légende météo,
+     situation, actions puis « Déclarer ». Rien n'est positionné en fixe à
+     l'intérieur (un ancêtre transformé fait d'un enfant fixe un enfant
+     positionné PAR RAPPORT À LA BOÎTE, pas à l'écran → superpositions).
+     Le panneau latéral reviendra avec la refonte de la navigation. */
+  .home-bottom { max-width: 520px; left: 50%; right: auto; transform: translateX(-50%); align-items: stretch; }
+  .home-bottom .counter { max-width: 480px; }
   /* Barre du bas centrée sur grand écran : le coin de la carte redevient libre. */
   #map .leaflet-bottom.leaflet-right { margin-bottom: .5rem; margin-right: .5rem; }
 }
