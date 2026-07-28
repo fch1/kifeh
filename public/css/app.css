@@ -254,6 +254,19 @@ html[dir="rtl"] .topbar .back .arrow { display: inline-block; transform: scaleX(
   font-size: 1.25rem; display: flex; align-items: center; justify-content: center;
 }
 .fab:active { transform: scale(.96); }
+.fab-zoom { font-size: 1.375rem; font-weight: 600; color: var(--primary-dark); }
+
+/* Marque cliquable (retour à la vue d'ensemble) — un bouton qui garde
+   EXACTEMENT l'apparence pilule du logo (la règle .home-brandbar .brand-name
+   s'applique toujours) ; on ne neutralise que la chromie de <button>. */
+button.brand-name { appearance: none; border: 0; cursor: pointer; font: inherit; color: inherit; }
+
+/* Nuancier « zone brûlée » (légende EFFIS) : brun assumé, jamais le rouge feu. */
+.burnt-swatch {
+  display: inline-block; width: 14px; height: 14px; border-radius: 3px;
+  background: rgba(122, 82, 56, .45); border: 1.5px dashed #6E4A33;
+  vertical-align: -2px;
+}
 .counter {
   align-self: center; background: var(--surface); border-radius: 20px; padding: .375rem .875rem;
   font-size: .8125rem; font-weight: 600; box-shadow: var(--shadow);

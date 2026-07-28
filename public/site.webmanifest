@@ -1,7 +1,7 @@
 {
-  "name": "Kifeh كيفاه — incidents en temps réel",
+  "name": "Kifeh كيفاه — L'information qui aide à agir",
   "short_name": "Kifeh",
-  "description": "Plateforme citoyenne de signalement des incidents locaux (électricité, eau, incendie, internet) — Tunisie et France.",
+  "description": "L'information qui aide à agir : carte citoyenne des incidents locaux (incendie, électricité, eau, internet) — Tunisie et France.",
   "lang": "fr",
   "dir": "ltr",
   "start_url": "/",

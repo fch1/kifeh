@@ -17,6 +17,13 @@
     <xhtml:link rel="alternate" hreflang="ar" href="https://kifeh.app/declare.html?lang=ar"/>
   </url>
   <url>
+    <loc>https://kifeh.app/faq.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://kifeh.app/faq.html?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://kifeh.app/faq.html?lang=ar"/>
+  </url>
+  <url>
     <loc>https://kifeh.app/a-propos.html</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>

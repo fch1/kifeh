@@ -86,7 +86,7 @@ export async function getHeat(lat, lng) {
   if (hit && Date.now() - hit.at < ttlMs) return hit.data;
   try {
     const url = `${BASE()}/v1/meteofrance?latitude=${lat.toFixed(3)}&longitude=${lng.toFixed(3)}`
-      + `&current=temperature_2m,apparent_temperature,cloud_cover`
+      + `&current=temperature_2m,apparent_temperature,cloud_cover,relative_humidity_2m`
       + `&hourly=temperature_2m,visibility`
       + `&forecast_days=1&timezone=UTC`;
     const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
@@ -114,6 +114,7 @@ export async function getHeat(lat, lng) {
       maxC: maxC !== null ? Math.round(maxC) : null,
       maxAt: maxAt ? (/Z$/.test(maxAt) ? maxAt : `${maxAt}:00Z`) : null,
       cloudPct: Number.isFinite(c.cloud_cover) ? Math.round(c.cloud_cover) : null,
+      humidityPct: Number.isFinite(c.relative_humidity_2m) ? Math.round(c.relative_humidity_2m) : null,
       visibilityKm: visibilityM !== null ? Math.round(visibilityM / 100) / 10 : null,
       observedAt: c.time ? (/Z$/.test(c.time) ? c.time : `${c.time}:00Z`) : new Date().toISOString(),
       provider: getSetting('wind_provider') || 'open_meteo_meteofrance',

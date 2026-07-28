@@ -316,8 +316,28 @@ await ctx2.close();
     'bouton flottant Couches → feuille des couches et filtres');
   ok(await pn.evaluate(() => {
     const f = document.querySelectorAll('.map-fabs .fab');
-    return f.length === 2 && [...f].every((b) => b.getBoundingClientRect().width >= 40);
-  }), 'deux boutons flottants (position, couches) à taille tactile');
+    return f.length === 4 && [...f].every((b) => b.getBoundingClientRect().width >= 40);
+  }), 'quatre boutons flottants (zoom ±, position, couches) à taille tactile');
+  // Zoom via la pile flottante (le contrôle Leaflet n'existe plus sur l'accueil).
+  ok(await pn.evaluate(() => !document.querySelector('.leaflet-control-zoom')),
+    'plus de double commande de zoom Leaflet');
+  await pn.locator('#navMap').click(); // referme la feuille des couches
+  await pn.waitForTimeout(400);
+  const zBefore = await pn.evaluate(() => window.kifehMapZoom?.() ?? null);
+  await pn.locator('#fabZoomIn').click();
+  await pn.waitForTimeout(500);
+  const zAfter = await pn.evaluate(() => window.kifehMapZoom?.() ?? null);
+  ok(zBefore === null || zAfter === zBefore + 1, `zoom ＋ fonctionne (${zBefore} → ${zAfter})`);
+  // Marque cliquable : recentre sur la vue d'ensemble du pays.
+  await pn.locator('#brandHome').click();
+  await pn.waitForTimeout(600);
+  ok(await pn.evaluate(() => {
+    const z = window.kifehMapZoom?.();
+    return z === null || z === undefined || z === 6; // zoom par défaut FR
+  }), 'logo Kifeh → retour à la vue d’ensemble du pays');
+  // EFFIS : la légende « zone brûlée » existe (cachée sans données locales).
+  ok(await pn.evaluate(() => Boolean(document.getElementById('burntLegend'))),
+    'légende zones brûlées EFFIS présente (affichée seulement avec des données)');
   await ctxN.close();
 }
 

@@ -1,0 +1,31 @@
+# Kifeh (كيفاه)
+
+> Kifeh — « comment ? » en tunisien — est une plateforme citoyenne open source
+> qui cartographie en temps réel les incidents locaux (incendies, coupures
+> d'électricité, coupures d'eau, pannes internet) en Tunisie et en France.
+> Tagline : « L'information qui aide à agir. » Bilingue français-arabe (RTL).
+
+Faits vérifiables :
+
+- Site : https://kifeh.app — code source : https://github.com/fch1/kifeh
+- Données affichées : signalements citoyens (confirmés par la communauté),
+  détections thermiques satellite NASA FIRMS, zones brûlées Copernicus EFFIS,
+  vigilance officielle Météo-France, météo Open-Meteo (vent, température).
+- Chaque donnée porte sa source et son horodatage dans l'interface.
+- Kifeh n'appelle JAMAIS les secours à la place de l'utilisateur et ne publie
+  jamais de consigne d'évacuation ni de prévision de propagation d'incendie.
+- Les détections satellite sont des observations, jamais présentées comme des
+  confirmations officielles. Les positions publiées sont approximatives
+  (vie privée des déclarants).
+- Gratuit, sans compte obligatoire, sans publicité. Alertes de zone par
+  notification ou e-mail en double consentement, désinscription en un clic.
+
+Pages utiles :
+
+- [Carte en direct](https://kifeh.app/) : incidents en temps réel
+- [Signaler un incident](https://kifeh.app/declare.html)
+- [Questions fréquentes](https://kifeh.app/faq.html)
+- [À propos](https://kifeh.app/a-propos.html)
+- [Confidentialité et mentions légales](https://kifeh.app/legal.html)
+
+Contact : contact@kifeh.org

@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1E2A4D">
+<title>Questions fréquentes — Kifeh كيفاه</title>
+<meta name="description" content="Kifeh appelle-t-il les secours ? D'où viennent les données satellite ? Les positions sont-elles exactes ? Les réponses honnêtes aux questions les plus fréquentes sur la carte citoyenne Kifeh.">
+<link rel="canonical" href="https://kifeh.app/faq.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Kifeh">
+<meta property="og:title" content="Questions fréquentes — Kifeh">
+<meta property="og:description" content="Les réponses honnêtes sur les données, les alertes et les limites de la carte citoyenne Kifeh.">
+<meta property="og:url" content="https://kifeh.app/faq.html">
+<meta property="og:image" content="https://kifeh.app/img/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="manifest" href="site.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png?v=marque4">
+<link rel="icon" type="image/png" sizes="192x192" href="img/icon-192.png?v=marque4">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png?v=marque4">
+<link rel="stylesheet" href="css/app.css">
+<script src="js/analytics.js"></script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "fr",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Kifeh appelle-t-il les secours à ma place ?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Non, jamais. Kifeh est une carte d'information citoyenne : signaler un incident sur Kifeh ne contacte aucun service d'urgence. En cas de danger immédiat, appelez le 18 ou le 112 en France, le 198 (protection civile) ou le 190 (SAMU) en Tunisie." }
+    },
+    {
+      "@type": "Question",
+      "name": "D'où viennent les données affichées ?",
+      "acceptedAnswer": { "@type": "Answer", "text": "De quatre familles de sources, chacune étiquetée avec son origine et son horodatage : les signalements citoyens (confirmés par la communauté), les détections thermiques satellite NASA FIRMS, les zones brûlées Copernicus EFFIS, la vigilance officielle Météo-France et la météo Open-Meteo (vent, température, humidité)." }
+    },
+    {
+      "@type": "Question",
+      "name": "Un point satellite signifie-t-il qu'un incendie est confirmé ?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Non. Une détection satellite est une observation thermique : elle peut correspondre à un feu réel, mais aussi à une activité industrielle ou agricole. Kifeh ne présente jamais une détection satellite comme une confirmation officielle — quand un signalement citoyen et une détection satellite se recoupent, la fiche l'indique explicitement." }
+    },
+    {
+      "@type": "Question",
+      "name": "Les positions affichées sont-elles exactes ?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Les positions publiées sont volontairement approximatives pour protéger la vie privée des personnes qui signalent. Les distances sont indiquées « à vol d'oiseau » et arrondies, jamais avec une fausse précision." }
+    },
+    {
+      "@type": "Question",
+      "name": "Comment être alerté(e) de ce qui se passe dans ma zone ?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Ouvrez « Suivre cette zone », choisissez un rayon (5 à 30 km) puis une notification ou un e-mail. Les e-mails demandent une confirmation (double consentement) et chaque message contient un lien de désinscription en un clic. Vous pouvez tout modifier ou arrêter à tout moment." }
+    },
+    {
+      "@type": "Question",
+      "name": "Combien coûte Kifeh ?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Rien. Kifeh est gratuit, sans publicité, sans compte obligatoire, et son code est open source (github.com/fch1/kifeh). Aucune donnée personnelle n'est vendue." }
+    },
+    {
+      "@type": "Question",
+      "name": "Kifeh remplace-t-il les autorités ou les services officiels ?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Non. Kifeh complète l'information officielle, il ne la remplace pas. En cas d'alerte officielle (FR-Alert, préfecture, protection civile), suivez en priorité les consignes des autorités." }
+    },
+    {
+      "@type": "Question",
+      "name": "Comment aider Kifeh ?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Signalez et confirmez honnêtement ce que vous observez, partagez la carte autour de vous, et si vous êtes développeur·euse, designer ou traducteur·rice, contribuez sur GitHub. Chaque signalement fiable aide tout un quartier." }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="topbar">
+  <a class="back" href="index.html" data-i18n-aria="back_map"><span class="arrow">←</span></a>
+  <img class="brand-logo" src="img/logo.svg?v=marque4" alt="Kifeh">
+  <h1 style="flex:1"><bdi>Kifeh</bdi> <bdi class="brand-arabic">كيفاه</bdi></h1>
+  <button class="lang-switch" type="button">العربية</button>
+</header>
+<main class="page">
+
+  <!-- ======================= VERSION FRANÇAISE ======================= -->
+  <div data-lang-block="fr">
+    <div class="card">
+      <h2>Questions fréquentes</h2>
+      <p class="muted"><em>L'information qui aide à agir</em> — et d'abord, des
+      réponses honnêtes sur ce que Kifeh fait, d'où viennent ses données et ce
+      qu'il ne fera jamais.</p>
+    </div>
+
+    <div class="card">
+      <h3>Kifeh appelle-t-il les secours à ma place ?</h3>
+      <p><strong>Non, jamais.</strong> Kifeh est une carte d'information
+      citoyenne : signaler un incident ne contacte aucun service d'urgence.
+      En cas de danger immédiat, appelez le <strong>18</strong> ou le
+      <strong>112</strong> en France, le <strong>198</strong> (protection
+      civile) ou le <strong>190</strong> (SAMU) en Tunisie.</p>
+    </div>
+
+    <div class="card">
+      <h3>D'où viennent les données affichées ?</h3>
+      <p>De quatre familles de sources, chacune étiquetée avec son origine et
+      son horodatage : les <strong>signalements citoyens</strong> (confirmés
+      par la communauté), les <strong>détections thermiques satellite NASA
+      FIRMS</strong>, les <strong>zones brûlées Copernicus EFFIS</strong>, la
+      <strong>vigilance officielle Météo-France</strong> et la météo
+      Open-Meteo (vent, température, humidité).</p>
+    </div>
+
+    <div class="card">
+      <h3>Un point satellite = un incendie confirmé ?</h3>
+      <p>Non. Une détection satellite est une <strong>observation
+      thermique</strong> : elle peut correspondre à un feu réel, mais aussi à
+      une activité industrielle ou agricole. Kifeh ne présente jamais une
+      détection satellite comme une confirmation officielle — quand un
+      signalement citoyen et une détection se recoupent, la fiche l'indique
+      explicitement.</p>
+    </div>
+
+    <div class="card">
+      <h3>Les positions affichées sont-elles exactes ?</h3>
+      <p>Les positions publiées sont <strong>volontairement
+      approximatives</strong> pour protéger la vie privée des personnes qui
+      signalent. Les distances sont « à vol d'oiseau » et arrondies — jamais
+      de fausse précision.</p>
+    </div>
+
+    <div class="card">
+      <h3>Comment être alerté(e) de ce qui se passe dans ma zone ?</h3>
+      <p>Ouvrez <strong>« Suivre cette zone »</strong>, choisissez un rayon
+      (5 à 30 km) puis une notification ou un e-mail. Les e-mails demandent
+      une confirmation (double consentement) et chaque message contient un
+      lien de désinscription en un clic. Modifiable ou arrêtable à tout
+      moment.</p>
+    </div>
+
+    <div class="card">
+      <h3>Combien coûte Kifeh ?</h3>
+      <p>Rien. Kifeh est <strong>gratuit, sans publicité, sans compte
+      obligatoire</strong>, et son code est open source
+      (<a href="https://github.com/fch1/kifeh" rel="noopener">github.com/fch1/kifeh</a>).
+      Aucune donnée personnelle n'est vendue.</p>
+    </div>
+
+    <div class="card">
+      <h3>Kifeh remplace-t-il les autorités ?</h3>
+      <p>Non. Kifeh <strong>complète</strong> l'information officielle, il ne
+      la remplace pas. En cas d'alerte officielle (FR-Alert, préfecture,
+      protection civile), suivez en priorité les consignes des autorités.</p>
+    </div>
+
+    <div class="card">
+      <h3>Comment aider ?</h3>
+      <p>Signalez et confirmez honnêtement ce que vous observez, partagez la
+      carte autour de vous — et si vous êtes développeur·euse, designer ou
+      traducteur·rice, <a href="https://github.com/fch1/kifeh" rel="noopener">contribuez
+      sur GitHub</a>. Chaque signalement fiable aide tout un quartier.</p>
+      <p><a class="btn" href="index.html">Voir la carte en direct</a></p>
+    </div>
+  </div>
+
+  <!-- ======================= النسخة العربية ======================= -->
+  <div data-lang-block="ar" dir="rtl" lang="ar">
+    <div class="card">
+      <h2>أسئلة شائعة</h2>
+      <p class="muted"><em>المعلومة التي تعينك على التصرّف</em> — وقبل كل شيء،
+      إجابات صادقة عمّا يفعله كيفاه، ومن أين تأتي بياناته، وما لن يفعله أبدًا.</p>
+    </div>
+
+    <div class="card">
+      <h3>هل يتصل كيفاه بخدمات النجدة نيابةً عني؟</h3>
+      <p><strong>لا، أبدًا.</strong> كيفاه خريطة معلومات مواطنية: التبليغ عن
+      حادث لا يتصل بأي خدمة نجدة. في حالة خطر داهم اتصل بـ<strong dir="ltr">18</strong>
+      أو <strong dir="ltr">112</strong> في فرنسا، وبـ<strong dir="ltr">198</strong>
+      (الحماية المدنية) أو <strong dir="ltr">190</strong> (الإسعاف) في تونس.</p>
+    </div>
+
+    <div class="card">
+      <h3>من أين تأتي البيانات المعروضة؟</h3>
+      <p>من أربع عائلات من المصادر، كلٌّ منها موسوم بمصدره وتوقيته:
+      <strong>بلاغات المواطنين</strong> (تؤكدها المجموعة)،
+      <strong>الرصد الحراري الفضائي NASA FIRMS</strong>،
+      <strong>المناطق المحروقة كوبرنيكوس EFFIS</strong>،
+      <strong>اليقظة الرسمية Météo-France</strong>، وطقس Open-Meteo
+      (رياح، حرارة، رطوبة).</p>
+    </div>
+
+    <div class="card">
+      <h3>هل نقطة القمر الاصطناعي تعني حريقًا مؤكدًا؟</h3>
+      <p>لا. الرصد الفضائي <strong>ملاحظة حرارية</strong>: قد تعني حريقًا
+      فعليًا، وقد تعني نشاطًا صناعيًا أو فلاحيًا. لا يقدّم كيفاه أبدًا رصدًا
+      فضائيًا على أنه تأكيد رسمي — وعندما يتقاطع بلاغ مواطني مع رصد فضائي،
+      تُبيّن البطاقة ذلك صراحةً.</p>
+    </div>
+
+    <div class="card">
+      <h3>هل المواقع المعروضة دقيقة؟</h3>
+      <p>المواقع المنشورة <strong>تقريبية عمدًا</strong> لحماية خصوصية
+      المبلّغين. المسافات «بخط مستقيم» ومقرّبة — لا دقّة زائفة أبدًا.</p>
+    </div>
+
+    <div class="card">
+      <h3>كيف أتلقى تنبيهات منطقتي؟</h3>
+      <p>افتح <strong>«متابعة هذه المنطقة»</strong>، اختر نصف قطر (5 إلى 30 كم)
+      ثم إشعارًا أو بريدًا إلكترونيًا. البريد يتطلب تأكيدًا (موافقة مزدوجة)
+      وكل رسالة تحتوي رابط إلغاء بنقرة واحدة. يمكنك التغيير أو الإيقاف في أي
+      وقت.</p>
+    </div>
+
+    <div class="card">
+      <h3>كم يكلّف كيفاه؟</h3>
+      <p>لا شيء. كيفاه <strong>مجاني، بلا إعلانات، بلا حساب إجباري</strong>،
+      وشيفرته مفتوحة المصدر
+      (<a href="https://github.com/fch1/kifeh" rel="noopener" dir="ltr">github.com/fch1/kifeh</a>).
+      لا تُباع أي بيانات شخصية.</p>
+    </div>
+
+    <div class="card">
+      <h3>هل يعوّض كيفاه السلطات؟</h3>
+      <p>لا. كيفاه <strong>يكمّل</strong> المعلومة الرسمية ولا يعوّضها. عند
+      صدور تنبيه رسمي، اتبع أولًا تعليمات السلطات.</p>
+    </div>
+
+    <div class="card">
+      <h3>كيف أساعد؟</h3>
+      <p>بلّغ وأكّد بصدق ما تلاحظه، وشارك الخريطة مع من حولك — وإن كنت
+      مطوّرًا أو مصمّمًا أو مترجمًا فساهم عبر GitHub. كل بلاغ موثوق يفيد حيًّا
+      بأكمله.</p>
+      <p><a class="btn" href="index.html">عرض الخريطة المباشرة</a></p>
+    </div>
+  </div>
+
+</main>
+<script src="js/i18n.js"></script>
+<script src="js/api.js"></script>
+</body>
+</html>

@@ -28,7 +28,9 @@ function initialView() {
   return { center: p.map.defaultCenter, zoom: p.map.defaultZoom };
 }
 
-const map = createMap('map', { deferTiles: LITE, ...initialView() });
+const map = createMap('map', { deferTiles: LITE, zoomless: true, ...initialView() });
+window.kifehMapZoom = () => map.getZoom(); // sonde de test (lecture seule)
+window.kifehSetView = (lat, lng, z) => map.setView([lat, lng], z); // sonde de test
 map.on('moveend', () => {
   try {
     const v = readViewports();
@@ -102,7 +104,9 @@ async function toggleAlerts() {
 // ═════════════════════════════════════════════════════════════════════════════
 let followRadius = 20;
 
+let followPickedPlace = null; // adresse choisie DANS la feuille de suivi
 function zonePlaceLabel() {
+  if (followPickedPlace) return followPickedPlace.split(',')[0].slice(0, 30);
   const q = document.getElementById('search').value.trim();
   return (q ? q.split(',')[0] : '').slice(0, 30) || t('follow_here_place');
 }
@@ -131,6 +135,7 @@ function saveFollowZoneAtCenter(extra = {}) {
 }
 
 function openFollowSheet() {
+  followPickedPlace = null; // repartir de la zone affichée, pas d'un ancien choix
   openSheet('alertSheet');
   renderFollowSheet();
   window.track?.('follow_sheet_opened', {});
@@ -152,6 +157,13 @@ function renderFollowSheet() {
       <li>${esc(t('follow_will_3'))}</li>
     </ul>
     <p class="muted small">${esc(t('follow_wont'))}</p>
+    <label class="small" for="followAddr" style="margin-top:.5rem">${esc(t('follow_addr_label'))}</label>
+    <div class="row" style="gap:.5rem">
+      <input type="text" id="followAddr" inputmode="search" autocomplete="off"
+             placeholder="${esc(t('search_ph'))}" style="flex:1;min-height:44px">
+      <button class="btn secondary small-btn" id="followAddrBtn" type="button" style="flex:0 0 auto">🔍</button>
+    </div>
+    <div id="followAddrRes" class="follow-list" role="listbox"></div>
     <label class="small" style="margin-top:.5rem">${esc(t('follow_radius'))}</label>
     <div class="chips" id="radiusChips" role="group">
       ${[5, 10, 20, 30].map((r) => `<button class="chip" type="button" data-r="${r}" aria-pressed="${r === 20}">${r} km</button>`).join('')}
@@ -165,7 +177,36 @@ function renderFollowSheet() {
       <button class="btn secondary small-btn" id="followEmailBtn" type="button" style="flex:0 0 auto">✉️ ${esc(t('email_alerts_btn'))}</button>
     </div>
     <p class="muted small" id="followMsg" role="status" aria-live="polite"></p>
-    <button class="btn ghost small-btn" id="followLater" type="button">${esc(t('follow_later'))}</button>`;
+    <button class="btn ghost small-btn" id="followLater" type="button">${esc(t('follow_later'))}</button>
+    <p class="muted small" style="margin-top:.25rem">${esc(t('follow_can_change'))}</p>
+    <button class="btn ghost small-btn" id="followSeeSuivis" type="button">★ ${esc(t('follow_see_suivis'))}</button>`;
+  // Suivre une AUTRE zone que celle affichée : saisir une adresse — la carte
+  // s'y déplace, l'explication et le rayon s'appliquent au nouvel endroit.
+  const addrSearch = async () => {
+    const q = document.getElementById('followAddr').value.trim();
+    const res = document.getElementById('followAddrRes');
+    if (q.length < 3) { res.innerHTML = ''; return; }
+    res.innerHTML = `<p class="muted small">…</p>`;
+    let results = [];
+    try {
+      ({ results } = await API.get(`/api/public/geocode/search?q=${encodeURIComponent(q)}`));
+    } catch { /* réseau : liste vide, message ci-dessous */ }
+    res.innerHTML = (results || []).slice(0, 4).map((r, k) => `
+      <button class="btn secondary small-btn" type="button" role="option"
+              data-k="${k}" data-lat="${r.lat}" data-lng="${r.lng}">📍 ${esc(String(r.label || '').slice(0, 60))}</button>`).join('')
+      || `<p class="muted small">${esc(t('follow_addr_none'))}</p>`;
+    res.querySelectorAll('button[data-k]').forEach((b, k) => b.addEventListener('click', () => {
+      followPickedPlace = String(results[k].label || '');
+      map.setView([Number(b.dataset.lat), Number(b.dataset.lng)], 12);
+      renderFollowSheet(); // ré-explique pour LE nouvel endroit (rayon par défaut)
+      window.track?.('follow_addr_picked', {});
+    }));
+  };
+  document.getElementById('followAddrBtn')?.addEventListener('click', addrSearch);
+  document.getElementById('followAddr')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); addrSearch(); }
+  });
+  document.getElementById('followSeeSuivis')?.addEventListener('click', openSuivis);
   document.querySelectorAll('#radiusChips .chip').forEach((chip) => chip.addEventListener('click', () => {
     followRadius = Number(chip.dataset.r);
     document.querySelectorAll('#radiusChips .chip').forEach((c) =>
@@ -714,6 +755,17 @@ document.getElementById('navAide')?.addEventListener('click', () => {
 document.getElementById('btnLayers')?.addEventListener('click', () => {
   openSheet('filterSheet'); window.track?.('layers_opened', {});
 });
+// Zoom dans la pile flottante : une seule grappe de commandes de carte,
+// miroitée automatiquement en arabe (inset-inline-end).
+document.getElementById('fabZoomIn')?.addEventListener('click', () => map.zoomIn());
+document.getElementById('fabZoomOut')?.addEventListener('click', () => map.zoomOut());
+// La marque ramène à la vue d'ensemble du pays (repère universel « accueil »).
+document.getElementById('brandHome')?.addEventListener('click', () => {
+  const p = countryProfile();
+  closeSheets();
+  map.setView(p.map.defaultCenter, p.map.defaultZoom);
+  window.track?.('brand_home', {});
+});
 
 // « Situation autour de vous » — le hub qui répond, dans l'ordre, à : que se
 // passe-t-il ? suis-je concerné(e) ? que puis-je faire ? Données déjà
@@ -766,6 +818,7 @@ function renderAide() {
       <button class="btn safety-btn" id="aideEmergency">🚨 ${esc(t('aide_emergency'))}</button>
       <p class="muted small">${esc(t('aide_emergency_note'))}</p>
       <a class="btn secondary" href="a-propos.html">💡 ${esc(t('aide_how'))}</a>
+      <a class="btn secondary" href="faq.html">❓ ${esc(t('aide_faq'))}</a>
       <button class="btn secondary" id="aideCountry">${esc(countryProfile().flag)} ${esc(t('aide_country'))}</button>
       <a class="btn secondary" href="legal.html">ⓘ ${esc(t('aide_legal'))}</a>
     </div>`;
@@ -1287,6 +1340,7 @@ function heatVisualHtml(h) {
     <span class="wind-data">
       <strong>🌡️ ${esc(t('heat_now', { c: h.tempC }))}</strong>
       ${h.feelsC != null && h.feelsC !== h.tempC ? `<span class="small">${esc(t('heat_feels', { c: h.feelsC }))}</span>` : ''}
+      ${h.humidityPct != null ? `<span class="small">💧 ${esc(t('heat_humidity', { p: h.humidityPct }))}</span>` : ''}
       ${h.maxC != null && h.maxC > h.tempC ? `<span class="small muted">${esc(t('heat_max', { c: h.maxC, h: heatHourLabel(h.maxAt) }))}</span>` : ''}
     </span>
     <span class="heat-scale" aria-hidden="true"><span class="heat-dot" style="inset-inline-start:${pct}%"></span></span>
@@ -1395,6 +1449,7 @@ async function openDetail(publicId) {
     <h2><span class="badge ${esc(i.type)}">${TYPE_ICONS[i.type]} ${esc(TYPE_LABELS[i.type])}</span>
         <span class="badge status ${esc(i.status)}">${esc(STATUS_LABELS[i.status] || i.status)}</span></h2>
     <p class="muted">${esc(i.area || t('area_approx'))} · ${t('ref')} ${esc(i.public_id)}</p>
+    ${userPos ? `<p class="muted small">📍 ${esc(t('detail_distance', { km: Math.max(1, Math.round(map.distance([userPos.lat, userPos.lng], [i.lat, i.lng]) / 1000)) }))}</p>` : ''}
     ${i.status === 'active' ? `<p class="muted small">⟳ ${esc(t('live_note'))}</p>` : ''}
     ${trustCapsuleHtml(i)}
     ${i.satellite_last_seen ? `<p class="notice sat">🛰️ <strong>${t('sat_corroborated')} — NASA FIRMS</strong><br>
@@ -2359,4 +2414,77 @@ function toggleWeatherLayer() {
   // (jamais en mode léger) ; le choix de le couper est respecté et mémorisé.
   if (saved !== '0' && !LITE) toggleWeatherLayer();
   document.getElementById('wxStrip')?.addEventListener('click', openVigilanceSheet);
+})();
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Zones brûlées Copernicus EFFIS (France) : contours APPROXIMATIFS du
+// périmètre déjà brûlé, estimés par satellite. Brun assumé (jamais le rouge
+// « danger » des feux actifs) ; un tap ouvre la fiche honnête (surface, date,
+// source, limites). Visible dès le zoom 7 — au-delà, de simples poussières.
+// ═════════════════════════════════════════════════════════════════════════════
+const burntLayer = L.layerGroup();
+let burntTimer = null;
+
+async function drawBurntAreas() {
+  if (currentCountry() !== 'FR' || LITE) return;
+  const legend = document.getElementById('burntLegend');
+  if (map.getZoom() < 7) {
+    burntLayer.clearLayers();
+    if (legend) legend.hidden = true;
+    return;
+  }
+  const b = map.getBounds();
+  let r;
+  try {
+    r = await API.get(`/api/fire-situation/burnt-areas?${new URLSearchParams({
+      minLat: b.getSouth().toFixed(3), maxLat: b.getNorth().toFixed(3),
+      minLng: b.getWest().toFixed(3), maxLng: b.getEast().toFixed(3),
+    })}`);
+  } catch { r = null; }
+  burntLayer.clearLayers();
+  const any = Boolean(r?.enabled && r.areas?.length);
+  if (legend) {
+    legend.hidden = !any;
+    if (any) legend.innerHTML = `<span class="burnt-swatch" aria-hidden="true"></span>
+      <span class="small">${esc(t('burnt_legend'))}</span>`;
+  }
+  if (!any) return;
+  for (const a of r.areas) {
+    const poly = L.polygon(a.rings, {
+      color: '#6E4A33', weight: 1.5, fillColor: '#7A5238', fillOpacity: .3,
+      dashArray: '5 3',
+    }).addTo(burntLayer);
+    poly.on('click', (e) => {
+      L.DomEvent.stopPropagation(e); // sinon le clic « carte » referme la fiche
+      openBurntDetail(a, r.updatedAt);
+    });
+  }
+  if (!map.hasLayer(burntLayer)) burntLayer.addTo(map);
+  window.track?.('burnt_areas_drawn', { n: r.areas.length });
+}
+
+function openBurntDetail(a, updatedAt) {
+  const el = document.getElementById('burntContent');
+  el.innerHTML = `
+    <h2>▨ ${esc(t('burnt_title'))}${a.commune ? ` — ${esc(a.commune)}` : ''}</h2>
+    ${a.province ? `<p class="muted small">${esc(a.province)}</p>` : ''}
+    <p>
+      ${a.areaHa != null ? `<strong>${esc(t('burnt_area_ha', { n: a.areaHa }))}</strong><br>` : ''}
+      ${a.firedate ? `${esc(t('burnt_firedate', { d: fmtDate(a.firedate) }))}<br>` : ''}
+      ${updatedAt ? `<span class="muted small">${esc(t('burnt_updated', { d: fmtDate(updatedAt) }))}</span>` : ''}
+    </p>
+    <p class="notice sat">🛰️ <strong>${esc(t('burnt_source'))}</strong></p>
+    <p class="muted small">${esc(t('burnt_honesty'))}</p>`;
+  openSheet('burntSheet');
+  window.track?.('burnt_detail_opened', {});
+}
+
+(function initBurntAreas() {
+  if (currentCountry() !== 'FR' || LITE) return;
+  map.on('moveend', () => {
+    clearTimeout(burntTimer);
+    burntTimer = setTimeout(drawBurntAreas, 500); // jamais pendant le geste
+  });
+  burntLayer.addTo(map);
+  drawBurntAreas();
 })();

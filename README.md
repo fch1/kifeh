@@ -1,5 +1,7 @@
 # Kifeh كيفاه
 
+*L'information qui aide à agir — المعلومة التي تعينك على التصرّف*
+
 [![Tests](https://github.com/fch1/kifeh/actions/workflows/ci.yml/badge.svg)](https://github.com/fch1/kifeh/actions/workflows/ci.yml)
 [![Licence MIT](https://img.shields.io/badge/licence-MIT-green.svg)](LICENSE)
 [![FR](https://img.shields.io/badge/langue-fran%C3%A7ais-blue.svg)](#)

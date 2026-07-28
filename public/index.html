@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1E2A4D">
 <title>Kifeh كيفاه — incidents en temps réel : électricité, eau, incendie, internet</title>
-<meta name="description" content="Carte citoyenne en temps réel des coupures d'électricité, coupures d'eau, incendies et pannes internet en Tunisie et en France. Signalez, confirmez, informez votre quartier. Bilingue français-arabe, open source.">
+<meta name="description" content="Kifeh, l'information qui aide à agir : carte citoyenne en temps réel des incendies, coupures d'électricité, d'eau et pannes internet en Tunisie et en France. Signalez, confirmez, suivez votre zone. Bilingue français-arabe, open source.">
 <link rel="canonical" href="https://kifeh.app/">
 <link rel="alternate" hreflang="fr" href="https://kifeh.app/?lang=fr">
 <link rel="alternate" hreflang="ar" href="https://kifeh.app/?lang=ar">
@@ -13,8 +13,8 @@
 <!-- Partage social (Open Graph / Twitter) -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Kifeh">
-<meta property="og:title" content="Kifeh كيفاه — ce qui se passe autour de vous, en temps réel">
-<meta property="og:description" content="Coupures d'électricité, coupures d'eau, incendies et pannes internet sur une seule carte citoyenne — Tunisie et France. Open source, bilingue FR/AR.">
+<meta property="og:title" content="Kifeh كيفاه — L'information qui aide à agir">
+<meta property="og:description" content="Incendies, coupures d'électricité, d'eau et pannes internet sur une seule carte citoyenne — Tunisie et France. Signalements citoyens & détections satellite NASA FIRMS. Open source, bilingue FR/AR.">
 <meta property="og:url" content="https://kifeh.app/">
 <meta property="og:image" content="https://kifeh.app/img/og-image.png">
 <meta property="og:image:width" content="1200">
@@ -59,7 +59,7 @@
 <div class="home-top">
   <div class="home-brandbar">
     <!-- Marque bilingue en Tunisie (« Kifeh كيفاه »), française en France (« Kifeh »). -->
-    <span class="brand-name"><img src="img/logo.svg?v=marque4" alt=""> <bdi>Kifeh</bdi> <bdi id="brandArabic" class="brand-arabic">كيفاه</bdi></span>
+    <button class="brand-name" id="brandHome" type="button" data-i18n-aria="brand_home_aria"><img src="img/logo.svg?v=marque4" alt=""> <bdi>Kifeh</bdi> <bdi id="brandArabic" class="brand-arabic">كيفاه</bdi></button>
     <span class="spacer"></span>
     <button class="country-switch" id="countrySwitch" type="button" data-i18n-aria="country_switch_aria"></button>
     <button class="lang-switch" type="button">العربية</button>
@@ -92,12 +92,15 @@
 
 <div class="home-bottom">
   <div class="wx-legend" id="wxLegend" hidden></div>
+  <div class="wx-legend" id="burntLegend" hidden></div>
   <div class="counter" id="counter" role="status" aria-live="polite" data-i18n="loading"></div>
 </div>
 
 <!-- Boutons flottants sur la carte : position + couches d'information.
      Des ACTIONS DE CARTE, pas des destinations — elles vivent sur la carte. -->
 <div class="map-fabs">
+  <button class="fab fab-zoom" id="fabZoomIn" data-i18n-aria="zoom_in">＋</button>
+  <button class="fab fab-zoom" id="fabZoomOut" data-i18n-aria="zoom_out">−</button>
   <button class="fab" id="btnLocate" data-i18n-aria="my_position_aria">📍</button>
   <button class="fab" id="btnLayers" data-i18n-aria="layers_btn_aria">🗺️</button>
 </div>
@@ -241,6 +244,14 @@
   <div class="handle"></div>
   <h2 data-i18n="aide_title"></h2>
   <div id="aideBody"></div>
+</div>
+
+<!-- Feuille : zone brûlée Copernicus EFFIS — contour APPROXIMATIF du
+     périmètre déjà brûlé estimé par satellite. Jamais un périmètre officiel,
+     jamais une zone de danger actuelle, jamais une consigne. -->
+<div class="sheet" id="burntSheet" role="dialog" aria-modal="true" data-i18n-aria="burnt_title">
+  <div class="handle"></div>
+  <div id="burntContent"></div>
 </div>
 
 <!-- Feuille : choix du pays (première visite et bouton pays).

@@ -57,7 +57,9 @@ function createMap(el, opts = {}) {
     ...opts,
   }).setView(opts.center || [34.2, 9.6], opts.zoom || 6); // Tunisie par défaut
   attachTiles(map, { deferred: opts.deferTiles === true });
-  L.control.zoom({ position: 'bottomright' }).addTo(map);
+  // zoomless : la page fournit ses propres boutons (pile flottante de
+  // l'accueil) — pas de double commande de zoom.
+  if (opts.zoomless !== true) L.control.zoom({ position: 'bottomright' }).addTo(map);
   return map;
 }
 
