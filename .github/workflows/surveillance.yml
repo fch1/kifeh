@@ -54,7 +54,7 @@ jobs:
     timeout-minutes: 10
     if: github.event_name == 'workflow_dispatch' || github.event.schedule == '15 */6 * * *'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 22
