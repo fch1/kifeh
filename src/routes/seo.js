@@ -175,7 +175,10 @@ seoRouter.get('/i/:publicId', (req, res) => {
   ).get(String(req.params.publicId || ''));
   if (!row) return res.redirect(302, '/');
   const lang = getLang(req) === 'ar' ? 'ar' : 'fr';
-  const typeLabel = msg(lang, `push_title_${row.type}`) || 'Kifeh';
+  // Libellé NEUTRE du type (jamais « près de chez vous » : le destinataire
+  // d'un partage peut être n'importe où).
+  const raw = msg(lang, `type_${row.type}`) || msg(lang, 'push_title_generic') || 'Incident';
+  const typeLabel = raw.charAt(0).toUpperCase() + raw.slice(1);
   const area = row.public_area || (lang === 'ar' ? 'منطقة تقريبية' : 'zone approximative');
   const when = fmtDateTime(row.started_at, { language: lang, countryCode: row.cc }) || '';
   const ended = row.status !== 'active';
