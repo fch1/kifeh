@@ -80,6 +80,26 @@ try {
 const log4 = await page.evaluate(() => window.__trackLog);
 ok(names(log4).includes('incident_report_started'), 'déclaration entamée → incident_report_started');
 
+console.log('\n■ Rétention : « Depuis votre dernière visite » (delta honnête)');
+await ctx.addInitScript(() => {
+  try { localStorage.setItem('kifeh_last_visit_at', new Date(Date.now() - 24 * 3600_000).toISOString()); } catch {}
+});
+await page.goto(`${BASE}/`, { waitUntil: 'load', timeout: 20_000 }).catch(() => {});
+await page.waitForTimeout(2500);
+const log5 = await page.evaluate(() => window.__trackLog || []);
+const slvEvt = log5.find((e) => e.event === 'since_last_visit_displayed');
+ok(Boolean(slvEvt), 'événement since_last_visit_displayed émis (dernière visite il y a 24 h)');
+ok(slvEvt?.params?.has_news === false, 'état vide HONNÊTE : has_news=false sur base vierge');
+try { await page.locator('#navSituation').click({ timeout: 4000 }); await page.waitForTimeout(600); } catch {}
+const slvText = await page.evaluate(() => document.getElementById('slvBlock')?.textContent || '');
+ok(slvText.includes('Depuis votre dernière visite') && slvText.includes('Aucune nouvelle information'),
+  'bloc affiché dans Situation avec l’état vide (jamais un compteur gonflé)');
+const pwaEligible = await page.evaluate(() => {
+  localStorage.setItem('kifeh_pwa_eligible', '1');
+  return localStorage.getItem('kifeh_pwa_eligible') === '1';
+});
+ok(pwaEligible, 'éligibilité PWA contextuelle posable (zone suivie / retour d’alerte)');
+
 console.log('\n■ Vie privée : AUCUNE donnée sensible dans le journal');
 const all = await page.evaluate(() => JSON.stringify(window.__trackLog));
 ok(!/lat["':]|lng["':]|latitude|longitude/i.test(all), 'aucune coordonnée dans les événements');

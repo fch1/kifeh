@@ -130,6 +130,7 @@ function saveFollowZoneAtCenter(extra = {}) {
   }
   Object.assign(z, { radiusKm: followRadius, ...extra });
   try { localStorage.setItem('kifeh_zones', JSON.stringify(zones)); } catch {}
+  try { localStorage.setItem('kifeh_pwa_eligible', '1'); } catch {} // installer devient utile
   renderSummary(false);
   return z;
 }
@@ -911,9 +912,14 @@ document.getElementById('fabZoomOut')?.addEventListener('click', () => map.zoomO
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
-    let dismissed = false;
-    try { dismissed = localStorage.getItem('kifeh_install_dismissed') === '1'; } catch {}
-    if (visits < 2 || dismissed || window.matchMedia('(display-mode: standalone)').matches) return;
+    let dismissed = false, eligible = visits >= 2;
+    try {
+      dismissed = localStorage.getItem('kifeh_install_dismissed') === '1';
+      // Contextuelle (addendum growth) : 2e visite OU zone suivie OU arrivée
+      // depuis une alerte — jamais une invite à froid dès la première visite.
+      eligible = eligible || localStorage.getItem('kifeh_pwa_eligible') === '1';
+    } catch {}
+    if (!eligible || dismissed || window.matchMedia('(display-mode: standalone)').matches) return;
     const b = document.createElement('div');
     b.className = 'since-banner install-banner';
     b.setAttribute('role', 'status');
@@ -957,6 +963,33 @@ document.getElementById('brandHome')?.addEventListener('click', () => {
 // passe-t-il ? suis-je concerné(e) ? que puis-je faire ? Données déjà
 // chargées uniquement (aucun appel réseau bloquant). La version panneau
 // enrichie arrive avec la refonte dédiée.
+// « Depuis votre dernière visite » — une raison HONNÊTE de revenir : le
+// delta RÉEL de signalements publiés depuis (API publishedSince), jamais un
+// compteur gonflé ni une urgence fabriquée. Silencieux en cas d'échec.
+let slv = null; // { sinceH, count } — calculé une fois par chargement
+(async function initSinceLastVisit() {
+  let last = null;
+  try { last = localStorage.getItem('kifeh_last_visit_at'); } catch {}
+  try { localStorage.setItem('kifeh_last_visit_at', new Date().toISOString()); } catch {}
+  // Consultation d'une alerte (lien push/e-mail) → l'invite d'installation
+  // devient pertinente (jamais à la première arrivée à froid).
+  try {
+    const sp = new URLSearchParams(location.search);
+    if (['push', 'email', 'digest'].includes(sp.get('src'))) {
+      localStorage.setItem('kifeh_pwa_eligible', '1');
+    }
+  } catch {}
+  if (!last) return;
+  const ageH = (Date.now() - Date.parse(last)) / 3600_000;
+  if (!(ageH >= 3 && ageH <= 45 * 24)) return; // ni bruit, ni archéologie
+  try {
+    const r = await API.get(`/api/public/incidents?publishedSince=${encodeURIComponent(last)}&country=${currentCountry()}`);
+    slv = { sinceH: Math.round(ageH), count: Number(r.count) || 0 };
+    window.track?.('since_last_visit_displayed', { has_news: slv.count > 0 });
+    renderSituationHub();
+  } catch { /* le panneau vit très bien sans ce bloc */ }
+})();
+
 function renderSituationHub() {
   const el = document.getElementById('situationBody');
   if (!el) return;
@@ -1018,7 +1051,17 @@ function renderSituationHub() {
       </div>
     </div>`;
   }
+  // Bloc « Depuis votre dernière visite » (delta réel, état vide honnête).
+  const zonesCount = (() => { try { return (JSON.parse(localStorage.getItem('kifeh_zones') || '[]') || []).length; } catch { return 0; } })();
+  const slvHtml = !slv ? '' : `
+    <div class="card" id="slvBlock">
+      <p class="small" style="margin:0 0 .25rem"><strong>🕐 ${esc(t('slv_title'))}</strong></p>
+      <p class="small" style="margin:.1rem 0">${slv.count === 0 ? esc(t('slv_none'))
+    : esc(slv.count === 1 ? t('slv_inc_one') : t('slv_inc_n', { n: slv.count }))}</p>
+      ${zonesCount ? `<button class="btn ghost small-btn" id="slvZones">★ ${esc(t('slv_see_zones'))} ›</button>` : ''}
+    </div>`;
   el.innerHTML = `
+    ${slvHtml}
     ${calm
     ? `<p><strong>${esc(t('situation_calm'))}</strong></p>
        <p class="muted small">${esc(t('situation_calm_note'))}</p>
@@ -1032,6 +1075,7 @@ function renderSituationHub() {
     ? `★ ${esc(t('zone_followed_short'))}` : `☆ ${esc(t('follow_zone_btn'))}`} ›</button>
     </div>
     ${snapAt ? `<p class="muted small">${esc(t('situation_updated', { t: timeAgo(new Date(snapAt).toISOString()) }))}</p>` : ''}`;
+  el.querySelector('#slvZones')?.addEventListener('click', () => { renderSuivis(); openSheet('suivisSheet'); setNavCurrent('navSuivis'); });
   el.querySelector('#situCond')?.addEventListener('click', openVigilanceSheet);
   el.querySelector('#situWx')?.addEventListener('click', openVigilanceSheet);
   el.querySelector('#situFollow')?.addEventListener('click', openFollowSheet);
