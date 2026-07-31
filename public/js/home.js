@@ -1609,6 +1609,7 @@ function openSheet(id) {
   // feuille refermée, qui n'est plus visible).
   if (ae && ae !== document.body && !ae.closest('.sheet')) sheetOpener = ae;
   const s = document.getElementById(id);
+  s.classList.remove('pos-half');
   s.classList.add('open');
   s.setAttribute('tabindex', '-1');
   s.focus({ preventScroll: true });
@@ -1639,6 +1640,43 @@ document.querySelectorAll('.sheet').forEach((s) => {
 document.querySelectorAll('.sheet .handle').forEach((h) =>
   h.parentElement.addEventListener('click', (e) => { if (e.target === h) closeSheets(); }));
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheets(); });
+
+// Feuilles mobiles à TROIS positions (master UX §9) : glisser la poignée —
+// vers le haut = pleine hauteur, cran vers le bas = mi-hauteur, grand
+// glissement depuis la mi-hauteur = fermeture. Desktop (≥1100 px, panneau
+// latéral) non concerné. Échap et boutons de fermeture inchangés.
+(function initSheetPositions() {
+  const desktop = window.matchMedia('(min-width: 1100px)');
+  document.querySelectorAll('.sheet').forEach((sheet) => {
+    const handle = sheet.querySelector('.handle');
+    if (!handle) return;
+    handle.style.touchAction = 'none';
+    let startY = null, startH = 0, wasHalf = false;
+    handle.addEventListener('pointerdown', (e) => {
+      if (desktop.matches) return;
+      startY = e.clientY;
+      startH = sheet.getBoundingClientRect().height;
+      wasHalf = sheet.classList.contains('pos-half');
+      try { handle.setPointerCapture(e.pointerId); } catch {}
+    });
+    handle.addEventListener('pointermove', (e) => {
+      if (startY == null || desktop.matches) return;
+      const h = Math.max(90, Math.min(window.innerHeight * .88, startH - (e.clientY - startY)));
+      sheet.style.maxHeight = `${h}px`; // suivi direct sous le doigt
+    });
+    const release = (e) => {
+      if (startY == null) return;
+      const dy = e.clientY - startY;
+      startY = null;
+      sheet.style.maxHeight = '';
+      if (dy < -40) sheet.classList.remove('pos-half');       // vers le haut → plein
+      else if (dy > 60 && (wasHalf || startH < window.innerHeight * .45)) closeSheets(); // encore un cran → fermer
+      else if (dy > 60) sheet.classList.add('pos-half');      // un cran → mi-hauteur
+    };
+    handle.addEventListener('pointerup', release);
+    handle.addEventListener('pointercancel', () => { startY = null; sheet.style.maxHeight = ''; });
+  });
+})();
 map.on('click', closeSheets);
 
 // --- Liste ------------------------------------------------------------------

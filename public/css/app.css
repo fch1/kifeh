@@ -978,3 +978,9 @@ html, body { overscroll-behavior: none; }
   background: transparent; border: none; cursor: pointer; font-size: 1rem;
   color: var(--kifeh-color-text-muted); padding: 0 .25rem; min-height: 32px;
 }
+
+/* Feuilles mobiles : position MI-HAUTEUR (master §9) — le haut de la carte
+   reste visible ; contenu défilable. Jamais appliquée au panneau desktop. */
+@media (max-width: 1099px) {
+  .sheet.pos-half { max-height: 52dvh; }
+}
