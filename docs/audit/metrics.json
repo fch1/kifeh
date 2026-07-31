@@ -14,9 +14,9 @@
       {
         "id": "home-bottom",
         "x": 0,
-        "y": 332,
+        "y": 355,
         "w": 320,
-        "h": 176
+        "h": 153
       },
       {
         "id": "map-fabs",
@@ -34,7 +34,7 @@
       }
     ],
     "overlayCount": 4,
-    "mapCoveredPct": 56,
+    "mapCoveredPct": 54,
     "hScroll": false,
     "searchWidthPct": null,
     "heroVisible": true,
@@ -55,9 +55,9 @@
       {
         "id": "home-bottom",
         "x": 0,
-        "y": 404,
+        "y": 428,
         "w": 360,
-        "h": 176
+        "h": 152
       },
       {
         "id": "map-fabs",
@@ -75,7 +75,7 @@
       }
     ],
     "overlayCount": 4,
-    "mapCoveredPct": 49,
+    "mapCoveredPct": 47,
     "hScroll": false,
     "searchWidthPct": null,
     "heroVisible": true,
@@ -96,9 +96,9 @@
       {
         "id": "home-bottom",
         "x": 0,
-        "y": 431,
+        "y": 455,
         "w": 375,
-        "h": 176
+        "h": 152
       },
       {
         "id": "map-fabs",
@@ -116,7 +116,7 @@
       }
     ],
     "overlayCount": 4,
-    "mapCoveredPct": 50,
+    "mapCoveredPct": 48,
     "hScroll": false,
     "searchWidthPct": null,
     "heroVisible": true,
@@ -137,9 +137,9 @@
       {
         "id": "home-bottom",
         "x": 0,
-        "y": 539,
+        "y": 563,
         "w": 390,
-        "h": 245
+        "h": 221
       },
       {
         "id": "map-fabs",
@@ -178,9 +178,9 @@
       {
         "id": "home-bottom",
         "x": 192,
-        "y": 780,
+        "y": 803,
         "w": 384,
-        "h": 156
+        "h": 133
       },
       {
         "id": "map-fabs",
@@ -275,7 +275,7 @@
       }
     ],
     "overlayCount": 15,
-    "mapCoveredPct": 25,
+    "mapCoveredPct": 23,
     "hScroll": false,
     "searchWidthPct": null,
     "heroVisible": true,
@@ -296,9 +296,9 @@
       {
         "id": "home-bottom",
         "x": 272,
-        "y": 542,
+        "y": 566,
         "w": 479,
-        "h": 138
+        "h": 114
       },
       {
         "id": "map-fabs",
@@ -393,7 +393,7 @@
       }
     ],
     "overlayCount": 15,
-    "mapCoveredPct": 29,
+    "mapCoveredPct": 28,
     "hScroll": false,
     "searchWidthPct": null,
     "heroVisible": true,
@@ -831,9 +831,9 @@
       {
         "id": "home-bottom",
         "x": 0,
-        "y": 451,
+        "y": 474,
         "w": 375,
-        "h": 156
+        "h": 133
       },
       {
         "id": "map-fabs",
@@ -851,7 +851,7 @@
       }
     ],
     "overlayCount": 4,
-    "mapCoveredPct": 48,
+    "mapCoveredPct": 45,
     "hScroll": false,
     "searchWidthPct": null,
     "heroVisible": true,
@@ -872,9 +872,9 @@
       {
         "id": "home-bottom",
         "x": 192,
-        "y": 780,
+        "y": 803,
         "w": 384,
-        "h": 156
+        "h": 133
       },
       {
         "id": "map-fabs",
@@ -969,7 +969,7 @@
       }
     ],
     "overlayCount": 15,
-    "mapCoveredPct": 24,
+    "mapCoveredPct": 23,
     "hScroll": false,
     "searchWidthPct": null,
     "heroVisible": true,

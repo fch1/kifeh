@@ -473,4 +473,13 @@ export function runMigrations(db) {
       WHERE key = 'dfci_public_display_enabled' AND value = '0'`).run();
     db.prepare(`INSERT OR IGNORE INTO settings(key, value) VALUES ('mig_dfci_public_rollout', '1')`).run();
   })();
+
+  // 3j. REVERT rail desktop (31/07 soir, demande explicite de Farah) :
+  // bascule unique du '1' semé quelques heures plus tôt vers '0'.
+  (() => {
+    const done = db.prepare(`SELECT 1 FROM settings WHERE key = 'mig_rail_revert_3107'`).get();
+    if (done) return;
+    db.prepare(`UPDATE settings SET value = '0' WHERE key = 'fire_desktop_rail_enabled' AND value = '1'`).run();
+    db.prepare(`INSERT OR IGNORE INTO settings(key, value) VALUES ('mig_rail_revert_3107', '1')`).run();
+  })();
 }

@@ -194,8 +194,10 @@ export const defaultSettings = {
   // activation progressive après validation UI (master prévisions PR 8).
   fire_forecast_enabled_fr: '1',
   fire_forecast_enabled_tn: '1',
-  // Refonte PR 2 : composition desktop (rail + header compact + héro→bouton).
-  fire_desktop_rail_enabled: '1',
+  // Refonte PR 2 : composition desktop — ÉTEINTE le 31/07 au soir (retour
+  // Farah : « revert, le front est dégueulasse ») ; itération sur maquettes
+  // validées AVANT toute réactivation.
+  fire_desktop_rail_enabled: '0',
   // Vent : modèle Météo-France (AROME/ARPEGE) servi par Open-Meteo — libre,
   // sans clé. Fournisseur configurable (WIND_URL pour les tests/alternatives).
   wind_provider: 'arome_france_hd_openmeteo', // AROME France HD, EXPLICITE (jamais le mode auto),
