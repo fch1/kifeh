@@ -574,6 +574,21 @@ async function main() {
     && tl.data.effisPublications.reduce((s2, r) => s2 + r.n, 0) === 2,
   'timeline : publications EFFIS agrégées par heure');
   ok(String(tl.data.note || '').includes('jamais'), 'timeline : la FRP n’est jamais une taille de feu (dit par l’API)');
+  // Partage social : /i/:id sert l'Open Graph SPÉCIFIQUE aux robots (type,
+  // lieu approximatif) puis renvoie les humains vers l'application.
+  {
+    const inc = (await api('GET', '/api/public/incidents?country=FR&type=fire')).data.incidents?.[0];
+    if (inc) {
+      const share = await fetch(`${BASE}/i/${inc.public_id}`);
+      const html = await share.text();
+      ok(share.status === 200 && html.includes('og:title') && html.includes(inc.public_id),
+        '/i/:id : page de partage avec Open Graph spécifique');
+      ok(html.includes('noindex') && html.includes(`/?incident=${inc.public_id}`),
+        '/i/:id : noindex (page de partage) + renvoi vers l’application');
+    } else { ok(true, '(pas d’incident feu publié — partage non testé ici)'); }
+    const missing = await fetch(`${BASE}/i/inexistant-123`, { redirect: 'manual' });
+    ok(missing.status === 302, '/i/inconnu → redirection douce vers l’accueil');
+  }
   // Plateforme MUTUALISÉE (addendum) : la Tunisie accède aux capacités
   // génériques (détections, signalements, replay) — mais sa réponse ne
   // mentionne JAMAIS les capacités territoriales françaises (EFFIS, AROME).

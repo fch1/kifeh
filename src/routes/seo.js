@@ -5,6 +5,7 @@
 // de capacités : une page tunisienne ne mentionne JAMAIS EFFIS/DFCI/AROME et
 // affiche le 198 — jamais le 18. Cache mémoire court (5 min).
 import { Router } from 'express';
+import { msg, getLang } from '../i18n.js';
 import { db, getSetting } from '../db.js';
 import { getProfile } from '../countries/index.js';
 import { getCapabilities } from '../services/capabilityRegistry.js';
@@ -161,6 +162,52 @@ function serve(lang, cc) {
 }
 for (const lang of LANGS) {
   for (const cc of CCS) seoRouter.get(`/${lang}/${cc}/incendies`, serve(lang, cc));
-  // Convention : /fr/incendies est ambigu → 301 vers la variante complète.
+  // ── Partage social par incident : /i/:publicId (Growth PR 4) ────────────────
+// Les robots WhatsApp/Facebook/Telegram n'exécutent pas le JavaScript : cette
+// page serveur porte l'Open Graph SPÉCIFIQUE (type, lieu approximatif, statut,
+// heure) puis conduit les humains vers l'application. Jamais de coordonnées
+// exactes — uniquement les champs déjà publics.
+seoRouter.get('/i/:publicId', (req, res) => {
+  const row = db.prepare(
+    `SELECT public_id, type, status, public_area, started_at,
+            COALESCE(country_code,'TN') AS cc
+     FROM incidents WHERE public_id = ? AND status IN ('active','resolved','expired')`
+  ).get(String(req.params.publicId || ''));
+  if (!row) return res.redirect(302, '/');
+  const lang = getLang(req) === 'ar' ? 'ar' : 'fr';
+  const typeLabel = msg(lang, `push_title_${row.type}`) || 'Kifeh';
+  const area = row.public_area || (lang === 'ar' ? 'منطقة تقريبية' : 'zone approximative');
+  const when = fmtDateTime(row.started_at, { language: lang, countryCode: row.cc }) || '';
+  const ended = row.status !== 'active';
+  const statusTxt = ended
+    ? (lang === 'ar' ? 'انتهى هذا الحادث.' : 'Cet incident est terminé.')
+    : (lang === 'ar' ? 'حادث جارٍ.' : 'Incident en cours.');
+  const title = `${typeLabel} — ${area}`;
+  const desc = `${statusTxt} ${when}. ${lang === 'ar'
+    ? 'المصدر والتوقيت داخل التطبيق — كيفاه لا يعوّض مصالح النجدة.'
+    : 'Source et horodatage dans l’application — Kifeh ne remplace pas les secours.'}`;
+  const appUrl = `/?incident=${encodeURIComponent(row.public_id)}`;
+  res.set('Cache-Control', 'public, max-age=120').type('html').send(`<!doctype html>
+<html lang="${lang}" dir="${lang === 'ar' ? 'rtl' : 'ltr'}">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(title)} — Kifeh</title>
+<meta name="robots" content="noindex"><!-- page de PARTAGE, pas d'indexation -->
+<link rel="canonical" href="${BASE}${appUrl}">
+<meta property="og:title" content="${esc(title)}">
+<meta property="og:description" content="${esc(desc)}">
+<meta property="og:image" content="${BASE}/img/og-image.png">
+<meta property="og:url" content="${BASE}/i/${encodeURIComponent(row.public_id)}">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta http-equiv="refresh" content="0;url=${appUrl}">
+</head>
+<body style="font-family:sans-serif;background:#FAF7F1;color:#1E2A4D;text-align:center;padding:3rem 1rem">
+<p><strong>${esc(title)}</strong></p><p>${esc(desc)}</p>
+<p><a href="${appUrl}">Kifeh كيفاه →</a></p>
+</body></html>`);
+});
+
+// Convention : /fr/incendies est ambigu → 301 vers la variante complète.
   seoRouter.get(`/${lang}/incendies`, (req, res) => res.redirect(301, `/${lang}/fr/incendies`));
 }

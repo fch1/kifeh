@@ -1998,8 +1998,8 @@ async function openDetail(publicId) {
   document.getElementById('btnEnded')?.addEventListener('click', () => renderEndedForm(i));
   // Partage : lien direct vers la fiche (Web Share natif, repli copie).
   document.getElementById('btnShare').addEventListener('click', async (e) => {
-    const url = `${location.origin}${API_BASE}/?incident=${encodeURIComponent(i.public_id)}`
-      + '&from=share&utm_source=share&utm_medium=referral&utm_campaign=user_share';
+    const url = `${location.origin}${API_BASE}/i/${encodeURIComponent(i.public_id)}`
+      + '?from=share&utm_source=share&utm_medium=referral&utm_campaign=user_share';
     const text = `${TYPE_ICONS[i.type]} ${TYPE_LABELS[i.type]} — ${i.area || t('area_approx')}`;
     window.track?.('incident_shared', { incident_type: i.type });
     try {
