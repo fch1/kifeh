@@ -908,3 +908,17 @@ html, body { overscroll-behavior: none; }
   box-shadow: 0 2px 6px rgb(0 0 0 / .25); cursor: pointer;
 }
 .vig-marker.vig-rouge { background: #FEE2E2; border-color: #DC2626; }
+
+/* Carte de situation REPLIABLE (master UX §5) : repliée = une seule ligne
+   (badge + titre + chevron) — le centre de la carte respire. Choix mémorisé. */
+.hero-toggle {
+  flex-shrink: 0; width: 32px; height: 32px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: none; border-radius: var(--kifeh-radius-pill);
+  color: var(--kifeh-color-text-muted); cursor: pointer;
+}
+.hero-toggle svg { width: 18px; height: 18px; }
+@media (hover: hover) { .hero-toggle:hover { background: var(--kifeh-color-background); } }
+.hero-collapsed .summary-where, .hero-collapsed .summary-types,
+.hero-collapsed .summary-sat, .hero-collapsed .summary-actions,
+.hero-collapsed .hero-stats, .hero-collapsed .summary-official-active { display: none !important; }

@@ -713,6 +713,13 @@ function renderSummary(degraded, snapshotAt) {
   if (w) stats.push({ l: t('stat_wind'), v: `${w.speedKmh} km/h` });
   if (h) stats.push({ l: t('stat_temp'), v: `${h.tempC} °C` });
   if (h?.humidityPct != null) stats.push({ l: t('stat_hum'), v: `${h.humidityPct} %` });
+  let heroCollapsed = false;
+  try { heroCollapsed = localStorage.getItem('kifeh_hero_collapsed') === '1'; } catch {}
+  counter.classList.toggle('hero-collapsed', heroCollapsed);
+  const heroToggle = `<button type="button" class="hero-toggle" id="heroToggle"
+      aria-expanded="${heroCollapsed ? 'false' : 'true'}"
+      aria-label="${esc(t(heroCollapsed ? 'hero_expand' : 'hero_collapse'))}">
+      <svg viewBox="0 0 24 24" aria-hidden="true" style="${heroCollapsed ? 'transform:scaleY(-1)' : ''}"><path d="m6 9.5 6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></button>`;
   counter.innerHTML = `
     <span class="hero-head" id="heroHead" role="button" tabindex="0" aria-haspopup="dialog">
       <span class="hero-badge${heroBadgeClass}" aria-hidden="true">${heroSvg}</span>
@@ -721,6 +728,7 @@ function renderSummary(degraded, snapshotAt) {
         <span class="muted small">${esc(heroSub)}</span>
       </span>
       <span class="hero-arrow" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h13m-5.5-5.5L18 12l-5.5 5.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>
+      ${heroToggle}
     </span>
     ${heroFire ? `<span class="summary-where muted small">📍 ${esc(where)}</span>` : ''}
     ${satsShown.length && !active.some((i) => i.type === 'fire') ? `<span class="summary-types">🛰️ ${t('summary_sat_n', { n: satsShown.length })}</span>` : ''}
@@ -733,6 +741,14 @@ function renderSummary(degraded, snapshotAt) {
     ${stats.length >= 2 ? `<span class="hero-stats" id="heroStats" role="button" tabindex="0">${stats.map((s) =>
     `<span class="stat"><span class="stat-l">${esc(s.l)}</span><span class="stat-v">${esc(s.v)}</span></span>`).join('')}</span>` : ''}
     ${degraded ? `<span class="summary-degraded">${t('api_degraded')}<br>${t('offline_snapshot', { t: timeAgo(new Date(snapshotAt).toISOString()) })}</span>` : ''}`;
+  // Repli/dépli : mémorisé, sans jamais voler le clic d'ouverture de Situation.
+  document.getElementById('heroToggle')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const on = !heroCollapsed;
+    try { localStorage.setItem('kifeh_hero_collapsed', on ? '1' : '0'); } catch {}
+    window.track?.('hero_card_toggled', { collapsed: on });
+    renderSummary(false, snapshotAt);
+  });
 }
 // « Plus proche : ~N km » — distance du feu le plus proche (signalement citoyen
 // actif ou événement satellite) depuis la position de la personne si connue,
