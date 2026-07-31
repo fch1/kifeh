@@ -11,6 +11,7 @@ import { db, getSetting, setSetting } from '../db.js';
 import { uuid } from './crypto.js';
 import { msg } from '../i18n.js';
 import { getBaseUrl } from '../config.js';
+import { emergencyLine } from './localizationFormatter.js';
 
 let configured = false;
 
@@ -154,9 +155,14 @@ export async function notifyIncidentPublished(incident) {
     const subs = subscriptionsFor(incident);
     for (const s of subs) {
       const lang = s.lang === 'ar' ? 'ar' : 'fr';
+      // Numéro d'urgence du PAYS DE LA ZONE suivie (jamais le 18 pour Tunis) —
+      // ajouté au corps pour les incendies, où chaque seconde compte.
+      const zoneCountry = s.country_code || incident.country_code || 'TN';
+      const emg = incident.type === 'fire' ? emergencyLine(zoneCountry, lang, 'fire') : null;
       const payload = JSON.stringify({
         title: msg(lang, `push_title_${incident.type}`) || msg(lang, 'push_title_generic'),
-        body: msg(lang, 'push_body', { area: incident.public_area || msg(lang, 'push_near_you') }),
+        body: msg(lang, 'push_body', { area: incident.public_area || msg(lang, 'push_near_you') })
+          + (emg ? `\n${emg}` : ''),
         url: `${getBaseUrl()}/?incident=${encodeURIComponent(incident.public_id)}&src=push&utm_source=kifeh_alert&utm_medium=push&utm_campaign=zone_alert`, // src=push : boucle de retour
         tag: `kifeh-${incident.public_id}`, // regroupe les doublons côté OS
       });

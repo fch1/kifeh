@@ -8,6 +8,7 @@
 import { db, getSetting, setSetting, getSettingNum } from '../db.js';
 import { encrypt, decrypt, hmac, sha256, uuid, randomToken } from './crypto.js';
 import { getBaseUrl } from '../config.js';
+import { emergencyLine, fmtTime } from './localizationFormatter.js';
 import { msg } from '../i18n.js';
 
 const API = () => process.env.RESEND_URL || 'https://api.resend.com';
@@ -168,7 +169,10 @@ export async function emailNotifyIncidentPublished(incident) {
           lang,
           heading: title,
           bodyHtml: `<p style="margin:0 0 6px"><strong>📍 ${area}</strong></p>
-            <p style="margin:0">${msg(lang, 'email_alert_body')}</p>`,
+            <p style="margin:0">${msg(lang, 'email_alert_body')}</p>
+            ${incident.type === 'fire'
+    ? `<p style="margin:8px 0 0"><strong>${emergencyLine(s.country_code || incident.country_code || 'TN', lang, 'fire')}</strong></p>` : ''}
+            <p style="margin:6px 0 0;color:#8a8578;font-size:13px">🕐 ${fmtTime(new Date().toISOString(), { language: lang, countryCode: s.country_code || 'TN' })}</p>`,
           ctaLabel: msg(lang, 'email_view_link'),
           ctaUrl: url,
           footHtml: `${msg(lang, 'email_footer_notice')}<br>
