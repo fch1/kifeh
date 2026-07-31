@@ -14,7 +14,8 @@
     "dev": "NODE_ENV=development node server.js",
     "check:prod": "node tests/prod-check.mjs",
     "check:sandbox": "node tests/sandbox-check.mjs",
-    "test:browser": "node tests/features-browser.mjs && node tests/smoke-browser.mjs",
+    "test:browser": "node tests/features-browser.mjs && node tests/smoke-browser.mjs && node tests/analytics-browser.mjs",
+    "test:brand": "node tests/brand-captures.mjs",
     "test:brand": "node tests/brand-captures.mjs",
     "brand:update": "node tests/brand-captures.mjs --update"
   },

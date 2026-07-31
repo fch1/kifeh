@@ -9,7 +9,33 @@
 //   région/ville et l'appareil, jamais l'IP exacte d'un visiteur.
 'use strict';
 
-window.track = function () {}; // no-op si GA n'est pas chargé (sandbox)
+// Journal local des événements (TOUJOURS rempli, même consentement refusé :
+// aucune donnée ne part — il vit dans l'onglet, pour les tests et DebugView).
+window.__trackLog = [];
+window.track = function (event, params) { // no-op réseau si GA absent (sandbox)
+  try { window.__trackLog.push({ event, params: params || {} }); } catch {}
+};
+
+// ── Taxonomie CANONIQUE (docs/ANALYTICS_MEASUREMENT_PLAN.md) ────────────────
+// Les noms historiques restent dans le code appelant ; ils sont TRADUITS ici
+// vers le plan de mesure officiel — un seul vocabulaire côté GA4.
+const CANON = {
+  follow_sheet_opened: 'zone_follow_started',
+  zone_followed: 'zone_follow_completed',
+  zone_alerts_enabled: 'alert_channel_selected',
+  email_alerts_subscribed: 'alert_channel_selected',
+  layers_opened: 'source_panel_opened',
+  vigilance_sheet_opened: 'official_update_opened',
+  declare_started: 'incident_report_started',
+  incident_published: 'incident_report_submitted',
+  pwa_install_banner: 'pwa_install_prompted',
+  locate_used: 'location_requested',
+  incident_shared: 'map_shared',
+};
+const CANON_PARAMS = {
+  zone_alerts_enabled: { alert_channel: 'push' },
+  email_alerts_subscribed: { alert_channel: 'email' },
+};
 
 (function initAnalytics() {
   if (location.pathname.startsWith('/sandbox')) return;
@@ -41,7 +67,52 @@ window.track = function () {}; // no-op si GA n'est pas chargé (sandbox)
   s.src = `https://www.googletagmanager.com/gtag/js?id=${GA_ID}`;
   document.head.appendChild(s);
 
-  window.track = (event, params) => { try { gtag('event', event, params || {}); } catch {} };
+  // Paramètres GLOBAUX non sensibles attachés à chaque événement — JAMAIS de
+  // coordonnées exactes, d'adresse, de contact ni de contenu de signalement.
+  const globalParams = () => ({
+    selected_country: localStorage.getItem('kifeh_country') || '(none)',
+    interface_language: localStorage.getItem('lang') || 'fr',
+    entry_page: entryPage,
+  });
+  const entryPage = location.pathname || '/';
+  window.track = (event, params) => {
+    try {
+      const name = CANON[event] || event;
+      const p = { ...globalParams(), ...(CANON_PARAMS[event] || {}), ...(params || {}) };
+      window.__trackLog.push({ event: name, params: p });
+      gtag('event', name, p);
+    } catch {}
+  };
+
+  // ── Boucles de retour : lien profond d'alerte ou de partage ───────────────
+  // Les notifications/e-mails portent ?from=alert, les partages ?from=share :
+  // le RETOUR (la métrique qui compte) devient mesurable. Le paramètre est
+  // ensuite retiré de la barre d'adresse (les UTM restent pour GA).
+  try {
+    const q = new URLSearchParams(location.search);
+    const from = q.get('from');
+    const src = q.get('src') || ''; // liens historiques des notifications/e-mails
+    if (from === 'alert' || src === 'push' || src === 'email') {
+      window.track('return_after_alert', { alert_channel: src || 'push' });
+    }
+    if (src === 'digest') window.track('return_after_alert', { alert_channel: 'digest' });
+    if (from === 'share') window.track('return_after_share', {});
+    if (from) {
+      q.delete('from');
+      const qs = q.toString();
+      history.replaceState(null, '', location.pathname + (qs ? `?${qs}` : '') + location.hash);
+    }
+  } catch {}
+
+  // Appels d'urgence : événement CRITIQUE d'utilité (jamais présenté comme
+  // une conversion commerciale) — délégué sur tous les liens tel:.
+  document.addEventListener('click', (e) => {
+    const a = e.target?.closest?.('a[href^="tel:"]');
+    if (a) window.track('emergency_call_clicked', {});
+  }, true);
+
+  // PWA réellement installée (l'invite est déjà mesurée par ailleurs).
+  window.addEventListener('appinstalled', () => window.track('pwa_installed', {}));
 
   // ── « Modifier mon choix » (page mentions légales) ────────────────────────
   const wireReset = () => {

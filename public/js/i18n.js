@@ -1130,6 +1130,7 @@ function readStoredLang() {
 
 function writeStoredLang(l) {
   try { localStorage.setItem('lang', l); } catch { /* stockage indisponible */ }
+  try { window.track?.('language_changed', { interface_language: l }); } catch {}
   try { document.cookie = `kifeh_lang=${l}; path=/; max-age=31536000; SameSite=Lax`; } catch {}
 }
 

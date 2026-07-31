@@ -418,6 +418,7 @@ document.getElementById('countrySwitch').addEventListener('click', () => openShe
 // Choisir le pays déjà actif referme simplement la feuille (sans rechargement).
 function pickCountry(code) {
   if (code === currentCountry() && COUNTRY !== null) { closeSheets(); return; }
+  window.track?.('country_selected', { selected_country: code });
   setCountry(code);
 }
 document.getElementById('countryTN').addEventListener('click', () => pickCountry('TN'));
@@ -651,6 +652,10 @@ async function loadIncidents() {
 // détections satellite actives (moins de 72 h). Généré à partir des MÊMES
 // données filtrées que la carte ; reste visible même sans fond de carte.
 function renderSummary(degraded, snapshotAt) {
+  if (!window.__lsdSent && !degraded) {
+    window.__lsdSent = true;
+    window.track?.('local_situation_displayed', {});
+  }
   const counter = document.getElementById('counter');
   const shown = visibleItems();
   const active = citizenVisible() ? incidents.filter((i) => i.status === 'active') : [];
@@ -931,6 +936,7 @@ document.getElementById('fabZoomOut')?.addEventListener('click', () => map.zoomO
         deferredPrompt.prompt();
         const { outcome } = await deferredPrompt.userChoice;
         window.track?.('pwa_install_choice', { outcome });
+        if (outcome === 'accepted') window.track?.('pwa_installed', { via: 'banner' });
         if (outcome !== 'accepted') localStorage.setItem('kifeh_install_dismissed', '1');
       } catch {}
     });
@@ -1226,15 +1232,16 @@ try {
 // position » ET le pin 📍 de la barre de recherche.
 function locateMe() {
   if (!navigator.geolocation) return transientBanner(t('geo_unavailable'));
+  window.track?.('location_requested', {});
   navigator.geolocation.getCurrentPosition(
     (pos) => {
       userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
       map.setView([userPos.lat, userPos.lng], 14);
       L.circleMarker([userPos.lat, userPos.lng], { radius: 8, color: '#17557E', fillOpacity: .9 })
         .addTo(map).bindPopup(esc(t('you_are_here')));
-      window.track?.('locate_used', {});
+      window.track?.('location_resolved', {});
     },
-    () => transientBanner(t('geo_not_found')),
+    () => { window.track?.('location_failed', {}); transientBanner(t('geo_not_found')); },
     { enableHighAccuracy: false, timeout: 8000 }
   );
 }
@@ -1356,6 +1363,7 @@ function syncTypeControls() {
   updateFilterBadge();
 }
 document.getElementById('fSatLayer')?.addEventListener('change', (e) => {
+  window.track?.(e.currentTarget.checked ? 'layer_enabled' : 'layer_disabled', { layer_name: 'satellite' });
   if (e.currentTarget.checked) filters.types.add('satellite');
   else { filters.types.delete('satellite'); filters.satConf = ''; document.getElementById('fSatConf').value = ''; }
   syncTypeControls();
@@ -1406,6 +1414,7 @@ document.getElementById('filterApply').addEventListener('click', async () => {
   filters.satConf = document.getElementById('fSatConf').value;
   document.getElementById('chipOngoing').setAttribute('aria-pressed', filters.status === 'active');
   window.track?.('filters_applied', { types: [...filters.types].join(',') || 'all', period_h: filters.periodH || 'all', source: filters.source || 'all' });
+  if (filters.types.has('fire')) window.track?.('fire_map_opened', {});
   await loadIncidents();
   updateFilterBadge();
   closeSheets();
@@ -1711,6 +1720,7 @@ function trustCapsuleHtml(i) {
 }
 
 async function openDetail(publicId) {
+  window.track?.('incident_detail_opened', {});
   document.getElementById('safetySheetBody')?.replaceChildren(); // un seul #safetyZone
   const el = document.getElementById('detailContent');
   el.innerHTML = '<div class="skeleton" style="height:120px"></div>';
@@ -1795,12 +1805,18 @@ async function openDetail(publicId) {
   document.getElementById('btnEnded')?.addEventListener('click', () => renderEndedForm(i));
   // Partage : lien direct vers la fiche (Web Share natif, repli copie).
   document.getElementById('btnShare').addEventListener('click', async (e) => {
-    const url = `${location.origin}${API_BASE}/?incident=${encodeURIComponent(i.public_id)}`;
+    const url = `${location.origin}${API_BASE}/?incident=${encodeURIComponent(i.public_id)}`
+      + '&from=share&utm_source=share&utm_medium=referral&utm_campaign=user_share';
     const text = `${TYPE_ICONS[i.type]} ${TYPE_LABELS[i.type]} — ${i.area || t('area_approx')}`;
     window.track?.('incident_shared', { incident_type: i.type });
     try {
-      if (navigator.share) await navigator.share({ title: 'Kifeh', text, url });
-      else { await navigator.clipboard.writeText(url); e.target.textContent = t('link_copied'); }
+      if (navigator.share) {
+        await navigator.share({ title: 'Kifeh', text, url });
+        window.track?.('share_channel_selected', { share_channel: 'native' });
+      } else {
+        await navigator.clipboard.writeText(url); e.target.textContent = t('link_copied');
+        window.track?.('share_channel_selected', { share_channel: 'copy_link' });
+      }
     } catch { /* partage annulé par l'utilisateur : sans conséquence */ }
   });
   document.getElementById('btnLocCorrect').addEventListener('click', () => renderCorrectionForm(i));

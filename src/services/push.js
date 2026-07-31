@@ -84,7 +84,7 @@ export async function notifySatelliteEvent(ev) {
       const payload = JSON.stringify({
         title: msg(lang, 'push_sat_title'),
         body: msg(lang, 'push_sat_body'),
-        url: `${getBaseUrl()}/?satellite=${encodeURIComponent(ev.id)}&src=push`,
+        url: `${getBaseUrl()}/?satellite=${encodeURIComponent(ev.id)}&src=push&utm_source=kifeh_alert&utm_medium=push&utm_campaign=zone_alert`,
         tag: `kifeh-sat-${ev.id}`,
       });
       try {
@@ -157,7 +157,7 @@ export async function notifyIncidentPublished(incident) {
       const payload = JSON.stringify({
         title: msg(lang, `push_title_${incident.type}`) || msg(lang, 'push_title_generic'),
         body: msg(lang, 'push_body', { area: incident.public_area || msg(lang, 'push_near_you') }),
-        url: `${getBaseUrl()}/?incident=${encodeURIComponent(incident.public_id)}&src=push`, // src=push : mesure des retours dans GA
+        url: `${getBaseUrl()}/?incident=${encodeURIComponent(incident.public_id)}&src=push&utm_source=kifeh_alert&utm_medium=push&utm_campaign=zone_alert`, // src=push : boucle de retour
         tag: `kifeh-${incident.public_id}`, // regroupe les doublons côté OS
       });
       try {

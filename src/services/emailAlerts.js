@@ -158,7 +158,7 @@ export async function emailNotifyIncidentPublished(incident) {
     try {
       const email = decrypt(s.email_encrypted);
       const lang = s.lang === 'ar' ? 'ar' : 'fr';
-      const url = `${getBaseUrl()}/?incident=${encodeURIComponent(incident.public_id)}&src=email`;
+      const url = `${getBaseUrl()}/?incident=${encodeURIComponent(incident.public_id)}&src=email&utm_source=kifeh_alert&utm_medium=email&utm_campaign=zone_alert`;
       const unsubUrl = `${getBaseUrl()}/api/public/email-alerts/unsubscribe?token=${encodeURIComponent(s.unsub_token)}`;
       const title = msg(lang, `push_title_${incident.type}`) || msg(lang, 'push_title_generic');
       const area = incident.public_area || msg(lang, 'push_near_you');
@@ -260,7 +260,7 @@ export async function sendDailyDigests({ force = false } = {}) {
             : ''}
             ${vigilance ? `<p style="margin:6px 0 0">⚠️ ${msg(lang, 'email_digest_vigilance', { n: vigilance })}</p>` : ''}`,
           ctaLabel: msg(lang, 'email_view_link'),
-          ctaUrl: `${getBaseUrl()}/?src=digest`,
+          ctaUrl: `${getBaseUrl()}/?src=digest&utm_source=kifeh_alert&utm_medium=email&utm_campaign=daily_digest`,
           footHtml: `${msg(lang, 'email_footer_notice')}<br>
             <a href="${unsubUrl}" style="color:#8a8578">${msg(lang, 'email_unsub_note')}</a>`,
         }));

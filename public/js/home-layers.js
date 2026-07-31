@@ -99,7 +99,10 @@ function toggleWeatherLayer() {
   const cb = document.getElementById('fWxLayer');
   if (!row || !cb) return;
   row.hidden = false;
-  cb.addEventListener('change', toggleWeatherLayer);
+  cb.addEventListener('change', () => {
+    window.track?.(cb.checked ? 'layer_enabled' : 'layer_disabled', { layer_name: 'weather' });
+    toggleWeatherLayer();
+  });
   map.on('moveend', () => {
     if (!weatherOn) return;
     clearTimeout(weatherTimer);
@@ -203,10 +206,10 @@ function openBurntDetail(a, updatedAt) {
     row.hidden = false;
     cb.checked = burntOn;
     cb.addEventListener('change', () => {
+      window.track?.(cb.checked ? 'layer_enabled' : 'layer_disabled', { layer_name: 'burned_areas' });
       burntOn = cb.checked;
       try { localStorage.setItem('kifeh_burnt_layer', burntOn ? '1' : '0'); } catch {}
       drawBurntAreas();
-      window.track?.('burnt_layer_toggle', { on: burntOn });
     });
   }
   burntLayer.addTo(map);
@@ -287,7 +290,8 @@ function openRoadDetail(e, updatedAt) {
   const apply = (on) => {
     roadsOn = on;
     cb.checked = on;
-    if (on) { roadsLayer.addTo(map); drawRoads(); window.track?.('roads_layer_on', {}); }
+    window.track?.(on ? 'layer_enabled' : 'layer_disabled', { layer_name: 'roads' });
+    if (on) { roadsLayer.addTo(map); drawRoads(); }
     else { roadsLayer.clearLayers(); map.removeLayer(roadsLayer); }
     try { localStorage.setItem('kifeh_roads_layer', on ? '1' : '0'); } catch {}
   };

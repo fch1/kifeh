@@ -128,7 +128,9 @@ function kifehUrlB64ToUint8(base64) {
 // Lève une erreur claire si la permission est refusée.
 async function kifehSubscribePush({ lat, lng, radiusKm = 10, key, country }) {
   if (!kifehPushSupported() || !key) throw new Error('unsupported');
+  window.track?.('push_permission_requested', {});
   const perm = await Notification.requestPermission();
+  window.track?.(perm === 'granted' ? 'push_permission_granted' : 'push_permission_refused', {});
   if (perm !== 'granted') throw new Error('denied');
   const reg = await navigator.serviceWorker.register('/sw.js');
   await navigator.serviceWorker.ready;

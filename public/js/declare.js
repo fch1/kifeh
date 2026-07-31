@@ -193,6 +193,7 @@ function scheduleDfciPreview() {
     }
     if (!r?.available) { el.hidden = true; return; } // hors France / désactivé
     state.dfciCodePreview = r.dfci.code;
+    window.track?.('dfci_displayed', {});
     el.innerHTML = `
       <span class="small"><strong>${esc(t('dfci_label'))}</strong> · ${esc(t('dfci_precision'))}${r.dfci.indicative ? ` · ${esc(t('dfci_indicative'))}` : ''}</span>
       <span class="dfci-code" dir="ltr">${esc(r.dfci.code)}</span>
@@ -201,6 +202,7 @@ function scheduleDfciPreview() {
     document.getElementById('dfciPrevCopy')?.addEventListener('click', async (ev) => {
       try {
         await navigator.clipboard.writeText(r.dfci.code);
+        window.track?.('dfci_copied', { context: 'declare_preview' });
         ev.currentTarget.textContent = t('dfci_copied');
       } catch { /* le code reste sélectionnable */ }
     });
@@ -302,6 +304,7 @@ addrInput.addEventListener('input', () => {
 });
 
 document.getElementById('btnLocationNext').addEventListener('click', (e) => withButton(e.currentTarget, async () => {
+  window.track?.('incident_location_selected', { location_source: state.locationSource || 'map' });
   if (state.lat == null) return;
   const errEl = document.getElementById('geoError'); errEl.textContent = '';
   // Pays de l'incident : déterminé par la POSITION (jamais par la langue ni le
