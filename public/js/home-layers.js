@@ -38,6 +38,13 @@ async function drawWeatherLayer() {
   }
   const g = r.grid;
   window._lastWxAt = g.updatedAt || window._lastWxAt;
+  // Panne amont : la DERNIÈRE grille connue s'affiche avec son heure réelle
+  // (« météo de HH:MM ») — informative, jamais présentée comme fraîche.
+  if (g.stale && g.updatedAt) {
+    const hm = new Date(g.updatedAt).toLocaleTimeString(LANG === 'ar' ? 'ar-TN' : 'fr-FR',
+      { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+    transientBanner(t('wx_layer_stale', { t: hm }));
+  }
   for (const c of g.cells) {
     // Voile de température : cercles LARGES qui se chevauchent et se fondent —
     // un vrai nuage de couleur, sans coutures ni damier (les rectangles à

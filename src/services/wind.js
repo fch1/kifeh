@@ -187,8 +187,15 @@ export async function getWeatherGrid(minLat, maxLat, minLng, maxLng, n = 4) {
     ? (cfgMin === 0 ? 0 : Math.max(cfgMin, 30)) : 30) * 60_000;
   const hit = gridCache.get(key);
   if (hit && Date.now() - hit.at < ttlMs) return hit.data;
+  // Dernière grille CONNUE (même périmée) : servie avec son horodatage réel
+  // et stale:true pendant une panne — l'utilisateur voit « météo de HH:MM »,
+  // jamais une erreur sèche, tant qu'on a su un jour (≤ 6 h).
+  const lastKnown = hit && Date.now() - hit.at < 6 * 3600_000
+    ? { ...hit.data, stale: true } : null;
   // Anti-martèlement : zone en échec récent → pas de nouvel essai avant 5 min.
-  if (ttlMs > 0 && gridFailAt.has(key) && Date.now() - gridFailAt.get(key) < 5 * 60_000) return null;
+  if (ttlMs > 0 && gridFailAt.has(key) && Date.now() - gridFailAt.get(key) < 5 * 60_000) {
+    return lastKnown;
+  }
   // Dédoublonnage : plusieurs visiteurs sur la même zone = UNE requête amont.
   if (gridPending.has(key)) return gridPending.get(key);
   const inflight = (async () => {
@@ -230,7 +237,7 @@ export async function getWeatherGrid(minLat, maxLat, minLng, maxLng, n = 4) {
     return data;
   } catch {
     gridFailAt.set(key, Date.now());
-    return null; // panne indépendante
+    return lastKnown; // panne : dernière grille connue horodatée plutôt que rien
   } finally { gridPending.delete(key); }
   })();
   gridPending.set(key, inflight);
