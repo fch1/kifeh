@@ -7,7 +7,7 @@
 //   · ressources versionnées (vendor, images) : cache d'abord (immuables).
 'use strict';
 
-const SHELL_CACHE = 'kifeh-shell-v1';
+const SHELL_CACHE = 'kifeh-shell-v2'; // v2 31/07 : purge des clients restés sur d'anciens actifs
 const PRECACHE = [
   '/', '/index.html', '/offline.html', '/css/app.css',
   '/js/i18n.js', '/js/api.js', '/js/map-common.js', '/js/home.js', '/js/home-layers.js',
