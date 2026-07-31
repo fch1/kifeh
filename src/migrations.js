@@ -462,4 +462,15 @@ export function runMigrations(db) {
       WHERE key IN ('fire_forecast_enabled_fr', 'fire_forecast_enabled_tn') AND value = '0'`).run();
     db.prepare(`INSERT OR IGNORE INTO settings(key, value) VALUES ('mig_fire_forecast_rollout', '1')`).run();
   })();
+
+  // 3i. Affichage public DFCI — ACTIVÉ le 31/07/2026 sur décision explicite
+  // de Farah (« active le DFCI public »). Bascule unique du '0' semé à
+  // l'origine ; l'administration garde la coupure à chaud.
+  (() => {
+    const done = db.prepare(`SELECT 1 FROM settings WHERE key = 'mig_dfci_public_rollout'`).get();
+    if (done) return;
+    db.prepare(`UPDATE settings SET value = '1'
+      WHERE key = 'dfci_public_display_enabled' AND value = '0'`).run();
+    db.prepare(`INSERT OR IGNORE INTO settings(key, value) VALUES ('mig_dfci_public_rollout', '1')`).run();
+  })();
 }

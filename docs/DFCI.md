@@ -1,5 +1,14 @@
 # Repère DFCI — carreau de 2 km (feux français)
 
+> **ACTIVATION — 31/07/2026.** L'affichage public du repère DFCI est ACTIF
+> sur décision explicite de Farah (« active le DFCI public »), sans
+> validation SDIS préalable (moyens indisponibles — décision assumée).
+> Garde-fous inchangés : précision « indicative » affichée, code calculé
+> depuis la position EXACTE côté serveur uniquement, jamais de coordonnées
+> exactes dans la fiche publique, coupure à chaud possible
+> (dfci_public_display_enabled=0).
+
+
 Quand on signale un incendie aux sapeurs-pompiers, le carroyage DFCI est un
 langage géographique qu'ils pratiquent : « KD42F7 » désigne un carreau de
 2 km × 2 km. Kifeh calcule automatiquement ce repère pour chaque feu français

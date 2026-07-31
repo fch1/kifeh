@@ -200,8 +200,8 @@ ok(capFr.data.layers.officialAlerts.enabled === false && capFr.data.layers.offic
   'vigilance sans clé → not_configured (honnête, pas cassé)');
 ok(capFr.data.emergency.numbers.fire.join(',') === '18,112' && capFr.data.timezone === 'Europe/Paris',
   'France : numéros 18/112 + fuseau Europe/Paris');
-ok(capFr.data.layers.emergencyGrid.enabled === true && capFr.data.layers.emergencyGrid.publicDisplay === false,
-  'carroyage d’urgence : calcul actif, affichage public éteint (décision en attente)');
+ok(capFr.data.layers.emergencyGrid.enabled === true && capFr.data.layers.emergencyGrid.publicDisplay === true,
+  'carroyage d’urgence : calcul ET affichage public actifs (décision Farah du 31/07)');
 
 const capTn = await api('/api/public/capabilities?country=TN');
 ok(capTn.data.country === 'TN' && capTn.data.timezone === 'Africa/Tunis', 'réponse Tunisie + fuseau de Tunis');

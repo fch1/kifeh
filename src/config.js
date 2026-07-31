@@ -110,7 +110,10 @@ export const defaultSettings = {
   // vérifiable via /healthz et le backfill --dry-run) ; l'AFFICHAGE public
   // reste éteint jusqu'à validation opérationnelle (docs/DFCI.md).
   dfci_enabled_fr: '1',
-  dfci_public_display_enabled: '0',
+  // AFFICHAGE PUBLIC ACTIVÉ le 31/07/2026 sur décision explicite de Farah
+  // (« active le DFCI public ») — précision « indicatif » et pédagogie de la
+  // fiche inchangées (docs/DFCI.md).
+  dfci_public_display_enabled: '1',
   verification_required: '1',   // 0 = publication directe sans OTP (temporaire, le temps de configurer SMS/e-mail)
   other_category_enabled: '0',        // catégorie « Autre » désactivée par défaut
   anonymize_radius_m: '250',          // rayon d'anonymisation public (100–300 m)
