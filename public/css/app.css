@@ -965,3 +965,16 @@ html, body { overscroll-behavior: none; }
    24-72 h discret — l'heure exacte reste dans la fiche (jamais couleur seule). */
 .marker-sat-pin.sat-age-mid { opacity: .78; }
 .marker-sat-pin.sat-age-old { opacity: .5; filter: saturate(.6); }
+
+/* Bande « Mode feux » (master §7 — progression sans bascule d'interface) */
+.firemode-bar {
+  display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+  margin-top: .4rem; padding: .4rem .6rem;
+  background: var(--kifeh-color-surface); border: 1px solid var(--kifeh-color-border);
+  border-radius: var(--kifeh-radius-pill); box-shadow: var(--kifeh-shadow);
+  font-size: var(--kifeh-fs-sm); width: fit-content; max-width: 100%;
+}
+.firemode-bar .fm-close {
+  background: transparent; border: none; cursor: pointer; font-size: 1rem;
+  color: var(--kifeh-color-text-muted); padding: 0 .25rem; min-height: 32px;
+}

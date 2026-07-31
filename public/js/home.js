@@ -1501,6 +1501,33 @@ syncTypeControls(); // état initial (confiance satellite masquée par défaut)
 // « Incendie » est la première catégorie et RÉUNIT signalements citoyens et
 // observations satellite (dédupliqués quand un signalement est corroboré).
 // Le filtre feu actif seul déclenche l'état vide honnête (limites satellite).
+// Progression du mode feux (master §7) : Niveau 1 Comprendre → Situation,
+// Niveau 2 Explorer → Calques. Discrète, fermable (mémorisé), jamais une
+// nouvelle interface. Le niveau Analyser rejoindra la bande AVEC le replay.
+function syncFireModeBar() {
+  let bar = document.getElementById('fireModeBar');
+  const wanted = fireFilterActive();
+  let hidden = false;
+  try { hidden = localStorage.getItem('kifeh_firemode_bar_hidden') === '1'; } catch {}
+  if (!wanted || hidden) { bar?.remove(); return; }
+  if (bar) return;
+  bar = document.createElement('div');
+  bar.id = 'fireModeBar';
+  bar.className = 'firemode-bar';
+  bar.setAttribute('role', 'group');
+  bar.innerHTML = `<strong>🔥 ${esc(t('firemode_title'))}</strong>
+    <button type="button" class="btn secondary small-btn" id="fmUnderstand">${esc(t('firemode_understand'))}</button>
+    <button type="button" class="btn secondary small-btn" id="fmExplore">${esc(t('firemode_explore'))}</button>
+    <button type="button" class="fm-close" aria-label="×">×</button>`;
+  document.querySelector('.chips')?.insertAdjacentElement('afterend', bar);
+  bar.querySelector('#fmUnderstand').addEventListener('click', () => document.getElementById('navSituation')?.click());
+  bar.querySelector('#fmExplore').addEventListener('click', () => document.getElementById('btnLayers')?.click());
+  bar.querySelector('.fm-close').addEventListener('click', () => {
+    try { localStorage.setItem('kifeh_firemode_bar_hidden', '1'); } catch {}
+    bar.remove();
+  });
+}
+
 function fireFilterActive() {
   return filters.types.size === 1 && filters.types.has('fire');
 }
@@ -1542,6 +1569,7 @@ document.getElementById('filterApply').addEventListener('click', async () => {
   document.getElementById('chipOngoing').setAttribute('aria-pressed', filters.status === 'active');
   window.track?.('filters_applied', { types: [...filters.types].join(',') || 'all', period_h: filters.periodH || 'all', source: filters.source || 'all' });
   if (filters.types.has('fire')) window.track?.('fire_map_opened', {});
+  syncFireModeBar();
   await loadIncidents();
   updateFilterBadge();
   closeSheets();
