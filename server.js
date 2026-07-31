@@ -16,6 +16,7 @@ import { manageRouter } from './src/routes/manage.js';
 import { adminRouter } from './src/routes/admin.js';
 import { eventsRouter } from './src/routes/events.js';
 import { devRouter } from './src/routes/dev.js';
+import { seoRouter } from './src/routes/seo.js';
 import { startScheduler } from './src/services/scheduler.js';
 import { effisStatus } from './src/services/effis.js';
 import { roadsStatus } from './src/services/roads.js';
@@ -202,6 +203,10 @@ app.use('/api/manage', manageRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/events', eventsRouter);
 if (config.isDev) app.use('/api/dev', devRouter);
+
+// Pages d'intention rendues serveur (/{langue}/{territoire}/incendies) —
+// AVANT le statique : contenu réel + canonical + hreflang (docs/URL_CONVENTION.md).
+app.use(seoRouter);
 
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders(res, filePath) {

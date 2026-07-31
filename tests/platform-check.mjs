@@ -275,6 +275,27 @@ const i18nFr = await api('/api/public/i18n/sources?lang=fr');
 ok(i18nFr.data.messages.freshness_fresh === 'À jour', 'espace sources servi en français');
 ok((await api('/api/public/i18n/inexistant')).status === 404, 'espace inconnu → 404');
 
+section('Pages SEO rendues serveur (/{langue}/{territoire}/incendies)');
+const pFrFr = await fetch(`${BASE}/fr/fr/incendies`);
+const hFrFr = await pFrFr.text();
+ok(pFrFr.status === 200 && hFrFr.includes('<h1>'), '/fr/fr/incendies servie avec contenu');
+ok(hFrFr.includes('rel="canonical" href="https://kifeh.app/fr/fr/incendies"'), 'canonical exact');
+ok(['fr-FR', 'ar-FR', 'fr-TN', 'ar-TN', 'x-default'].every((h) => hFrFr.includes(`hreflang="${h}"`)),
+  'hreflang : les 4 variantes servies + x-default, rien d’autre');
+ok(hFrFr.includes('18') && hFrFr.includes('112'), 'urgences françaises (18/112)');
+ok(hFrFr.includes('"@type":"Dataset"'), 'Dataset schema.org présent');
+const hArTn = await (await fetch(`${BASE}/ar/tn/incendies`)).text();
+ok(hArTn.includes('dir="rtl"') && hArTn.includes('lang="ar"'), '/ar/tn : RTL réel');
+ok(hArTn.includes('198') && !/\b(?:le )?18\b(?!\d)/.test(hArTn.replace(/utf-8|maxItems/g, '')),
+  '/ar/tn : le 198 — jamais le numéro français');
+ok(!/effis|arome|dfci/i.test(hArTn), 'une page tunisienne ne mentionne JAMAIS EFFIS/AROME/DFCI');
+const hFrTn = await (await fetch(`${BASE}/fr/tn/incendies`)).text();
+ok(hFrTn.includes('Tunisie') && !/effis|arome|dfci/i.test(hFrTn), '/fr/tn : localisée, capacités tunisiennes');
+const redir = await fetch(`${BASE}/fr/incendies`, { redirect: 'manual' });
+ok(redir.status === 301 && String(redir.headers.get('location')).endsWith('/fr/fr/incendies'),
+  '/fr/incendies (ambigu) → 301 /fr/fr/incendies');
+ok((await fetch(`${BASE}/fr/de/incendies`)).status === 404, 'variante non servie → 404 (jamais fantôme)');
+
 section('healthz : fraîcheur typée par source');
 const hz = await api('/healthz');
 ok(hz.data.firms && 'status' in hz.data.firms
