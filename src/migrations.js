@@ -449,4 +449,17 @@ export function runMigrations(db) {
       db.exec(`ALTER TABLE incidents ADD COLUMN dfci_ambiguous INTEGER NOT NULL DEFAULT 0`);
     }
   })();
+
+  // 3h. Rollout prévisions (31/07/2026) : le lancement sombre du matin a semé
+  // fire_forecast_enabled_* = '0' (INSERT OR IGNORE) AVANT l'activation — les
+  // nouveaux défauts '1' ne réappliquent jamais une clé déjà stockée. Bascule
+  // UNIQUE vers '1', gardée par un marqueur : elle ne rejouera JAMAIS, et
+  // l'administration reste libre de couper ensuite (coupure à chaud testée).
+  (() => {
+    const done = db.prepare(`SELECT 1 FROM settings WHERE key = 'mig_fire_forecast_rollout'`).get();
+    if (done) return;
+    db.prepare(`UPDATE settings SET value = '1'
+      WHERE key IN ('fire_forecast_enabled_fr', 'fire_forecast_enabled_tn') AND value = '0'`).run();
+    db.prepare(`INSERT OR IGNORE INTO settings(key, value) VALUES ('mig_fire_forecast_rollout', '1')`).run();
+  })();
 }
