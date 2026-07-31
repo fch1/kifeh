@@ -185,7 +185,7 @@ export const defaultSettings = {
   fire_situation_enabled_fr: '1',
   // Vent : modèle Météo-France (AROME/ARPEGE) servi par Open-Meteo — libre,
   // sans clé. Fournisseur configurable (WIND_URL pour les tests/alternatives).
-  wind_provider: 'open_meteo_meteofrance',
+  wind_provider: 'arome_france_hd_openmeteo', // AROME France HD, EXPLICITE (jamais le mode auto),
   wind_cache_min: '15',                 // cadence réelle du modèle : inutile plus souvent
   wind_stale_min: '90',                 // au-delà : « données plus assez récentes »
   // Contexte « sous le vent » — calcul CONSERVATEUR, jamais une prévision :

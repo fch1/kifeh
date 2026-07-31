@@ -14,7 +14,9 @@
 // aucune écriture dans la base de production — zéro risque pour les données).
 import fs from 'node:fs';
 import path from 'node:path';
-import { getSetting, setSetting, getSettingNum } from '../db.js';
+import { db, getSetting, setSetting, getSettingNum } from '../db.js';
+import { uuid } from './crypto.js';
+import { broadcast } from '../routes/events.js';
 import { config } from '../config.js';
 
 const BASE = () => process.env.EFFIS_URL || 'https://api.effis.emergency.copernicus.eu';
@@ -143,6 +145,17 @@ export async function syncEffis({ force = false } = {}) {
     fs.renameSync(tmp, cacheFile());
     setSetting('effis_last_success_at', mem.updatedAt);
     setSetting('effis_last_error', '');
+    // Historisation (Lot 1) : CHAQUE version publiée d'un périmètre est
+    // conservée (jamais écrasée) — le replay ne montrera que ce qui était
+    // réellement connu à l'instant choisi. area_ha vient TOUJOURS d'EFFIS,
+    // jamais d'un calcul sur la géométrie simplifiée.
+    try { recordBurnedAreaVersions(areas); } catch (e) {
+      console.error('[effis] versionnement :', String(e?.message || '').slice(0, 80));
+    }
+    // Événement typé pour les clients temps réel (reprise via Last-Event-ID).
+    broadcast('burned-area.batch', {
+      country: 'FR', count: areas.length, receivedAt: mem.updatedAt,
+    });
     return { synced: areas.length };
   } catch (e) {
     // Message d'état SANS détail sensible ; l'ancien cache reste servi tel quel.
@@ -152,6 +165,27 @@ export async function syncEffis({ force = false } = {}) {
       new Date(Date.now() - Math.max(0, intervalMin() - 15) * 60_000).toISOString());
     throw e;
   } finally { syncRunning = false; }
+}
+
+// Enregistre les versions inédites (clé : feature + published_at) et maintient
+// is_latest — une seule version « courante » par périmètre.
+function recordBurnedAreaVersions(areas) {
+  const batchId = uuid();
+  const now = new Date().toISOString();
+  const ins = db.prepare(`INSERT OR IGNORE INTO burned_area_versions
+      (id, effis_feature_id, geometry_display, area_ha_source, commune, province,
+       fire_date, published_at, received_at, source_batch_id, is_latest)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`);
+  const demote = db.prepare(`UPDATE burned_area_versions SET is_latest = 0
+      WHERE effis_feature_id = ? AND published_at < ?`);
+  db.transaction(() => {
+    for (const a of areas) {
+      const published = a.updatedAt || a.firedate || now;
+      const r = ins.run(uuid(), a.id, JSON.stringify(a.rings), a.areaHa,
+        a.commune, a.province, a.firedate, published, now, batchId);
+      if (r.changes > 0) demote.run(a.id, published);
+    }
+  })();
 }
 
 // ── Lecture pour l'API publique ──────────────────────────────────────────────

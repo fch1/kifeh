@@ -410,8 +410,8 @@ function renderCountryButton() {
   if (ar) ar.hidden = currentCountry() === 'FR';
   // Titre descriptif (référencement) — marque bilingue seulement côté Tunisie.
   document.title = currentCountry() === 'FR'
-    ? 'Kifeh — incidents en temps réel : électricité, eau, incendie, internet'
-    : 'Kifeh كيفاه — incidents en temps réel : électricité, eau, incendie, internet';
+    ? 'Kifeh — incidents en quasi temps réel : électricité, eau, incendie, internet'
+    : 'Kifeh كيفاه — incidents en quasi temps réel : électricité, eau, incendie, internet';
 }
 renderCountryButton();
 document.getElementById('countrySwitch').addEventListener('click', () => openSheet('countrySheet'));

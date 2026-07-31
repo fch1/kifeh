@@ -289,10 +289,15 @@ async function syncCountry(country) {
     ? Math.min(10, getSettingNum('firms_backfill_days') || 7)
     : (getSettingNum('firms_day_range') || 1);
 
+  // Historisation (Lot 1) : chaque détection porte SA réception par Kifeh et
+  // son lot d'import — la table reste immuable (jamais d'écrasement).
+  const batchId = uuid();
   const insert = db.prepare(`INSERT OR IGNORE INTO satellite_detections
       (id, provider, source, satellite, instrument, external_fingerprint, lat, lng, scan, track,
-       acq_date, acq_time, acquired_at, confidence, frp, brightness, day_night, version, raw_payload, country_code)
-      VALUES (?, 'NASA_FIRMS', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+       acq_date, acq_time, acquired_at, confidence, frp, brightness, day_night, version, raw_payload, country_code,
+       received_at, source_batch_id)
+      VALUES (?, 'NASA_FIRMS', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+              strftime('%Y-%m-%dT%H:%M:%fZ','now'), ?)`);
   let imported = 0, outOfArea = 0, duplicates = 0;
   const errors = [];
 
@@ -314,7 +319,7 @@ async function syncCountry(country) {
       const id = uuid();
       const res = insert.run(id, d.source, d.satellite, d.instrument, fp, d.lat, d.lng,
         d.scan, d.track, d.acqDate, d.acqTime, d.acquiredAt, d.confidence, d.frp,
-        d.brightness, d.dayNight, d.version, d.raw, country);
+        d.brightness, d.dayNight, d.version, d.raw, country, batchId);
       if (res.changes === 0) { duplicates++; continue; } // empreinte déjà importée
       const eventId = attachToEvent(d, country);
       db.prepare(`UPDATE satellite_detections SET satellite_event_id = ? WHERE id = ?`).run(eventId, id);
@@ -328,6 +333,14 @@ async function syncCountry(country) {
   if (errors.length < (sources.length || 1)) {
     setSetting(keyFor('firms_last_success_at', country), new Date().toISOString());
     if (isBackfill) setSetting(backfillKey, new Date().toISOString());
+    // Événement typé (Lot 1) : les clients rechargent SEULEMENT s'il y a du
+    // neuf — jamais toute la carte à chaque battement.
+    if (imported > 0) {
+      broadcast('fire.batch', {
+        country, snapshotId: batchId, imported,
+        receivedAt: new Date().toISOString(),
+      });
+    }
   }
   setSetting(keyFor('firms_last_error', country), errors.join(' ; ') || '');
   return { imported, duplicates, outOfArea, linked, errors };

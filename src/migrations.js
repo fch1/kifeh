@@ -409,7 +409,36 @@ export function runMigrations(db) {
       db.exec(`ALTER TABLE email_alert_subscriptions ADD COLUMN digest_opt_in INTEGER NOT NULL DEFAULT 0`);
     }
 
-    // 3g. Repère DFCI (feux français) — colonnes ADDITIVES, null par défaut :
+    // 3f-quater. VÉRITÉ DES DONNÉES (Lot 1 « Feux FR ») — historisation :
+  //   · détections satellite : heure de réception + lot d'import (additif ;
+  //     la table était déjà IMMUABLE : INSERT OR IGNORE + empreinte unique) ;
+  //   · périmètres brûlés EFFIS : CHAQUE version publiée est conservée —
+  //     indispensable au replay honnête (« ce qui était connu à l'instant T »).
+  const detCols = db.prepare(`PRAGMA table_info(satellite_detections)`).all().map((c) => c.name);
+  if (detCols.length && !detCols.includes('received_at')) {
+    db.exec(`ALTER TABLE satellite_detections ADD COLUMN received_at TEXT`);
+    db.exec(`ALTER TABLE satellite_detections ADD COLUMN source_batch_id TEXT`);
+  }
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS burned_area_versions (
+      id TEXT PRIMARY KEY,
+      effis_feature_id INTEGER NOT NULL,
+      geometry_display TEXT NOT NULL,      -- anneaux simplifiés [lat,lng] (affichage)
+      area_ha_source INTEGER,              -- TOUJOURS la surface fournie par EFFIS,
+                                           -- jamais recalculée depuis la géométrie simplifiée
+      commune TEXT, province TEXT,
+      fire_date TEXT,
+      published_at TEXT NOT NULL,          -- lastupdate côté Copernicus
+      received_at TEXT NOT NULL,           -- réception par Kifeh
+      source_batch_id TEXT,
+      is_latest INTEGER NOT NULL DEFAULT 1,
+      UNIQUE(effis_feature_id, published_at)
+    );
+    CREATE INDEX IF NOT EXISTS idx_bav_feature ON burned_area_versions(effis_feature_id, published_at);
+    CREATE INDEX IF NOT EXISTS idx_bav_latest ON burned_area_versions(is_latest, fire_date);
+  `);
+
+  // 3g. Repère DFCI (feux français) — colonnes ADDITIVES, null par défaut :
     //     l'ancien code les ignore, aucune donnée existante n'est modifiée.
     const dfciCols = db.prepare(`PRAGMA table_info(incidents)`).all().map((c) => c.name);
     if (!dfciCols.includes('dfci_code')) {

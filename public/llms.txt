@@ -1,7 +1,7 @@
 # Kifeh (كيفاه)
 
 > Kifeh — « comment ? » en tunisien — est une plateforme citoyenne open source
-> qui cartographie en temps réel les incidents locaux (incendies, coupures
+> qui cartographie en quasi temps réel les incidents locaux (incendies, coupures
 > d'électricité, coupures d'eau, pannes internet) en Tunisie et en France.
 > Tagline : « L'information qui aide à agir. » Bilingue français-arabe (RTL).
 
@@ -22,7 +22,7 @@ Faits vérifiables :
 
 Pages utiles :
 
-- [Carte en direct](https://kifeh.app/) : incidents en temps réel
+- [Carte](https://kifeh.app/) : incidents en quasi temps réel
 - [Signaler un incident](https://kifeh.app/declare.html)
 - [Questions fréquentes](https://kifeh.app/faq.html)
 - [À propos](https://kifeh.app/a-propos.html)

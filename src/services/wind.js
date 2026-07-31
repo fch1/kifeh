@@ -32,7 +32,11 @@ async function fetchPointJson(lat, lng, ttlMs) {
   if (pendingPoint.has(key)) return pendingPoint.get(key);
   const p = (async () => {
     try {
-      const url = `${BASE()}/v1/meteofrance?latitude=${lat.toFixed(3)}&longitude=${lng.toFixed(3)}`
+      // Modèle EXPLICITE (Lot 1) : AROME France HD — jamais le mode « auto »
+      // qui peut mélanger plusieurs modèles sans le dire. Le nom du modèle
+      // accompagne chaque donnée servie.
+      const url = `${BASE()}/v1/forecast?latitude=${lat.toFixed(3)}&longitude=${lng.toFixed(3)}`
+        + `&models=meteofrance_arome_france_hd`
         + `&current=wind_speed_10m,wind_direction_10m,wind_gusts_10m,temperature_2m,apparent_temperature,cloud_cover,relative_humidity_2m`
         + `&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m,temperature_2m,visibility`
         + `&forecast_days=1&timezone=UTC`;
@@ -89,7 +93,7 @@ export async function getWind(lat, lng) {
       directionFromDeg: Math.round(c.wind_direction_10m),          // convention météo : d'où vient le vent
       directionToDeg: (Math.round(c.wind_direction_10m) + 180) % 360, // vers où il souffle
       observedAt: c.time ? `${c.time}:00Z`.replace(/:00Z$/, ':00Z').replace('::', ':') : new Date().toISOString(),
-      provider: getSetting('wind_provider') || 'open_meteo_meteofrance',
+      provider: getSetting('wind_provider') || 'arome_france_hd_openmeteo',
       fetchedAt: new Date().toISOString(),
       forecast, // [{inHours, speedKmh, directionToDeg, gustsKmh}] — +3 h / +6 h
     };
@@ -155,7 +159,7 @@ function fillHeatFromJson(lat, lng, j) {
       humidityPct: Number.isFinite(c.relative_humidity_2m) ? Math.round(c.relative_humidity_2m) : null,
       visibilityKm: visibilityM !== null ? Math.round(visibilityM / 100) / 10 : null,
       observedAt: c.time ? (/Z$/.test(c.time) ? c.time : `${c.time}:00Z`) : new Date().toISOString(),
-      provider: getSetting('wind_provider') || 'open_meteo_meteofrance',
+      provider: getSetting('wind_provider') || 'arome_france_hd_openmeteo',
     };
     heatCache.set(key, { at: Date.now(), data });
     if (heatCache.size > 500) heatCache.delete(heatCache.keys().next().value);
@@ -196,7 +200,8 @@ export async function getWeatherGrid(minLat, maxLat, minLng, maxLng, n = 4) {
         lngs.push((minLng + ((j + 0.5) / n) * (maxLng - minLng)).toFixed(3));
       }
     }
-    const url = `${BASE()}/v1/meteofrance?latitude=${lats.join(',')}&longitude=${lngs.join(',')}`
+    const url = `${BASE()}/v1/forecast?latitude=${lats.join(',')}&longitude=${lngs.join(',')}`
+      + `&models=meteofrance_arome_france_hd`
       + `&current=temperature_2m,wind_speed_10m,wind_direction_10m&timezone=UTC`;
     const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
     if (!res.ok) throw new Error(`meteo ${res.status}`);
@@ -217,7 +222,7 @@ export async function getWeatherGrid(minLat, maxLat, minLng, maxLng, n = 4) {
       cells, n,
       stepLat: (maxLat - minLat) / n, stepLng: (maxLng - minLng) / n,
       updatedAt: new Date().toISOString(),
-      provider: getSetting('wind_provider') || 'open_meteo_meteofrance',
+      provider: getSetting('wind_provider') || 'arome_france_hd_openmeteo',
     };
     gridCache.set(key, { at: Date.now(), data });
     if (gridCache.size > 200) gridCache.delete(gridCache.keys().next().value);
