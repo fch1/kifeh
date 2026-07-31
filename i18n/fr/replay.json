@@ -1,0 +1,10 @@
+{
+  "title": "Replay 72 h",
+  "play": "Lecture",
+  "pause": "Pause",
+  "back_to_live": "Revenir au direct",
+  "speed": "Vitesse",
+  "current_time": "Instant affiché",
+  "known_at_note": "Le replay montre uniquement ce qui était connu à cet instant — une zone brûlée publiée plus tard n'y apparaît pas encore.",
+  "weather_not_replayed": "La météo n'est pas rejouée à ce stade."
+}

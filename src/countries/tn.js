@@ -7,6 +7,40 @@ export const tn = {
   directionByLanguage: { fr: 'ltr', ar: 'rtl' },
   timezone: 'Africa/Tunis',
   localeByLanguage: { fr: 'fr-TN', ar: 'ar-TN' },
+  currency: 'TND',
+  // Numéros VÉRIFIÉS (annuaire officiel — déjà servis par l'écran d'urgence) :
+  // Protection civile 198, Police 197, SAMU 190. JAMAIS de numéro français ici.
+  emergencyNumbers: {
+    fire: ['198'],
+    police: ['197'],
+    medical: ['190'],
+  },
+  // Capacités du territoire — la Tunisie bénéficie de TOUTES les capacités
+  // génériques compatibles avec ses sources vérifiées (FIRMS, signalements,
+  // replay, alertes). Les capacités absentes portent leur raison honnête :
+  // rien n'est simulé, aucun fournisseur français n'est utilisé hors de sa
+  // couverture, aucune page tunisienne ne mentionne EFFIS/DFCI/AROME.
+  capabilities: {
+    citizenReports:    { enabled: true },
+    thermalDetections: { enabled: true, provider: 'nasa-firms', settingFlag: 'nasa_firms_enabled' },
+    burnedAreas:       { enabled: false, reason: 'coverage_to_verify' },   // couverture EFFIS hors UE à vérifier
+    weatherModel:      { enabled: false, reason: 'model_to_integrate', candidateProvider: 'open-meteo' },
+    airQuality:        { enabled: false, reason: 'not_yet_enabled', candidateProvider: 'open-meteo-air' },
+    officialAlerts:    { enabled: false, reason: 'no_verified_source' },
+    roadEvents:        { enabled: false, reason: 'no_verified_source' },
+    emergencyGrid:     { enabled: false, reason: 'not_applicable' },       // carroyage type DFCI : concept français
+    aircraft:          { enabled: false, reason: 'license_review_pending', candidateProvider: 'airplanes-live' },
+    smokeSimulation:   { enabled: false, reason: 'charter_decision_pending' },
+    replay:            { enabled: true }, // détections FIRMS TN immuables + horodatées : rejouables
+  },
+  // Fonds de carte actuels (identiques : raster OSM + repli Carto).
+  // Sentinel-2 cloudless : candidat satellite, conditions d'usage à relire.
+  basemaps: {
+    default: 'osm-raster',
+    fallback: 'carto-voyager',
+    satellite: null,
+    satelliteCandidate: { provider: 'sentinel-2-cloudless', blocked: 'license_review_pending' },
+  },
   phone: { callingCode: '+216', normalizationStrategy: 'tn', placeholder: '+216 20 123 456' },
   map: {
     defaultCenter: [34.2, 9.6],

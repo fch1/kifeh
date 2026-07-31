@@ -46,6 +46,18 @@ obligatoire. CI GitHub (suites API + navigateur), surveillance production
   privé ; PWA (cache shell réseau-d'abord, /api jamais en cache, hors
   ligne honnête) ; navigation fixe 5 destinations ; onboarding 2 écrans.
 - Wording « quasi temps réel » appliqué (métas, titres, llms.txt, API).
+- FONDATIONS MUTUALISÉES (addendum, 31/07) : registre pays étendu
+  (src/countries/ + schema.js — capacités par concepts génériques, numéros
+  d'urgence vérifiés, fuseaux, devises) ; registre de capacités effectives
+  (src/services/capabilityRegistry.js + /api/public/capabilities) ; fraîcheur
+  typée (sourceFreshness) ; formatage localisé canonique→territoire
+  (localizationFormatter, pluriels arabes) ; i18n par espaces de noms
+  (i18n/fr|ar/{common,fire,map,replay,sources,alerts,seo}.json + API, parité
+  testée) ; matrice de capacités GÉNÉRÉE (docs/COUNTRY_CAPABILITY_MATRIX.md,
+  test anti-divergence) ; tokens --kifeh-* (docs/KIFEH_DESIGN_SYSTEM.md) ;
+  captures de non-régression de marque 320→1440 px FR+AR (npm run test:brand).
+  /api/fire/* MUTUALISÉE : la Tunisie sert détections + signalements + replay ;
+  une réponse tunisienne ne mentionne jamais EFFIS/DFCI/AROME.
 
 ## Présent dans le code mais DÉSACTIVÉ
 
@@ -60,9 +72,10 @@ obligatoire. CI GitHub (suites API + navigateur), surveillance production
 - Timeline : agrégats détections/FRP/EFFIS/citoyens — pas encore de
   déduplication multi-satellites des agrégats (les bruts, eux, sont tous
   conservés).
-- Statuts de fraîcheur : healthz expose lastSuccess/ageSeconds/hasError par
-  source ; les seuils typés fresh/delayed/stale/unavailable ne sont pas
-  encore centralisés (service sourceFreshness à créer).
+- Statuts de fraîcheur : CENTRALISÉS (src/services/sourceFreshness.js) —
+  fresh/delayed/stale/unavailable par source, servis par /healthz et
+  /api/fire/map ; le panneau visuel « Sources & fraîcheur » reste à faire
+  (Lot 6).
 
 ## ABSENT (à construire)
 

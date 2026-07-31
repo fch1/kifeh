@@ -10,6 +10,49 @@ export const fr = {
   directionByLanguage: { fr: 'ltr', ar: 'rtl' },
   timezone: 'Europe/Paris', // IANA : gère heure d'été/hiver automatiquement
   localeByLanguage: { fr: 'fr-FR', ar: 'ar' },
+  currency: 'EUR',
+  // Numéros VÉRIFIÉS (service-public.fr) : pompiers 18, police 17, SAMU 15,
+  // urgence européenne 112, SMS sourds/malentendants 114.
+  emergencyNumbers: {
+    fire: ['18', '112'],
+    police: ['17', '112'],
+    medical: ['15', '112'],
+    deafSms: ['114'],
+  },
+  // Capacités du territoire — CONCEPTS génériques, fournisseurs = configuration.
+  // Tout `enabled: true` correspond à une intégration RÉELLEMENT en production
+  // (docs/FIRE_PLATFORM_CURRENT_STATE.md) ; les indisponibilités portent leur
+  // raison (vocabulaire fermé de schema.js).
+  capabilities: {
+    citizenReports:    { enabled: true },
+    thermalDetections: { enabled: true, provider: 'nasa-firms', settingFlag: 'fr_nasa_firms_enabled' },
+    burnedAreas:       { enabled: true, provider: 'copernicus-effis' },
+    weatherModel:      {
+      enabled: true, provider: 'open-meteo',
+      model: 'meteofrance_arome_france_hd',
+      label: 'AROME France HD (Météo-France) via Open-Meteo',
+    },
+    airQuality:        { enabled: true, provider: 'open-meteo-air' },
+    officialAlerts:    { enabled: true, provider: 'meteofrance-vigilance', requiresEnv: 'METEOFRANCE_API_KEY' },
+    roadEvents:        { enabled: true, provider: 'bison-fute' },
+    // Carroyage DFCI : CALCUL actif, AFFICHAGE public derrière drapeau
+    // (décision opérationnelle en attente — docs/DFCI.md).
+    emergencyGrid:     {
+      enabled: true, provider: 'dfci-2km',
+      computeFlag: 'dfci_enabled_fr', displayFlag: 'dfci_public_display_enabled',
+    },
+    aircraft:          { enabled: false, reason: 'license_review_pending', candidateProvider: 'airplanes-live' },
+    smokeSimulation:   { enabled: false, reason: 'charter_decision_pending' },
+    replay:            { enabled: true },
+  },
+  // Fonds de carte ACTUELS (raster OSM + repli Carto — réglages à chaud).
+  // IGN orthophoto : accès sondé, conditions d'usage NON relues → candidat.
+  basemaps: {
+    default: 'osm-raster',
+    fallback: 'carto-voyager',
+    satellite: null,
+    satelliteCandidate: { provider: 'ign-ortho', blocked: 'license_review_pending' },
+  },
   phone: { callingCode: '+33', normalizationStrategy: 'fr', placeholder: '06 12 34 56 78' },
   map: {
     defaultCenter: [46.6, 2.4],

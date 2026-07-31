@@ -1,25 +1,33 @@
-// API cartographique « Feux FR » (Lot 1) — deux lectures :
-//   · /api/fire/map      : instantané complet d'une zone, avec meta.sources
-//     (fraîcheur RÉELLE par source) et un paramètre `at` qui ne restitue que
-//     ce qui était CONNU à cet instant (détections observées avant `at`,
-//     périmètres EFFIS déjà PUBLIÉS à `at` — jamais rétro-datés) ;
-//   · /api/fire/timeline : agrégats horaires (détections, FRP, publications
-//     EFFIS, signalements citoyens) pour la frise de replay.
+// API plateforme incidents/feux — MUTUALISÉE par territoire (addendum).
+// Deux lectures :
+//   · /api/fire/map      : instantané d'une zone, piloté par le REGISTRE DE
+//     CAPACITÉS (jamais de `if country === 'FR'` : chaque couche n'est lue et
+//     mentionnée QUE si le territoire la possède — une réponse tunisienne ne
+//     contient ni EFFIS ni AROME). meta.sources porte la fraîcheur TYPÉE
+//     (sourceFreshness) et le paramètre `at` ne restitue que ce qui était
+//     CONNU à cet instant (détections observées avant `at`, périmètres déjà
+//     PUBLIÉS à `at` — jamais rétro-datés) ;
+//   · /api/fire/timeline : agrégats horaires pour la frise de replay.
 // Quadruple horodatage : observed/published + received + generatedAt ; la
-// météo porte son modèle (AROME France HD, explicite). Quasi temps réel —
+// météo porte son modèle (configuration territoriale). Quasi temps réel —
 // jamais présenté comme « en direct ».
 import { Router } from 'express';
 import { db, getSetting } from '../db.js';
 import { isFiniteNum } from '../middleware/security.js';
 import { ipRateLimit } from '../middleware/rateLimit.js';
 import { requestCountry } from '../countries/index.js';
+import { getCapabilities } from '../services/capabilityRegistry.js';
+import { classifyFreshness, freshnessFromLastSuccess } from '../services/sourceFreshness.js';
 import { getWind, getHeat } from '../services/wind.js';
 import { effisStatus } from '../services/effis.js';
-import { msg } from '../i18n.js';
+import { getLang, msg } from '../i18n.js';
+import { nsMsg } from '../services/i18nNamespaces.js';
 
 export const fireRouter = Router();
 
-const enabledFor = (country) => country === 'FR' && getSetting('fire_situation_enabled_fr') !== '0';
+// Dernier import FIRMS réussi, par pays (clé historique côté TN).
+const firmsSuccessKey = (c) => (c === 'TN' ? 'firms_last_success_at' : `firms_last_success_at_${c.toLowerCase()}`);
+const firmsSyncKey = (c) => (c === 'TN' ? 'firms_last_sync_at' : `firms_last_sync_at_${c.toLowerCase()}`);
 
 function parseBbox(q) {
   if (!['minLat', 'maxLat', 'minLng', 'maxLng'].every((k) => isFiniteNum(q[k], -180, 180))) return null;
@@ -33,7 +41,9 @@ const iso = (v) => {
 // ── Instantané ───────────────────────────────────────────────────────────────
 fireRouter.get('/map', ipRateLimit('firemap_ip', 60, 5), async (req, res) => {
   const country = requestCountry(req);
-  if (!enabledFor(country)) return res.json({ enabled: false });
+  const caps = getCapabilities({ countryCode: country });
+  if (!caps?.fireMode) return res.json({ enabled: false });
+  const lang = getLang(req) === 'ar' ? 'ar' : 'fr';
   const b = parseBbox(req.query);
   if (!b) return res.status(400).json({ error: msg(req, 'invalid_params') });
   const at = iso(req.query.at); // replay : « ce qui était connu à cet instant »
@@ -50,10 +60,12 @@ fireRouter.get('/map', ipRateLimit('firemap_ip', 60, 5), async (req, res) => {
      ORDER BY acquired_at DESC LIMIT 500`
   ).all(country, b.minLat, b.maxLat, b.minLng, b.maxLng, since, at || now);
 
-  // Périmètres EFFIS : à `at`, la DERNIÈRE version PUBLIÉE avant `at` de
-  // chaque périmètre (un périmètre publié le 31 à 08:00 n'existe pas dans un
-  // replay au 30 à 20:00, même si le feu avait commencé avant).
-  const burnedAreas = db.prepare(
+  // Périmètres de zones brûlées — UNIQUEMENT si le territoire possède la
+  // capacité (sinon la réponse n'en parle pas du tout). À `at` : la DERNIÈRE
+  // version PUBLIÉE avant `at` de chaque périmètre (un périmètre publié le 31
+  // à 08:00 n'existe pas dans un replay au 30 à 20:00).
+  const hasBurned = caps.layers.burnedAreas?.enabled === true;
+  const burnedAreas = !hasBurned ? null : db.prepare(
     `SELECT v.effis_feature_id AS featureId, v.geometry_display AS rings,
             v.area_ha_source AS areaHa, v.commune, v.province, v.fire_date AS fireDate,
             v.published_at AS publishedAt, v.received_at AS receivedAt
@@ -77,50 +89,68 @@ fireRouter.get('/map', ipRateLimit('firemap_ip', 60, 5), async (req, res) => {
      ORDER BY started_at DESC LIMIT 200`
   ).all(country, b.minLat, b.maxLat, b.minLng, b.maxLng);
 
-  // Météo au centre (le replay météo arrive au Lot 3 — dit explicitement).
+  // Météo au centre — uniquement si le territoire a un modèle CONFIGURÉ
+  // (jamais de fournisseur hors de sa couverture, jamais de repli silencieux).
+  const hasWeather = caps.layers.weatherModel?.enabled === true;
   const cLat = (b.minLat + b.maxLat) / 2, cLng = (b.minLng + b.maxLng) / 2;
-  const [wind, heat] = at ? [null, null]
+  const [wind, heat] = (!hasWeather || at) ? [null, null]
     : await Promise.all([getWind(cLat, cLng), getHeat(cLat, cLng)]);
 
   const g = (k) => getSetting(k) || null;
-  const effis = effisStatus();
-  res.json({
+
+  // meta.sources : une entrée PAR CAPACITÉ ACTIVE, avec fraîcheur typée.
+  const sources = {
+    firms: {
+      latestObservation: detections[0]?.observedAt || null,
+      lastSync: g(firmsSyncKey(country)) || g('firms_last_sync_at'),
+      ...freshnessFromLastSuccess('thermalDetections',
+        g(firmsSuccessKey(country)) || g('firms_last_success_at')),
+      note: nsMsg(lang, 'fire', 'detection_note'),
+    },
+  };
+  if (hasBurned) {
+    const effis = effisStatus();
+    sources.effis = {
+      publishedAt: burnedAreas?.[0]?.publishedAt || null,
+      lastCheck: effis.lastSuccess,
+      ...freshnessFromLastSuccess('burnedAreas', effis.lastSuccess),
+    };
+  }
+  if (hasWeather) {
+    sources.weather = {
+      model: caps.layers.weatherModel.label || caps.layers.weatherModel.model,
+      fetchedAt: wind?.fetchedAt || null,
+      validAt: wind?.observedAt || null,
+      status: at ? 'not_replayed'
+        : (wind ? classifyFreshness('weatherModel',
+            Math.max(0, Math.round((Date.now() - Date.parse(wind.fetchedAt || now)) / 1000)))
+          : 'unavailable'),
+    };
+  }
+
+  const payload = {
     enabled: true,
     meta: {
       generatedAt: now,
+      country,
       replayAt: at, // null = présent
       replayLimited: Boolean(at), // météo/aérien non rejoués à ce lot
-      sources: {
-        firms: {
-          latestObservation: detections[0]?.observedAt || null,
-          lastSync: g('firms_last_sync_at'),
-          status: g('firms_last_success_at') ? 'fresh' : 'unavailable',
-          note: 'Observations satellite en quasi temps réel — jamais une caméra en direct.',
-        },
-        effis: {
-          publishedAt: burnedAreas[0]?.publishedAt || null,
-          lastCheck: effis.lastSuccess,
-          status: effis.hasError ? 'delayed' : (effis.lastSuccess ? 'fresh' : 'unavailable'),
-        },
-        weather: {
-          model: 'AROME France HD (Météo-France) via Open-Meteo',
-          fetchedAt: wind?.fetchedAt || null,
-          validAt: wind?.observedAt || null,
-          status: wind ? 'fresh' : (at ? 'not_replayed' : 'unavailable'),
-        },
-      },
+      sources,
     },
     detections,
-    burnedAreas,
     citizenReports,
-    weather: wind || heat ? { wind, heat } : null,
-  });
+  };
+  if (hasBurned) payload.burnedAreas = burnedAreas;
+  if (hasWeather) payload.weather = wind || heat ? { wind, heat } : null;
+  res.json(payload);
 });
 
 // ── Timeline (frise de replay) ───────────────────────────────────────────────
 fireRouter.get('/timeline', ipRateLimit('firemap_ip', 60, 5), (req, res) => {
   const country = requestCountry(req);
-  if (!enabledFor(country)) return res.json({ enabled: false });
+  const caps = getCapabilities({ countryCode: country });
+  if (!caps?.fireMode) return res.json({ enabled: false });
+  const lang = getLang(req) === 'ar' ? 'ar' : 'fr';
   const b = parseBbox(req.query);
   if (!b) return res.status(400).json({ error: msg(req, 'invalid_params') });
   const to = iso(req.query.to) || new Date().toISOString();
@@ -137,11 +167,6 @@ fireRouter.get('/timeline', ipRateLimit('firemap_ip', 60, 5), (req, res) => {
        AND acquired_at BETWEEN ? AND ?
      GROUP BY h ORDER BY h`
   ).all(country, b.minLat, b.maxLat, b.minLng, b.maxLng, from, to);
-  const effisPubs = db.prepare(
-    `SELECT ${hour('published_at')} AS h, COUNT(*) AS n
-     FROM burned_area_versions WHERE published_at BETWEEN ? AND ?
-     GROUP BY h ORDER BY h`
-  ).all(from, to);
   const citizen = db.prepare(
     `SELECT ${hour('created_at')} AS h, COUNT(*) AS n
      FROM incidents WHERE COALESCE(country_code,'TN') = ? AND type = 'fire'
@@ -149,10 +174,19 @@ fireRouter.get('/timeline', ipRateLimit('firemap_ip', 60, 5), (req, res) => {
        AND created_at BETWEEN ? AND ?
      GROUP BY h ORDER BY h`
   ).all(country, b.minLat, b.maxLat, b.minLng, b.maxLng, from, to);
-  res.json({
+  const payload = {
     enabled: true,
     from, to,
-    note: 'FRP cumulée par heure d’observation — jamais une taille, une température ni une surface de feu.',
-    detections, effisPublications: effisPubs, citizenFires: citizen,
-  });
+    note: nsMsg(lang, 'fire', 'frp_note'),
+    detections, citizenFires: citizen,
+  };
+  // Publications de zones brûlées : uniquement là où la capacité existe.
+  if (caps.layers.burnedAreas?.enabled === true) {
+    payload.effisPublications = db.prepare(
+      `SELECT ${hour('published_at')} AS h, COUNT(*) AS n
+       FROM burned_area_versions WHERE published_at BETWEEN ? AND ?
+       GROUP BY h ORDER BY h`
+    ).all(from, to);
+  }
+  res.json(payload);
 });

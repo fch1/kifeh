@@ -20,6 +20,7 @@ import { startScheduler } from './src/services/scheduler.js';
 import { effisStatus } from './src/services/effis.js';
 import { roadsStatus } from './src/services/roads.js';
 import { dfciEnabled, dfciReferenceLoaded, dfciReferenceVersion } from './src/services/dfci.js';
+import { classifyFreshness } from './src/services/sourceFreshness.js';
 import { msg } from './src/i18n.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -120,14 +121,21 @@ app.get('/healthz', (req, res) => {
       hasError: dfciEnabled() && !dfciReferenceLoaded(),
     };
   } catch { /* idem */ }
-  // Fraîcheur LISIBLE de chaque source (audit : « ageSeconds » par intégration).
-  const withAge = (s) => (s && typeof s === 'object'
-    ? { ...s, ageSeconds: s.lastSuccess ? Math.max(0, Math.round((Date.now() - Date.parse(s.lastSuccess)) / 1000)) : null }
-    : s);
+  // Fraîcheur LISIBLE de chaque source : ageSeconds (audit) + statut TYPÉ
+  // fresh/delayed/stale/unavailable (seuils centralisés — sourceFreshness).
+  const withAge = (s, sourceKey) => {
+    if (!s || typeof s !== 'object') return s;
+    const ageSeconds = s.lastSuccess
+      ? Math.max(0, Math.round((Date.now() - Date.parse(s.lastSuccess)) / 1000)) : null;
+    const status = sourceKey ? classifyFreshness(sourceKey, ageSeconds) : undefined;
+    return status ? { ...s, ageSeconds, status } : { ...s, ageSeconds };
+  };
   res.json({
     ok: true, backupAt, incidents,
-    firms: withAge(firms), offsite, vigilance: withAge(vigilance),
-    emailAlerts, effis: withAge(effis), roads: withAge(roads), dfci,
+    firms: withAge(firms, 'thermalDetections'), offsite,
+    vigilance: withAge(vigilance, 'officialAlerts'),
+    emailAlerts, effis: withAge(effis, 'burnedAreas'),
+    roads: withAge(roads, 'roadEvents'), dfci,
   });
 });
 

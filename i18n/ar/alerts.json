@@ -1,0 +1,9 @@
+{
+  "follow_zone": "متابعة هذه المنطقة",
+  "zone_followed": "منطقة متابَعة",
+  "new_detection_title": "رصد جديد بالأقمار الاصطناعية قرب {zone}",
+  "summary_title": "الوضع في {zone}",
+  "emergency_number_line": "في حالة خطر فوري: {numbers}",
+  "not_a_rescue": "كيفاه لا يعوّض مصالح النجدة.",
+  "unsubscribe": "إلغاء الاشتراك بنقرة واحدة"
+}

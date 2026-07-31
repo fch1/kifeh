@@ -1,0 +1,11 @@
+{
+  "app_name": "Kifeh",
+  "tagline": "L'information qui aide à agir.",
+  "near_realtime": "quasi temps réel",
+  "source_not_available_for_zone": "Cette source n'est pas encore disponible pour cette zone.",
+  "loading": "Chargement…",
+  "error_retry": "Impossible de charger. Réessayez.",
+  "back_to_map": "Retour à la carte",
+  "updated_at": "Mis à jour à {time}",
+  "local_time_note": "Heures affichées dans le fuseau du territoire consulté."
+}

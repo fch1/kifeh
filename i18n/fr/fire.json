@@ -1,0 +1,15 @@
+{
+  "title": "Incendies",
+  "situation_title": "Situation incendies",
+  "thermal_detection": "Détection thermique satellite",
+  "thermal_detections": "Détections thermiques satellite",
+  "confirmed_incident": "Incident confirmé par la communauté",
+  "citizen_report": "Signalement citoyen",
+  "official_update": "Information officielle",
+  "burned_area": "Zone brûlée (contour publié)",
+  "detection_note": "Une détection satellite est une observation en quasi temps réel — jamais une confirmation officielle.",
+  "frp_note": "La puissance radiative (FRP) n'est jamais une taille, une température ni une surface de feu.",
+  "last_observation": "Dernière observation : {time}",
+  "no_active": "Aucun incendie signalé dans cette zone actuellement.",
+  "emergency_reminder": "Kifeh ne remplace jamais les secours."
+}

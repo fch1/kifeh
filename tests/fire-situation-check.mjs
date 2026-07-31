@@ -574,8 +574,15 @@ async function main() {
     && tl.data.effisPublications.reduce((s2, r) => s2 + r.n, 0) === 2,
   'timeline : publications EFFIS agrégées par heure');
   ok(String(tl.data.note || '').includes('jamais'), 'timeline : la FRP n’est jamais une taille de feu (dit par l’API)');
-  const fmTn = await api('GET', '/api/fire/map?minLat=41&maxLat=51&minLng=-5&maxLng=10&country=TN');
-  ok(fmTn.data.enabled === false, 'Tunisie → /api/fire désactivée');
+  // Plateforme MUTUALISÉE (addendum) : la Tunisie accède aux capacités
+  // génériques (détections, signalements, replay) — mais sa réponse ne
+  // mentionne JAMAIS les capacités territoriales françaises (EFFIS, AROME).
+  const fmTn = await api('GET', '/api/fire/map?minLat=30&maxLat=38&minLng=7&maxLng=12&country=TN');
+  ok(fmTn.data.enabled === true && Array.isArray(fmTn.data.detections),
+    'Tunisie → /api/fire active (capacités génériques mutualisées)');
+  ok(!('burnedAreas' in fmTn.data) && !('weather' in fmTn.data)
+    && !/effis|arome/i.test(JSON.stringify(fmTn.data)),
+  'Tunisie → ni zones brûlées ni météo : aucune capacité française hors couverture');
   // SSE : identifiants croissants + reprise Last-Event-ID.
   {
     const ac = new AbortController();

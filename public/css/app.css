@@ -62,6 +62,64 @@
   --tap: 48px;
   --font-latin: 'IBM Plex Sans', -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
   --font-ar: 'IBM Plex Sans Arabic', 'IBM Plex Sans', 'Segoe UI', Tahoma, Arial, sans-serif;
+
+  /* ── Tokens Kifeh (docs/KIFEH_DESIGN_SYSTEM.md) ──────────────────────────
+     ALIAS formalisés des variables historiques : zéro changement visuel.
+     Toute NOUVELLE interface (mode feux MapLibre, replay, panneau sources…)
+     consomme EXCLUSIVEMENT ces tokens — aucune couleur codée en dur. */
+  --kifeh-color-primary: var(--primary);            /* marine — structure */
+  --kifeh-color-primary-hover: var(--primary-dark);
+  --kifeh-color-accent: var(--brand-red);           /* rouge Kifeh — action */
+  --kifeh-color-accent-hover: var(--brand-red-dark);
+  --kifeh-color-background: var(--bg);              /* crème */
+  --kifeh-color-surface: var(--surface);
+  --kifeh-color-text: var(--text);
+  --kifeh-color-text-muted: var(--muted);
+  --kifeh-color-border: var(--border);
+
+  --kifeh-status-info: var(--primary);
+  --kifeh-status-warning: var(--warn);
+  --kifeh-status-danger: var(--danger);
+  --kifeh-status-success: var(--ok);
+
+  /* Types d'incident (sémantique produit, identique carte/légende/fiches) */
+  --kifeh-type-fire: var(--fire);
+  --kifeh-type-electricity: var(--elec);
+  --kifeh-type-water: var(--water);
+  --kifeh-type-internet: var(--internet);
+
+  --kifeh-radius-sm: 8px;      /* puces, badges rectangulaires */
+  --kifeh-radius-md: var(--radius); /* 14px — boutons, champs, cartes */
+  --kifeh-radius-lg: 20px;     /* feuilles (bottom sheets), panneaux */
+  --kifeh-radius-pill: 999px;  /* pastilles, chips */
+
+  --kifeh-space-1: .25rem;
+  --kifeh-space-2: .5rem;
+  --kifeh-space-3: .875rem;
+  --kifeh-space-4: 1.25rem;
+
+  --kifeh-fs-xs: var(--fs-xs);
+  --kifeh-fs-sm: var(--fs-sm);
+  --kifeh-fs-md: var(--fs-md);
+  --kifeh-fs-lg: var(--fs-lg);
+  --kifeh-fs-xl: var(--fs-xl);
+
+  --kifeh-shadow: var(--shadow);
+  --kifeh-tap: var(--tap);
+  --kifeh-font-latin: var(--font-latin);
+  --kifeh-font-ar: var(--font-ar);
+
+  /* Échelle z-index OFFICIELLE (jamais de valeur inventée ailleurs) :
+     1 carte · 100 voiles carte · 900 FABs · 1000 en-têtes · 1100 panneaux
+     ancrés · 1200 bannières · 1400 superpositions · 1500 feuilles ·
+     1600 navigation basse (toujours au-dessus des feuilles). */
+  --kifeh-z-map: 1;
+  --kifeh-z-fabs: 900;
+  --kifeh-z-header: 1000;
+  --kifeh-z-banner: 1200;
+  --kifeh-z-overlay: 1400;
+  --kifeh-z-sheet: 1500;
+  --kifeh-z-nav: 1600;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }

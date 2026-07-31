@@ -1,0 +1,13 @@
+{
+  "layers": "Calques",
+  "legend": "Légende",
+  "basemap": "Fond de carte",
+  "zoom_in": "Zoomer",
+  "zoom_out": "Dézoomer",
+  "recenter": "Recentrer",
+  "share_view": "Partager cette vue",
+  "link_copied": "Lien copié.",
+  "age_recent": "Moins de 6 h",
+  "age_today": "6 à 24 h",
+  "age_older": "24 à 72 h"
+}

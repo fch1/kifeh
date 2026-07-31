@@ -1,0 +1,9 @@
+{
+  "follow_zone": "Suivre cette zone",
+  "zone_followed": "Zone suivie",
+  "new_detection_title": "Nouvelle détection satellite près de {zone}",
+  "summary_title": "Le point sur {zone}",
+  "emergency_number_line": "En cas de danger immédiat : {numbers}",
+  "not_a_rescue": "Kifeh ne remplace pas les secours.",
+  "unsubscribe": "Se désinscrire en un clic"
+}

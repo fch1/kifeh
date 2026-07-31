@@ -1,0 +1,8 @@
+{
+  "fire_title": "Carte des feux et incendies — {territory}",
+  "fire_description": "Suivez en quasi temps réel les signalements citoyens et les détections satellite en {territory}. Chaque donnée porte sa source et son horodatage.",
+  "territory_fr": "France",
+  "territory_tn": "Tunisie",
+  "emergency_fr": "Appelez le 18 ou le 112 en cas de danger immédiat.",
+  "emergency_tn": "Appelez la Protection civile au 198 en cas de danger."
+}

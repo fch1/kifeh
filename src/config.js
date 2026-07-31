@@ -181,8 +181,12 @@ export const defaultSettings = {
   // aussi (libellé honnête), plafonnées STRICTEMENT par abonné et par jour.
   push_satellite_enabled: '1',
   push_satellite_daily_max: '2',
-  // « Situation incendie » (France) : vent contextuel + informations officielles.
+  // « Situation incendie » : vent contextuel + informations officielles (FR)
+  // et, côté plateforme mutualisée, API /api/fire/* par territoire — la
+  // Tunisie bénéficie immédiatement des capacités génériques (FIRMS, replay,
+  // signalements) ; les couches absentes portent leur raison (registre).
   fire_situation_enabled_fr: '1',
+  fire_situation_enabled_tn: '1',
   // Vent : modèle Météo-France (AROME/ARPEGE) servi par Open-Meteo — libre,
   // sans clé. Fournisseur configurable (WIND_URL pour les tests/alternatives).
   wind_provider: 'arome_france_hd_openmeteo', // AROME France HD, EXPLICITE (jamais le mode auto),

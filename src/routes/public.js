@@ -17,6 +17,8 @@ import { getLang, msg } from '../i18n.js';
 import { config } from '../config.js';
 import { requestCountry, enabledCountries, getProfile, resolveCountry, isPhoneFor, normalizePhoneFor } from '../countries/index.js';
 import { publicVapidKey, sendTestPush } from '../services/push.js';
+import { getCapabilities } from '../services/capabilityRegistry.js';
+import { getNamespace, I18N_NAMESPACES } from '../services/i18nNamespaces.js';
 
 export const publicRouter = Router();
 
@@ -753,4 +755,29 @@ publicRouter.get('/email-alerts/unsubscribe', ipRateLimit('email_unsub_ip', 30, 
     <body style="font-family:sans-serif;max-width:480px;margin:3rem auto;text-align:center">
     <h2>${okUnsub ? msg(req, 'email_unsub_done') : msg(req, 'email_link_invalid')}</h2>
     <p><a href="/">Kifeh</a></p></body>`);
+});
+
+// ── Capacités effectives du territoire (addendum plateforme) ─────────────────
+// Le frontend interroge CE point pour savoir quoi afficher : couches actives,
+// raisons d'indisponibilité (mode dégradé propre), numéros d'urgence du pays,
+// fuseau. La langue ne change JAMAIS la réponse (langue ≠ pays ≠ position).
+publicRouter.get('/capabilities', (req, res) => {
+  const caps = getCapabilities({
+    countryCode: requestCountry(req),
+    language: getLang(req),
+  });
+  if (!caps) return res.status(404).json({ error: msg(req, 'invalid_params') });
+  res.set('Cache-Control', 'public, max-age=120');
+  res.json(caps);
+});
+
+// ── Espaces de noms i18n (nouvelles surfaces : mode feux, replay, sources) ──
+publicRouter.get('/i18n/:ns', (req, res) => {
+  const ns = String(req.params.ns || '');
+  const lang = getLang(req) === 'ar' ? 'ar' : 'fr';
+  if (!I18N_NAMESPACES.includes(ns)) return res.status(404).json({ error: 'unknown_namespace' });
+  const dict = getNamespace(lang, ns);
+  if (!dict) return res.status(500).json({ error: 'namespace_unreadable' });
+  res.set('Cache-Control', 'public, max-age=300');
+  res.json({ lang, ns, messages: dict });
 });

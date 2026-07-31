@@ -1,0 +1,21 @@
+{
+  "title": "Sources et fraîcheur",
+  "freshness_fresh": "À jour",
+  "freshness_delayed": "Retardée",
+  "freshness_stale": "Plus assez récente",
+  "freshness_unavailable": "Indisponible",
+  "observed_at": "Observé à {time}",
+  "published_at": "Publié à {time}",
+  "received_at": "Reçu par Kifeh à {time}",
+  "weather_run_at": "Modèle récupéré à {time}",
+  "weather_valid_at": "Valide à {time}",
+  "thermal_name": "Détections thermiques satellite",
+  "thermal_description": "Observations satellite d'anomalies thermiques, en quasi temps réel.",
+  "thermal_limitations": "Passages irréguliers ; nuages et fumée peuvent masquer des foyers ; une détection n'est pas une confirmation officielle.",
+  "burned_name": "Contours de zones brûlées",
+  "burned_description": "Contours publiés par la source officielle du territoire, à leur date de publication.",
+  "burned_limitations": "Publication différée (souvent quotidienne) ; les contours peuvent être révisés.",
+  "weather_name": "Météo du territoire",
+  "weather_description": "Modèle météo configuré pour le territoire consulté.",
+  "weather_limitations": "Le vent est un contexte — jamais une prévision de propagation d'incendie."
+}

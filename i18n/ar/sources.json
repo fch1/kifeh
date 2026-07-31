@@ -1,0 +1,21 @@
+{
+  "title": "المصادر والحداثة",
+  "freshness_fresh": "محدَّثة",
+  "freshness_delayed": "متأخّرة",
+  "freshness_stale": "لم تعد حديثة بما يكفي",
+  "freshness_unavailable": "غير متوفّرة",
+  "observed_at": "رُصد على الساعة {time}",
+  "published_at": "نُشر على الساعة {time}",
+  "received_at": "استلمه كيفاه على الساعة {time}",
+  "weather_run_at": "استُرجع النموذج على الساعة {time}",
+  "weather_valid_at": "صالح على الساعة {time}",
+  "thermal_name": "أرصاد حرارية بالأقمار الاصطناعية",
+  "thermal_description": "ملاحظات الأقمار الاصطناعية للشذوذ الحراري، بشكل شبه لحظي.",
+  "thermal_limitations": "مرور غير منتظم؛ قد تحجب السحب والدخان بعض البؤر؛ الرصد ليس تأكيدًا رسميًا.",
+  "burned_name": "حدود المناطق المحترقة",
+  "burned_description": "حدود تنشرها الجهة الرسمية للمنطقة، بتاريخ نشرها.",
+  "burned_limitations": "نشر مؤجَّل (يومي غالبًا)؛ وقد تُراجَع الحدود.",
+  "weather_name": "طقس المنطقة",
+  "weather_description": "نموذج الطقس المُهيَّأ للمنطقة المستعرضة.",
+  "weather_limitations": "الرياح سياقٌ — وليست أبدًا توقّعًا لانتشار الحريق."
+}
