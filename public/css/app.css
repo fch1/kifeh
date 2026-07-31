@@ -949,3 +949,14 @@ html, body { overscroll-behavior: none; }
   html[dir="rtl"] .sheet.open { transform: translateX(0); }
   .sheet .handle { display: none; } /* la poignée est un geste mobile */
 }
+
+/* Conditions favorisant les feux (3 jours) — extension de la Situation,
+   jamais un dashboard : 3 colonnes, tokens Kifeh, tendance signalée par le
+   TEXTE (jamais par la seule couleur). */
+.fc-card { margin: .5rem 0; }
+.fc-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; text-align: center; }
+.fc-day { display: flex; flex-direction: column; gap: .1rem; background: var(--kifeh-color-background);
+  border: 1px solid var(--kifeh-color-border); border-radius: var(--kifeh-radius-sm); padding: .4rem .25rem; }
+.fc-d { font-size: var(--kifeh-fs-xs); color: var(--kifeh-color-text-muted); }
+.fc-v { font-size: var(--kifeh-fs-lg); font-weight: 700; }
+.fc-m { font-size: var(--kifeh-fs-xs); color: var(--kifeh-color-text-muted); }

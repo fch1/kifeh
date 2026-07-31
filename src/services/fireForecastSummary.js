@@ -31,15 +31,16 @@ function drynessSignal(d) {
 // Facteurs expliquant un ÉCART entre deux jours (le « pourquoi » du texte).
 function factors(worse, better, lang) {
   const out = [];
+  // Les formes françaises portent déjà leur préposition (« en raison … »).
   const F = (fr, ar) => out.push(lang === 'ar' ? ar : fr);
   if (worse.gustsMaxKmh != null && better.gustsMaxKmh != null
-    && worse.gustsMaxKmh - better.gustsMaxKmh >= 10) F('des rafales plus fortes', 'رياح أقوى');
+    && worse.gustsMaxKmh - better.gustsMaxKmh >= 10) F('de rafales plus fortes', 'رياح أقوى');
   if (worse.rhMinPct != null && better.rhMinPct != null
-    && better.rhMinPct - worse.rhMinPct >= 8) F('une humidité plus faible', 'رطوبة أدنى');
+    && better.rhMinPct - worse.rhMinPct >= 8) F('d’une humidité plus faible', 'رطوبة أدنى');
   if (worse.tMaxC != null && better.tMaxC != null
-    && worse.tMaxC - better.tMaxC >= 4) F('des températures plus élevées', 'حرارة أعلى');
-  if ((better.precipMm ?? 0) - (worse.precipMm ?? 0) >= 3) F('l’absence de pluie', 'غياب الأمطار');
-  return out;
+    && worse.tMaxC - better.tMaxC >= 4) F('de températures plus élevées', 'حرارة أعلى');
+  if ((better.precipMm ?? 0) - (worse.precipMm ?? 0) >= 3) F('de l’absence de pluie', 'غياب الأمطار');
+  return out.slice(0, 2); // 2 facteurs max : lisible, jamais une litanie
 }
 
 // Synthèse sur les 3 prochains jours. Retourne null si données insuffisantes
@@ -62,7 +63,7 @@ export function summarizeConditions(days, lang = 'fr') {
   const worse = window3[iMax], better = window3[iMin];
   const why = factors(worse, better, lang);
   const whyTxt = why.length
-    ? (ar ? `، أساسًا بسبب ${why.join(' و')}` : `, principalement en raison de ${why.join(' et de ')}`)
+    ? (ar ? `، أساسًا بسبب ${why.join(' و')}` : `, principalement en raison ${why.join(' et ')}`)
     : '';
   const when = dayName(worse.date, lang);
   if (iMax > iMin) {

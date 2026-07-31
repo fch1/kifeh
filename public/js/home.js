@@ -1090,8 +1090,10 @@ function renderSituationHub() {
       <button class="btn secondary small-btn" id="situFollow">${fz
     ? `★ ${esc(t('zone_followed_short'))}` : `☆ ${esc(t('follow_zone_btn'))}`} ›</button>
     </div>
+    <div id="fcBlock"></div>
     ${snapAt ? `<p class="muted small">${esc(t('situation_updated', { t: timeAgo(new Date(snapAt).toISOString()) }))}</p>` : ''}`;
   el.querySelector('#slvZones')?.addEventListener('click', () => { renderSuivis(); openSheet('suivisSheet'); setNavCurrent('navSuivis'); });
+  fillForecastBlock(el);
   el.querySelector('#situCond')?.addEventListener('click', openVigilanceSheet);
   el.querySelector('#situWx')?.addEventListener('click', openVigilanceSheet);
   el.querySelector('#situFollow')?.addEventListener('click', openFollowSheet);
@@ -1099,6 +1101,54 @@ function renderSituationHub() {
     closeSheets();
     map.setView([nearest.lat, nearest.lng], Math.max(map.getZoom(), 11));
     if (nearest.sat) openSatDetail(nearest.item.id); else openDetail(nearest.item.public_id);
+  });
+}
+
+// « Conditions favorisant les feux » — 3 jours dans la Situation (master
+// prévisions §4) : facteurs + synthèse déterministe + disclaimer — JAMAIS un
+// niveau inventé ni un feu prédit. Silencieux quand la capacité est éteinte.
+async function fillForecastBlock(root) {
+  const host = root.querySelector('#fcBlock');
+  if (!host) return;
+  const now = Date.now();
+  if (!window.__fc || now - window.__fc.at > 5 * 60_000) {
+    try {
+      const c = map.getCenter();
+      window.__fc = { at: now, data: await API.get(
+        `/api/fire/forecast?lat=${c.lat.toFixed(3)}&lng=${c.lng.toFixed(3)}&country=${currentCountry()}`) };
+    } catch { window.__fc = { at: now, data: null }; }
+  }
+  const d = window.__fc.data;
+  if (!d?.enabled || !d.available || !d.days?.length) return; // jamais un contrôle cassé
+  if (!window.__fcTracked) { window.__fcTracked = true; window.track?.('fire_forecast_opened', {}); }
+  const dayFmt = new Intl.DateTimeFormat(LANG === 'ar' ? 'ar-TN' : 'fr-FR', { weekday: 'short' });
+  const dn = (day, i) => (i === 0 ? t('fc_today') : dayFmt.format(new Date(`${day.date}T12:00:00Z`)));
+  const strip = d.days.slice(0, 3).map((day, i) => `
+    <span class="fc-day">
+      <span class="fc-d">${esc(dn(day, i))}</span>
+      <span class="fc-v">${day.tMaxC != null ? `${Math.round(day.tMaxC)}°` : '—'}</span>
+      <span class="fc-m">${day.gustsMaxKmh != null ? `${esc(t('fc_gusts'))} <span dir="ltr">${Math.round(day.gustsMaxKmh)}</span>` : ''}</span>
+      <span class="fc-m">${day.rhMinPct != null ? `${esc(t('fc_hum'))} <span dir="ltr">${Math.round(day.rhMinPct)}%</span>` : ''}</span>
+    </span>`).join('');
+  const rows7 = d.days.map((day, i) => `
+    <p class="small" style="margin:.15rem 0;display:flex;justify-content:space-between;gap:.5rem">
+      <span>${esc(dn(day, i))}${day.confidence === 'trend' ? ` <span class="muted">(${esc(t('fc_trend'))})</span>` : ''}</span>
+      <span dir="ltr">${day.tMaxC != null ? `${Math.round(day.tMaxC)}°` : '—'} · ${day.gustsMaxKmh != null ? `${Math.round(day.gustsMaxKmh)} km/h` : '—'} · ${day.rhMinPct != null ? `${Math.round(day.rhMinPct)}%` : '—'}${day.precipMm ? ` · ${day.precipMm} mm` : ''}</span>
+    </p>`).join('');
+  host.innerHTML = `
+    <div class="card fc-card">
+      <p class="small" style="margin:0 0 .35rem"><strong>🌡️ ${esc(t('fc_title'))}</strong></p>
+      <div class="fc-strip">${strip}</div>
+      ${d.summary ? `<p class="small" style="margin:.5rem 0 .25rem">${esc(d.summary)}</p>` : ''}
+      <details>
+        <summary class="small" style="cursor:pointer">${esc(t('fc_7d'))}</summary>
+        ${rows7}
+      </details>
+      <p class="muted small" style="margin:.4rem 0 0">${esc(d.disclaimer || '')}<br>
+      ${esc(t('fc_src', { s: d.modelLabel || d.provider }))}${d.stale ? ' · ⏳' : ''}</p>
+    </div>`;
+  host.querySelector('details')?.addEventListener('toggle', (e) => {
+    if (e.currentTarget.open) window.track?.('fire_forecast_7d_opened', {});
   });
 }
 

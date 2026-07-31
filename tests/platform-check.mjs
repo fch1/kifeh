@@ -133,6 +133,27 @@ ok(committed.includes('FICHIER GÉNÉRÉ'), 'la matrice se déclare générée (
 // ═══ 6. Serveur : capacités effectives + API feux mutualisée ═════════════════
 section('Démarrage du serveur de test');
 for (const f of [DB, `${DB}-wal`, `${DB}-shm`]) fs.rmSync(f, { force: true });
+// Serveur PRÉVISIONS simulé : quotidiennes sur 7 jours (dimanche = rafales
+// fortes + humidité basse → la synthèse doit désigner dimanche).
+import http from 'node:http';
+const FC_PORT = 3959;
+const fcSrv = http.createServer((req, res) => {
+  const today = new Date();
+  const days = [...Array(7)].map((_, i) => new Date(today.getTime() + i * 864e5).toISOString().slice(0, 10));
+  // Jour index 2 : aggravation nette (rafales 55, humidité 18).
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ daily: {
+    time: days,
+    temperature_2m_max: [28, 30, 37, 33, 29, 27, 28],
+    relative_humidity_2m_min: [45, 38, 18, 30, 44, 50, 41],
+    wind_speed_10m_max: [15, 20, 38, 25, 14, 12, 16],
+    wind_gusts_10m_max: [22, 30, 55, 38, 20, 18, 26],
+    precipitation_sum: [4, 0, 0, 0, 6, 2, 0],
+  } }));
+});
+await new Promise((r) => fcSrv.listen(FC_PORT, r));
+process.on('exit', () => { try { fcSrv.close(); } catch {} });
+
 const server = spawn('node', ['server.js'], {
   env: {
     ...process.env, NODE_ENV: 'development', PORT: String(PORT), DB_PATH: DB,
@@ -145,6 +166,7 @@ const server = spawn('node', ['server.js'], {
     NASA_FIRMS_MAP_KEY: 'test-key-platform', FIRMS_URL: 'http://127.0.0.1:9',
     FIRMS_TIMEOUT_MS: '400',
     WIND_URL: 'http://127.0.0.1:9', EFFIS_URL: '', METEOFRANCE_API_KEY: '',
+    FORECAST_URL: `http://127.0.0.1:${FC_PORT}`,
   },
   stdio: ['ignore', 'pipe', 'inherit'],
 });
@@ -295,6 +317,31 @@ const redir = await fetch(`${BASE}/fr/incendies`, { redirect: 'manual' });
 ok(redir.status === 301 && String(redir.headers.get('location')).endsWith('/fr/fr/incendies'),
   '/fr/incendies (ambigu) → 301 /fr/fr/incendies');
 ok((await fetch(`${BASE}/fr/de/incendies`)).status === 404, 'variante non servie → 404 (jamais fantôme)');
+
+section('Prévisions des conditions (/api/fire/forecast — jamais un incendie prédit)');
+await setSettings({ fire_forecast_enabled_fr: '0' });
+ok((await api('/api/fire/forecast?country=FR&lat=44.85&lng=-0.58')).data.enabled === false,
+  'coupure à chaud du drapeau → enabled:false (retour arrière toujours possible)');
+await setSettings({ fire_forecast_enabled_fr: '1', fire_forecast_enabled_tn: '1' });
+const fcFr = await api('/api/fire/forecast?country=FR&lat=44.85&lng=-0.58');
+ok(fcFr.data.enabled === true && fcFr.data.available === true && fcFr.data.days.length === 7,
+  'France : 7 jours servis');
+ok(fcFr.data.provider === 'open-meteo:meteofrance' && /Météo-France/.test(fcFr.data.modelLabel),
+  'France : fournisseur Météo-France étiqueté honnêtement');
+ok(fcFr.data.days[0].confidence === 'high' && fcFr.data.days[6].confidence === 'trend',
+  'confiance dégressive : précis → tendance (J+6 jamais aussi sûr que demain)');
+ok(/plus favorables/.test(fcFr.data.summary) && /rafales|humidité/.test(fcFr.data.summary),
+  `synthèse déterministe avec facteurs : ${fcFr.data.summary}`);
+ok(/ne prédit pas l’apparition|ne prédit pas l'apparition/.test(fcFr.data.disclaimer),
+  'disclaimer porté par l’API');
+ok(!/(niveau|score|risque)\s*:?\s*\d+/i.test(JSON.stringify(fcFr.data)),
+  'aucun score inventé dans la réponse');
+const fcTnAr = await api('/api/fire/forecast?country=TN&lat=36.8&lng=10.18&lang=ar');
+ok(fcTnAr.data.provider === 'open-meteo:best_match' && !/Météo-France|arome/i.test(JSON.stringify(fcTnAr.data)),
+  'Tunisie : modèle global — jamais Météo-France hors couverture');
+ok(/[؀-ۿ]/.test(fcTnAr.data.summary || '') && /[؀-ۿ]/.test(fcTnAr.data.disclaimer || ''),
+  'synthèse et disclaimer en arabe quand lang=ar');
+// Drapeaux laissés ACTIFS : c'est l'état de production désormais.
 
 section('healthz : fraîcheur typée par source');
 const hz = await api('/healthz');
