@@ -120,7 +120,6 @@ function toggleWeatherLayer() {
   // Visible AU PREMIER REGARD : le voile météo est ACTIF par défaut en France
   // (jamais en mode léger) ; le choix de le couper est respecté et mémorisé.
   if (saved !== '0' && !LITE) toggleWeatherLayer();
-  document.getElementById('wxStrip')?.addEventListener('click', openVigilanceSheet);
 })();
 
 // ═════════════════════════════════════════════════════════════════════════════

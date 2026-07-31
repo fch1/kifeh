@@ -612,7 +612,6 @@ async function loadIncidents() {
     } else fireSit = null;
     cluster.setItems(visibleItems());
     renderSummary(false);
-    renderWxStrip(); // bandeau météo permanent (France)
     refreshVigilanceMarkers(); // marqueurs ⚠️ vigilance (asynchrone, jamais bloquant)
     // « Depuis votre dernière visite » : une seule vérification par session.
     if (!sinceChecked) { sinceChecked = true; sinceLastVisit().catch(() => {}); }
@@ -836,7 +835,7 @@ function maybeShowFireProximityBanner(active, satsShown) {
 // sur une seule ligne tappable — les détails vivent dans la fiche dédiée,
 // jamais empilés dans la bulle de résumé (lisibilité mobile d'abord).
 function condLineHtml() {
-  // La météo vit désormais dans le BANDEAU permanent du haut (wxStrip) —
+  // La météo vit dans la carte-résumé et la fiche Conditions —
   // la bulle ne garde que l'état Vigilance (pas de doublon).
   if (!fireSit?.vigilance) return '';
   const alert = fireSit.vigilance.activeDepartments > 0;
@@ -844,17 +843,6 @@ function condLineHtml() {
     : `🟢 ${esc(t('fs_vigilance_none'))}`;
   return `<span id="condLine" class="summary-types vig-line${alert ? ' summary-official-active vig-active' : ''}"
     role="button" tabindex="0" aria-haspopup="dialog" aria-label="${esc(t('cond_title'))}">${label} ›</span>`;
-}
-
-// Bandeau météo permanent (France) : visible AU PREMIER REGARD, sans ouvrir
-// quoi que ce soit — température + ressenti, vent avec flèche orientée, ciel.
-function renderWxStrip() {
-  const el = document.getElementById('wxStrip');
-  if (!el) return;
-  // Design « campagne » (28/07) : la météo vit dans la carte-résumé du bas
-  // (rangée Vent · Température · Humidité) — le bandeau du haut disparaît,
-  // l'écran respire. La fiche complète reste à un tap (rangée ou vigilance).
-  el.hidden = true;
 }
 
 // Le résumé ouvre la liste correspondante (même jeu de données) ; la ligne

@@ -861,17 +861,6 @@ html, body { overscroll-behavior: none; }
 /* Bannière de proximité feu : sérieuse sans être anxiogène */
 .fire-banner { border-inline-start: 4px solid var(--brand-red); }
 
-/* Bandeau météo permanent (France) — lisible d'un regard, tappable */
-.wx-strip {
-  display: flex; align-items: center; gap: .8rem;
-  width: fit-content; max-width: 100%;
-  border: none; cursor: pointer; margin-top: .5rem;
-  background: rgb(255 255 255 / .92); border-radius: 999px;
-  padding: .45rem .9rem; min-height: 40px; font-size: var(--fs-sm);
-  color: var(--text); box-shadow: 0 1px 6px rgb(30 42 77 / .12);
-  font-family: inherit; overflow-x: auto; scrollbar-width: none; white-space: nowrap;
-}
-.wx-strip::-webkit-scrollbar { display: none; }
 .wx-s-item { display: inline-flex; align-items: center; gap: .3rem; flex: 0 0 auto; }
 .wx-s-item strong { font-size: 1rem; }
 .wx-s-arrow { display: inline-block; transform-origin: 50% 50%; color: var(--primary); }
