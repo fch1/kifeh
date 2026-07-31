@@ -616,6 +616,7 @@ publicRouter.get('/config', (req, res) => {
       { url: getSetting('tile_secondary_url'), attribution: getSetting('tile_secondary_attribution') },
     ].filter((p) => p.url),
     tileFailThreshold: getSettingNum('tile_fail_threshold') || 6,
+    desktopRail: getSetting('fire_desktop_rail_enabled') !== '0',
     // Alertes de zone (Web Push) : clé publique VAPID — la clé privée reste en base.
     pushKey: publicVapidKey(),
     // Multi-pays : profils CLIENT-SÛRS uniquement (jamais de clé, jamais de

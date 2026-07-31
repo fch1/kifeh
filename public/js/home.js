@@ -44,6 +44,11 @@ let userPos = null;
 let verificationRequired = true;
 API.get('/api/public/config').then((c) => {
   verificationRequired = c.verificationRequired !== false;
+  // Refonte PR 2 : composition desktop (≥1200 px) derrière drapeau serveur.
+  if (c.desktopRail !== false) {
+    document.body.classList.add('rail-ok');
+    document.getElementById('situChip')?.removeAttribute('hidden'); // visible ≥1200 px via CSS
+  }
   if (c.sandbox) showSandboxBanner();
   pushKey = c.pushKey || null; // clé publique VAPID (alertes de zone)
   // Fond de carte configuré côté serveur (fournisseur principal + secours).
@@ -713,6 +718,12 @@ function renderSummary(degraded, snapshotAt) {
   if (w) stats.push({ l: t('stat_wind'), v: `${w.speedKmh} km/h` });
   if (h) stats.push({ l: t('stat_temp'), v: `${h.tempC} °C` });
   if (h?.humidityPct != null) stats.push({ l: t('stat_hum'), v: `${h.humidityPct} %` });
+  // Puce compacte desktop (le héro permanent disparaît en mode rail ≥1200 px).
+  const chip = document.getElementById('situChip');
+  if (chip) {
+    const chipState = heroFire ? '🔥' : (active.length ? `⚠ ${active.length}` : '✓');
+    chip.innerHTML = `<strong>${esc(t('nav_situation'))}</strong> · ${chipState}${satsShown.length ? ` · 🛰️ ${satsShown.length}` : ''}${snapshotAt ? ` · <span class="muted">${esc(timeAgo(new Date(snapshotAt).toISOString()))}</span>` : ''}`;
+  }
   let heroCollapsed = false;
   try { heroCollapsed = localStorage.getItem('kifeh_hero_collapsed') === '1'; } catch {}
   counter.classList.toggle('hero-collapsed', heroCollapsed);
@@ -1373,6 +1384,7 @@ function locateMe() {
   );
 }
 document.getElementById('btnLocate').addEventListener('click', locateMe);
+document.getElementById('situChip')?.addEventListener('click', () => document.getElementById('navSituation')?.click());
 document.getElementById('searchLocate')?.addEventListener('click', locateMe);
 
 // « Mon statut de sécurité » depuis l'ACCUEIL : plus besoin d'ouvrir un

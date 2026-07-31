@@ -77,6 +77,20 @@ hero_card_toggled. (replay_* arriveront avec PR 6.)
 Aucun : la production du 31/07 correspond au dépôt (déploiements continus le
 jour même, healthz vérifié après chaque push, 37 incidents constants).
 
+## Résultats PR 2 (mesurés le 31/07, même outil — desktop ≥1200 px)
+
+| Vue | Avant | Après PR 2 | Cible |
+|---|---|---|---|
+| fr 1280×800 | 26 % recouverte | **16 %** (84 % visible) | ≥78 % ✓ |
+| fr 1440×900 | 22 % | **14 %** (86 %) | ≥78 % ✓ |
+| fr 1920×1080 | 14 % | **8 %** (92 %) | ≥78 % ✓ |
+| ar 1440×900 | 21 % | **14 %** | miroir ✓ |
+
+Livré derrière `fire_desktop_rail_enabled` (coupure à chaud) : rail vertical
+76 px (Signaler rouge central, miroir RTL), recherche bornée 480 px, carte
+héro permanente → puce compacte « Situation · état · fraîcheur » (clic →
+panneau), légendes déplacées côté rail. Mobile/tablette inchangés (<1200 px).
+
 ## Décision de sortie de PR 1
 
 Aucun changement fonctionnel dans cette PR (conformément au master). Les
