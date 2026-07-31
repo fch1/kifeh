@@ -11,5 +11,6 @@
   "frp_note": "La puissance radiative (FRP) n'est jamais une taille, une température ni une surface de feu.",
   "last_observation": "Dernière observation : {time}",
   "no_active": "Aucun incendie signalé dans cette zone actuellement.",
-  "emergency_reminder": "Kifeh ne remplace jamais les secours."
+  "emergency_reminder": "Kifeh ne remplace jamais les secours.",
+  "forecast_disclaimer": "Cette prévision décrit des conditions météorologiques. Elle ne prédit pas l’apparition ni la trajectoire d’un incendie."
 }

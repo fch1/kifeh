@@ -174,11 +174,37 @@ function fillHeatFromJson(lat, lng, j) {
 // Open-Meteo (listes de coordonnées) et mise en cache par zone arrondie.
 // Le navigateur ne reçoit que des valeurs prêtes à dessiner — jamais de GRIB.
 const gridCache = new Map();
+// Persistance DISQUE de la dernière grille par zone : les déploiements ne
+// vident plus la mémoire — après un redémarrage en pleine panne de quota,
+// on montre quand même « météo de HH:MM » (retour Farah du 31/07).
+import fs from 'node:fs';
+import path from 'node:path';
+import { config } from '../config.js';
+const GRID_DISK = path.join(path.dirname(config.dbPath), 'wx-grid-cache.json');
+try {
+  const saved = JSON.parse(fs.readFileSync(GRID_DISK, 'utf8'));
+  for (const [k, v] of Object.entries(saved)) {
+    if (v?.at && Date.now() - v.at < 12 * 3600_000) gridCache.set(k, v);
+  }
+} catch { /* premier démarrage : rien à charger */ }
+let gridSaveTimer = null;
+function persistGrids() {
+  clearTimeout(gridSaveTimer);
+  gridSaveTimer = setTimeout(() => {
+    try {
+      const obj = Object.fromEntries([...gridCache.entries()].slice(-40));
+      fs.writeFileSync(`${GRID_DISK}.tmp`, JSON.stringify(obj));
+      fs.renameSync(`${GRID_DISK}.tmp`, GRID_DISK);
+    } catch { /* disque indisponible : la mémoire suffit */ }
+  }, 2000);
+}
 
 const gridPending = new Map();
 const gridFailAt = new Map();
 
-export async function getWeatherGrid(minLat, maxLat, minLng, maxLng, n = 4) {
+// 9 points par grille (3×3) au lieu de 16 : ~44 % de quota Open-Meteo en
+// moins par zone — le voile fondu reste visuellement identique.
+export async function getWeatherGrid(minLat, maxLat, minLng, maxLng, n = 3) {
   const key = `${Math.round(minLat * 4) / 4}:${Math.round(maxLat * 4) / 4}:${Math.round(minLng * 4) / 4}:${Math.round(maxLng * 4) / 4}:${n}`;
   const cfgMin = getSettingNum('wind_cache_min');
   // La grille change lentement : cache 30 min par défaut (débit Open-Meteo
@@ -234,6 +260,7 @@ export async function getWeatherGrid(minLat, maxLat, minLng, maxLng, n = 4) {
     gridCache.set(key, { at: Date.now(), data });
     if (gridCache.size > 200) gridCache.delete(gridCache.keys().next().value);
     gridFailAt.delete(key);
+    persistGrids();
     return data;
   } catch {
     gridFailAt.set(key, Date.now());

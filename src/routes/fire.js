@@ -19,6 +19,8 @@ import { requestCountry } from '../countries/index.js';
 import { getCapabilities } from '../services/capabilityRegistry.js';
 import { classifyFreshness, freshnessFromLastSuccess } from '../services/sourceFreshness.js';
 import { getWind, getHeat } from '../services/wind.js';
+import { getDailyForecast, forecastEnabled } from '../services/fireForecast.js';
+import { summarizeConditions } from '../services/fireForecastSummary.js';
 import { effisStatus } from '../services/effis.js';
 import { getLang, msg } from '../i18n.js';
 import { nsMsg } from '../services/i18nNamespaces.js';
@@ -143,6 +145,23 @@ fireRouter.get('/map', ipRateLimit('firemap_ip', 60, 5), async (req, res) => {
   if (hasBurned) payload.burnedAreas = burnedAreas;
   if (hasWeather) payload.weather = wind || heat ? { wind, heat } : null;
   res.json(payload);
+});
+
+// ── Prévisions des conditions (drapeau par territoire, ÉTEINT par défaut) ───
+fireRouter.get('/forecast', ipRateLimit('firemap_ip', 60, 5), async (req, res) => {
+  const country = requestCountry(req);
+  if (!forecastEnabled(country)) return res.json({ enabled: false });
+  const lang = getLang(req) === 'ar' ? 'ar' : 'fr';
+  if (!isFiniteNum(req.query.lat, -90, 90) || !isFiniteNum(req.query.lng, -180, 180)) {
+    return res.status(400).json({ error: msg(req, 'invalid_params') });
+  }
+  const f = await getDailyForecast(Number(req.query.lat), Number(req.query.lng), country);
+  if (!f) return res.json({ enabled: true, available: false });
+  res.json({
+    enabled: true, available: true, ...f,
+    summary: summarizeConditions(f.days, lang),
+    disclaimer: nsMsg(lang, 'fire', 'forecast_disclaimer'),
+  });
 });
 
 // ── Timeline (frise de replay) ───────────────────────────────────────────────

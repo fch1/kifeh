@@ -187,6 +187,10 @@ export const defaultSettings = {
   // signalements) ; les couches absentes portent leur raison (registre).
   fire_situation_enabled_fr: '1',
   fire_situation_enabled_tn: '1',
+  // Prévisions des CONDITIONS (jamais des incendies) — éteintes par défaut,
+  // activation progressive après validation UI (master prévisions PR 8).
+  fire_forecast_enabled_fr: '0',
+  fire_forecast_enabled_tn: '0',
   // Vent : modèle Météo-France (AROME/ARPEGE) servi par Open-Meteo — libre,
   // sans clé. Fournisseur configurable (WIND_URL pour les tests/alternatives).
   wind_provider: 'arome_france_hd_openmeteo', // AROME France HD, EXPLICITE (jamais le mode auto),
