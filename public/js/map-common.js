@@ -114,7 +114,7 @@ class GridCluster {
   addMarker(it) {
     // Détection satellite : marqueur visuellement distinct des signalements citoyens.
     const m = L.marker([it.lat, it.lng], it.satellite ? {
-      icon: satelliteIcon(it.max_confidence), keyboard: true,
+      icon: satelliteIcon(it.max_confidence, it.last_detected_at), keyboard: true,
       title: `${t('sat_detection')} — NASA FIRMS`,
     } : {
       icon: typeIcon(it.type, it.status), keyboard: true,
@@ -137,10 +137,16 @@ class GridCluster {
 // UNE SEULE donnée feu sur la carte : un feu observé par satellite est un
 // FEU (même pin 🔥 que les signalements) — la SOURCE est portée par la
 // pastille 🛰️ et le contour pointillé, jamais par une iconographie à part.
-function satelliteIcon(confidence) {
+function satelliteIcon(confidence, lastDetectedAt) {
+  // Classes d'ÂGE (master UX §11 — lisibilité par ancienneté) : une détection
+  // récente domine visuellement ; 6-24 h s'estompe ; 24-72 h devient discrète.
+  // L'heure exacte reste toujours dans la fiche — l'âge n'est jamais porté
+  // par la seule opacité.
+  const ageH = lastDetectedAt ? (Date.now() - Date.parse(lastDetectedAt)) / 3600_000 : 0;
+  const ageClass = ageH >= 24 ? ' sat-age-old' : (ageH >= 6 ? ' sat-age-mid' : '');
   return L.divIcon({
     className: '',
-    html: `<div class="marker-pin fire marker-sat-pin ${confidence === 'high' ? 'high' : ''}">
+    html: `<div class="marker-pin fire marker-sat-pin ${confidence === 'high' ? 'high' : ''}${ageClass}">
       <span>🔥</span><em class="sat-dot" aria-hidden="true">🛰️</em></div>`,
     iconSize: [34, 34],
     iconAnchor: [17, 30],

@@ -960,3 +960,8 @@ html, body { overscroll-behavior: none; }
 .fc-d { font-size: var(--kifeh-fs-xs); color: var(--kifeh-color-text-muted); }
 .fc-v { font-size: var(--kifeh-fs-lg); font-weight: 700; }
 .fc-m { font-size: var(--kifeh-fs-xs); color: var(--kifeh-color-text-muted); }
+
+/* Âge des détections satellite (master UX §11) : récent net, 6-24 h estompé,
+   24-72 h discret — l'heure exacte reste dans la fiche (jamais couleur seule). */
+.marker-sat-pin.sat-age-mid { opacity: .78; }
+.marker-sat-pin.sat-age-old { opacity: .5; filter: saturate(.6); }
