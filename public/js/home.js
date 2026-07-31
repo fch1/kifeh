@@ -1173,7 +1173,15 @@ async function openVigilanceSheet() {
         ? `<p><strong>${esc(t('fs_vigilance_active', { n: alerts.length }))}</strong></p>`
         : `<p><strong>${esc(t('fs_vigilance_none'))}</strong></p>
            <p class="muted">${esc(t('vig_explainer'))}</p>`);
-  const cards = alerts.map((a) => {
+  // §10 master UX : la zone CONSULTÉE d'abord — jamais les 22 départements
+  // imposés. Local = ≤ 150 km du centre de la carte ; le reste du pays se
+  // déplie à la demande (élément natif, accessible).
+  const center = map.getCenter();
+  const isLocal = (a) => a.lat != null && a.lng != null
+    && map.distance([center.lat, center.lng], [a.lat, a.lng]) / 1000 <= 150;
+  const localAlerts = alerts.filter(isLocal);
+  const restAlerts = alerts.filter((a) => !isLocal(a));
+  const card = (a) => {
     const summary = LANG === 'ar' && a.summaryAr
       ? `${esc(a.summaryAr)}<br><span class="muted small">${esc(t('fs_ar_summary_note'))}</span>`
       : esc(a.summaryFr);
@@ -1184,7 +1192,16 @@ async function openVigilanceSheet() {
         ${a.validUntil ? `<span class="small">${esc(t('vig_valid_until', { t: fmtDate(a.validUntil) }))}</span><br>` : ''}
         <a href="${esc(a.sourceUrl || 'https://vigilance.meteofrance.fr')}" target="_blank" rel="noopener">${esc(t('fs_official_read'))}</a>
       </div>`;
-  }).join('');
+  };
+  const cards = !alerts.length ? '' : `
+    ${localAlerts.length
+    ? `<p class="small muted" style="margin:.5rem 0 .25rem"><strong>${esc(t('vig_local_title'))}</strong></p>${localAlerts.map(card).join('')}`
+    : `<p class="muted small">${esc(t('vig_none_local'))}</p>`}
+    ${restAlerts.length ? `
+    <details style="margin:.5rem 0">
+      <summary class="small" style="cursor:pointer">${esc(t('vig_rest_toggle', { n: restAlerts.length }))}</summary>
+      ${restAlerts.map(card).join('')}
+    </details>` : ''}`;
   el.innerHTML = `${head}${cards}
     ${alerts.length ? `<p class="muted small">${esc(t('fs_fr_alert_note'))}</p>` : ''}
     <p><a href="https://vigilance.meteofrance.fr" target="_blank" rel="noopener">${esc(t('vig_official_map'))} ↗</a></p>
