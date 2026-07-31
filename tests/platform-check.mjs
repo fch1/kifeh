@@ -343,6 +343,20 @@ ok(/[؀-ۿ]/.test(fcTnAr.data.summary || '') && /[؀-ۿ]/.test(fcTnAr.data.discl
   'synthèse et disclaimer en arabe quand lang=ar');
 // Drapeaux laissés ACTIFS : c'est l'état de production désormais.
 
+section('Pages SEO prévisions (12 variantes — éditorial stable, disclaimer partout)');
+const pv = await fetch(`${BASE}/fr/fr/incendies/previsions`);
+const pvH = await pv.text();
+ok(pv.status === 200 && pvH.includes('rel="canonical" href="https://kifeh.app/fr/fr/incendies/previsions"'),
+  '/fr/fr/incendies/previsions : servie + canonical exact');
+ok(pvH.includes('ne prédit pas l’apparition'), 'disclaimer TOUJOURS présent');
+const dfTn = await (await fetch(`${BASE}/fr/tn/incendies/danger-feu`)).text();
+ok(!/Météo-France|EFFIS|DFCI|AROME/i.test(dfTn.replace(/kifeh.app/g, '')),
+  'page tunisienne : aucune source française hors couverture');
+ok(dfTn.includes('jamais un niveau inventé'), 'TN : honnêteté sur l’absence de niveau officiel');
+const meAr = await (await fetch(`${BASE}/ar/fr/incendies/methodologie-previsions`)).text();
+ok(meAr.includes('dir="rtl"') && /[؀-ۿ]/.test(meAr), 'méthodologie ar/fr : RTL réel');
+ok((await fetch(`${BASE}/fr/de/incendies/previsions`)).status === 404, 'variante non servie → 404');
+
 section('healthz : fraîcheur typée par source');
 const hz = await api('/healthz');
 ok(hz.data.firms && 'status' in hz.data.firms

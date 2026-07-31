@@ -11,6 +11,8 @@ import { getProfile } from '../countries/index.js';
 import { getCapabilities } from '../services/capabilityRegistry.js';
 import { nsMsg, getNamespace } from '../services/i18nNamespaces.js';
 import { fmtDateTime, emergencyLine } from '../services/localizationFormatter.js';
+import { getDailyForecast, forecastEnabled } from '../services/fireForecast.js';
+import { summarizeConditions } from '../services/fireForecastSummary.js';
 
 export const seoRouter = Router();
 const BASE = 'https://kifeh.app';
@@ -162,7 +164,114 @@ function serve(lang, cc) {
 }
 for (const lang of LANGS) {
   for (const cc of CCS) seoRouter.get(`/${lang}/${cc}/incendies`, serve(lang, cc));
-  // ── Partage social par incident : /i/:publicId (Growth PR 4) ────────────────
+  // ── Pages SEO prévisions (master PR 8) : previsions · danger-feu ·
+// methodologie-previsions — éditorial STABLE (le dynamique vit dans l'app),
+// localisé par territoire via le registre (TN ne mentionne jamais
+// Météo-France/EFFIS/DFCI), disclaimer partout. 12 pages (3 × 4 variantes).
+const FC_TOPICS = ['previsions', 'danger-feu', 'methodologie-previsions'];
+
+function fcHead(lang, cc, topic, title, desc) {
+  const path = (l, c) => `/${l}/${c}/incendies/${topic}`;
+  const hreflangs = LANGS.flatMap((l) => CCS.map((c) =>
+    `<link rel="alternate" hreflang="${l}-${c.toUpperCase()}" href="${BASE}${path(l, c)}">`)).join('\n');
+  return `<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(title)}</title><meta name="description" content="${esc(desc)}">
+<link rel="canonical" href="${BASE}${path(lang, cc)}">
+${hreflangs}
+<link rel="alternate" hreflang="x-default" href="${BASE}${path('fr', 'fr')}">
+<meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}">
+<meta property="og:image" content="${BASE}/img/og-image.png"><meta property="og:type" content="website">
+<link rel="icon" href="/img/logo-icon.svg" type="image/svg+xml">
+<style>body{font-family:'IBM Plex Sans',-apple-system,sans-serif;background:#FAF7F1;color:#1E2A4D;line-height:1.65;margin:0}
+main{max-width:680px;margin:0 auto;padding:1.25rem 1rem 3rem}h1{font-size:1.4rem;line-height:1.3}h2{font-size:1.05rem;margin-top:1.4rem}
+.muted{color:#5C6B79;font-size:.85rem}.box{background:#fff;border:1px solid #E7E1D6;border-radius:14px;padding:1rem;margin:1rem 0}
+.disc{background:#1E2A4D;color:#fff;border-radius:14px;padding:.75rem 1rem}a{color:#1E2A4D}</style>`;
+}
+
+async function fcPageHtml(lang, cc, topic) {
+  const CC = cc.toUpperCase();
+  const caps = getCapabilities({ countryCode: CC, language: lang });
+  if (!caps) return null;
+  const rtl = lang === 'ar';
+  const territory = nsMsg(lang, 'seo', `territory_${cc}`) || CC;
+  const disclaimer = nsMsg(lang, 'fire', 'forecast_disclaimer') || '';
+  const modelLabel = cc === 'fr'
+    ? 'Météo-France (AROME/ARPEGE) via Open-Meteo'
+    : (rtl ? 'نموذج عالمي عبر Open-Meteo' : 'Modèle global via Open-Meteo');
+  let h1, desc, body;
+  if (topic === 'previsions') {
+    h1 = rtl ? `توقّعات الظروف الجوية للحرائق — ${territory}` : `Prévisions des conditions favorisant les feux — ${territory}`;
+    desc = rtl ? `توقّع 3 إلى 7 أيام للعوامل الجوية (رياح، رطوبة، حرارة، أمطار) في ${territory}. ظروف — لا تنبؤ بالحرائق.`
+      : `Prévision 3 à 7 jours des facteurs météo (vent, humidité, température, pluie) en ${territory}. Des conditions — jamais une prévision d'incendie.`;
+    let live = '';
+    if (forecastEnabled(CC)) {
+      const p = getProfile(CC);
+      const f = await getDailyForecast(p.map.defaultCenter[0], p.map.defaultCenter[1], CC).catch(() => null);
+      const sum = f ? summarizeConditions(f.days, lang) : null;
+      if (sum) live = `<div class="box"><p style="margin:0">${esc(sum)}</p>
+        <p class="muted" style="margin:.4rem 0 0">${esc(rtl ? 'خلاصة اليوم — التفاصيل داخل التطبيق.' : 'Synthèse du jour — le détail vit dans l’application.')}</p></div>`;
+    }
+    body = `${live}
+      <h2>${rtl ? 'ما الذي نعرضه؟' : 'Ce que Kifeh affiche'}</h2>
+      <p>${rtl ? `عوامل جوية يومية (أقصى حرارة، أدنى رطوبة، رياح وهبّات، أمطار) على 3 أيام بشكل مبسّط و7 أيام للتعمّق، من ${modelLabel}. الأيام البعيدة تُعرض كاتجاه أقل يقينًا.`
+    : `Des facteurs météo quotidiens (température max, humidité min, vent et rafales, pluie) sur 3 jours en un regard et 7 jours en approfondissement, issus de ${modelLabel}. Les échéances lointaines sont présentées comme une tendance, moins certaine.`}</p>
+      <h2>${rtl ? 'ما الذي لا نعرضه؟' : 'Ce que Kifeh n’affiche jamais'}</h2>
+      <p>${rtl ? 'لا مواقع حرائق مستقبلية، لا محيطات متوقّعة، لا ساعة وصول، لا درجة خطر من صنعنا.'
+    : 'Aucun futur point de feu, aucun périmètre supposé, aucune heure d’arrivée, aucun score de risque maison.'}</p>`;
+  } else if (topic === 'danger-feu') {
+    h1 = rtl ? `فهم خطر الحرائق — ${territory}` : `Comprendre le danger de feu — ${territory}`;
+    desc = rtl ? 'ما الذي يجعل الظروف مساعِدة على اندلاع الحرائق وانتشارها: رياح، جفاف، حرارة، رطوبة.'
+      : 'Ce qui rend des conditions favorables aux départs et à la propagation : vent, sécheresse, chaleur, humidité.';
+    body = `<h2>${rtl ? 'العوامل' : 'Les facteurs'}</h2>
+      <p>${rtl ? 'الرياح تسرّع الانتشار وتحمل الجمرات؛ الرطوبة المنخفضة تجفّف الغطاء النباتي؛ الحرارة العالية والجفاف يراكمان القابلية للاشتعال؛ الأمطار تقلّلها مؤقتًا.'
+    : 'Le vent accélère la propagation et transporte des brandons ; une humidité basse assèche la végétation ; la chaleur et la sécheresse cumulent l’inflammabilité ; la pluie la réduit temporairement.'}</p>
+      <h2>${rtl ? 'المستويات الرسمية' : 'Les niveaux officiels'}</h2>
+      <p>${cc === 'fr'
+    ? (rtl ? 'في فرنسا تنشر الجهات الرسمية تحذيرات (اليقظة) تعرضها كيفاه كما هي، بمصدرها ووقتها.'
+      : 'En France, la vigilance officielle est affichée telle quelle dans Kifeh, avec sa source et son heure. Kifeh n’invente jamais de niveau : quand aucun niveau officiel n’existe pour une zone, seuls les facteurs météo sont montrés.')
+    : (rtl ? 'لا مصدر رسمي متاحًا حاليًا لتونس داخل كيفاه: نعرض العوامل الجوية فقط، بصدق — دون اختراع مستوى.'
+      : 'Aucune source officielle de danger n’est disponible pour la Tunisie dans Kifeh à ce jour : seuls les facteurs météo sont montrés, honnêtement — jamais un niveau inventé.')}</p>`;
+  } else {
+    h1 = rtl ? `منهجية التوقّعات — ${territory}` : `Méthodologie des prévisions — ${territory}`;
+    desc = rtl ? 'المصادر حسب الأفق الزمني، الثقة، وما لا يُتوقَّع أبدًا.'
+      : 'Les sources par horizon, la confiance, et ce qui n’est jamais prédit.';
+    body = `<h2>${rtl ? 'المصادر حسب الأفق' : 'Sources par horizon'}</h2>
+      <p>${rtl ? `من اليوم إلى يومين: ${modelLabel} (ثقة عالية). من 3 إلى 4 أيام: المصدر نفسه (ثقة متوسطة). بعد ذلك: اتجاه أقل يقينًا، ويُقال ذلك صراحة.`
+    : `J0-J+2 : ${modelLabel} (confiance élevée). J+3-J+4 : même source (confiance moyenne). Au-delà : tendance, moins certaine — et c’est écrit en toutes lettres.`}</p>
+      <p>${rtl ? 'لا دمج صامتًا بين نماذج؛ غياب البيانات يُعلن؛ كل قيمة تحمل مصدرها ووقت جلبها.'
+    : 'Jamais de fusion silencieuse de modèles ; l’absence de donnée est dite ; chaque valeur porte sa source et son heure de récupération.'}</p>
+      <h2>${rtl ? 'حدود التوقّع' : 'Les limites'}</h2>
+      <p>${rtl ? 'التوقّع يصف الغلاف الجوي، لا سلوك حريق بعينه: التضاريس والغطاء النباتي والتدخّل البشري تغيّر كل شيء.'
+    : 'La prévision décrit l’atmosphère, pas le comportement d’un feu précis : relief, végétation et intervention humaine changent tout.'}</p>`;
+  }
+  return `<!doctype html><html lang="${lang}" dir="${rtl ? 'rtl' : 'ltr'}"><head>${fcHead(lang, cc, topic, h1, desc)}</head>
+<body><main>
+<nav class="muted"><a href="/">Kifeh كيفاه</a> › <a href="/${lang}/${cc}/incendies">${esc(territory)}</a></nav>
+<h1>${esc(h1)}</h1>
+<p class="disc"><strong>${esc(disclaimer)}</strong></p>
+${body}
+<p><a href="/${lang}/${cc}/incendies">${rtl ? '→ خريطة الحرائق' : '→ Carte des feux'} — ${esc(territory)}</a> · <a href="/?country=${CC}&lang=${lang}">${rtl ? 'التطبيق' : 'l’application'}</a></p>
+<p class="muted">Kifeh كيفاه — ${esc(nsMsg(lang, 'common', 'tagline') || '')}</p>
+</main></body></html>`;
+}
+
+for (const lang of LANGS) {
+  for (const cc of CCS) {
+    for (const topic of FC_TOPICS) {
+      seoRouter.get(`/${lang}/${cc}/incendies/${topic}`, async (req, res) => {
+        const key = `${lang}/${cc}/${topic}`;
+        const hit = cache.get(key);
+        if (hit && Date.now() - hit.at < CACHE_MS) return res.set('Cache-Control', 'public, max-age=600').type('html').send(hit.html);
+        const html = await fcPageHtml(lang, cc, topic);
+        if (!html) return res.status(404).end();
+        cache.set(key, { html, at: Date.now() });
+        res.set('Cache-Control', 'public, max-age=600').type('html').send(html);
+      });
+    }
+  }
+}
+
+// ── Partage social par incident : /i/:publicId (Growth PR 4) ────────────────
 // Les robots WhatsApp/Facebook/Telegram n'exécutent pas le JavaScript : cette
 // page serveur porte l'Open Graph SPÉCIFIQUE (type, lieu approximatif, statut,
 // heure) puis conduit les humains vers l'application. Jamais de coordonnées
