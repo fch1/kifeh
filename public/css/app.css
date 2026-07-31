@@ -922,3 +922,30 @@ html, body { overscroll-behavior: none; }
 .hero-collapsed .summary-where, .hero-collapsed .summary-types,
 .hero-collapsed .summary-sat, .hero-collapsed .summary-actions,
 .hero-collapsed .hero-stats, .hero-collapsed .summary-official-active { display: none !important; }
+
+/* ── Panneau latéral desktop (master UX §9 — ≥1100 px) ──────────────────────
+   Les feuilles deviennent UN panneau latéral (400 px, jamais au centre) :
+   la carte reste majoritaire, une seule instance ouverte (openSheet ferme
+   tout), fermeture par bouton et Échap. En dessous de 1100 px : carte
+   flottante existante (rien ne change). RTL : panneau à gauche, glissement
+   inversé. Décalé sous l'en-tête (les boutons pays/langue restent cliquables)
+   et arrêté au-dessus de la zone de navigation. */
+@media (min-width: 1100px) {
+  .sheet {
+    left: auto; right: 0; top: 4.25rem; bottom: 0;
+    width: 400px; max-width: 400px;
+    max-height: none;
+    border-radius: var(--kifeh-radius-lg) 0 0 0;
+    box-shadow: 0 4px 28px rgba(30, 42, 77, .2);
+    padding-bottom: 1.5rem;
+    transform: translateX(110%); transition: transform .25s ease;
+  }
+  .sheet.open { transform: translateX(0); }
+  html[dir="rtl"] .sheet {
+    right: auto; left: 0;
+    border-radius: 0 var(--kifeh-radius-lg) 0 0;
+    transform: translateX(-110%);
+  }
+  html[dir="rtl"] .sheet.open { transform: translateX(0); }
+  .sheet .handle { display: none; } /* la poignée est un geste mobile */
+}
