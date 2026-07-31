@@ -1,0 +1,1089 @@
+[
+  {
+    "lang": "fr",
+    "w": 320,
+    "h": 568,
+    "overlays": [
+      {
+        "id": "home-top",
+        "x": 0,
+        "y": 0,
+        "w": 320,
+        "h": 170
+      },
+      {
+        "id": "home-bottom",
+        "x": 0,
+        "y": 332,
+        "w": 320,
+        "h": 176
+      },
+      {
+        "id": "map-fabs",
+        "x": 262,
+        "y": 296,
+        "w": 44,
+        "h": 200
+      },
+      {
+        "id": "bottomNav",
+        "x": 0,
+        "y": 505,
+        "w": 320,
+        "h": 64
+      }
+    ],
+    "overlayCount": 4,
+    "mapCoveredPct": 56,
+    "hScroll": false,
+    "searchWidthPct": null,
+    "heroVisible": true,
+    "shot": "fr-320x568.png"
+  },
+  {
+    "lang": "fr",
+    "w": 360,
+    "h": 640,
+    "overlays": [
+      {
+        "id": "home-top",
+        "x": 0,
+        "y": 0,
+        "w": 360,
+        "h": 170
+      },
+      {
+        "id": "home-bottom",
+        "x": 0,
+        "y": 404,
+        "w": 360,
+        "h": 176
+      },
+      {
+        "id": "map-fabs",
+        "x": 302,
+        "y": 368,
+        "w": 44,
+        "h": 200
+      },
+      {
+        "id": "bottomNav",
+        "x": 0,
+        "y": 577,
+        "w": 360,
+        "h": 64
+      }
+    ],
+    "overlayCount": 4,
+    "mapCoveredPct": 49,
+    "hScroll": false,
+    "searchWidthPct": null,
+    "heroVisible": true,
+    "shot": "fr-360x640.png"
+  },
+  {
+    "lang": "fr",
+    "w": 375,
+    "h": 667,
+    "overlays": [
+      {
+        "id": "home-top",
+        "x": 0,
+        "y": 0,
+        "w": 375,
+        "h": 170
+      },
+      {
+        "id": "home-bottom",
+        "x": 0,
+        "y": 431,
+        "w": 375,
+        "h": 176
+      },
+      {
+        "id": "map-fabs",
+        "x": 317,
+        "y": 395,
+        "w": 44,
+        "h": 200
+      },
+      {
+        "id": "bottomNav",
+        "x": 0,
+        "y": 604,
+        "w": 375,
+        "h": 64
+      }
+    ],
+    "overlayCount": 4,
+    "mapCoveredPct": 50,
+    "hScroll": false,
+    "searchWidthPct": null,
+    "heroVisible": true,
+    "shot": "fr-375x667.png"
+  },
+  {
+    "lang": "fr",
+    "w": 390,
+    "h": 844,
+    "overlays": [
+      {
+        "id": "home-top",
+        "x": 0,
+        "y": 0,
+        "w": 390,
+        "h": 170
+      },
+      {
+        "id": "home-bottom",
+        "x": 0,
+        "y": 539,
+        "w": 390,
+        "h": 245
+      },
+      {
+        "id": "map-fabs",
+        "x": 332,
+        "y": 572,
+        "w": 44,
+        "h": 200
+      },
+      {
+        "id": "bottomNav",
+        "x": 0,
+        "y": 781,
+        "w": 390,
+        "h": 64
+      }
+    ],
+    "overlayCount": 4,
+    "mapCoveredPct": 47,
+    "hScroll": false,
+    "searchWidthPct": null,
+    "heroVisible": true,
+    "shot": "fr-390x844.png"
+  },
+  {
+    "lang": "fr",
+    "w": 768,
+    "h": 1024,
+    "overlays": [
+      {
+        "id": "home-top",
+        "x": 0,
+        "y": 0,
+        "w": 768,
+        "h": 170
+      },
+      {
+        "id": "home-bottom",
+        "x": 192,
+        "y": 780,
+        "w": 384,
+        "h": 156
+      },
+      {
+        "id": "map-fabs",
+        "x": 704,
+        "y": 804,
+        "w": 44,
+        "h": 200
+      },
+      {
+        "id": "bottomNav",
+        "x": 229,
+        "y": 944,
+        "w": 311,
+        "h": 65
+      },
+      {
+        "id": "listSheet",
+        "x": 430,
+        "y": 1013,
+        "w": 322,
+        "h": 100
+      },
+      {
+        "id": "detailSheet",
+        "x": 676,
+        "y": 1011,
+        "w": 76,
+        "h": 56
+      },
+      {
+        "id": "alertSheet",
+        "x": 676,
+        "y": 1011,
+        "w": 76,
+        "h": 56
+      },
+      {
+        "id": "suivisSheet",
+        "x": 640,
+        "y": 1013,
+        "w": 112,
+        "h": 90
+      },
+      {
+        "id": "safetySheet",
+        "x": 540,
+        "y": 1013,
+        "w": 212,
+        "h": 90
+      },
+      {
+        "id": "vigSheet",
+        "x": 676,
+        "y": 1011,
+        "w": 76,
+        "h": 56
+      },
+      {
+        "id": "situationSheet",
+        "x": 514,
+        "y": 1015,
+        "w": 238,
+        "h": 134
+      },
+      {
+        "id": "aideSheet",
+        "x": 676,
+        "y": 1013,
+        "w": 76,
+        "h": 90
+      },
+      {
+        "id": "burntSheet",
+        "x": 676,
+        "y": 1011,
+        "w": 76,
+        "h": 56
+      },
+      {
+        "id": "roadSheet",
+        "x": 676,
+        "y": 1011,
+        "w": 76,
+        "h": 56
+      },
+      {
+        "id": "countrySheet",
+        "x": 272,
+        "y": 1023,
+        "w": 480,
+        "h": 300
+      }
+    ],
+    "overlayCount": 15,
+    "mapCoveredPct": 25,
+    "hScroll": false,
+    "searchWidthPct": null,
+    "heroVisible": true,
+    "shot": "fr-768x1024.png"
+  },
+  {
+    "lang": "fr",
+    "w": 1024,
+    "h": 768,
+    "overlays": [
+      {
+        "id": "home-top",
+        "x": 0,
+        "y": 0,
+        "w": 1024,
+        "h": 170
+      },
+      {
+        "id": "home-bottom",
+        "x": 272,
+        "y": 542,
+        "w": 479,
+        "h": 138
+      },
+      {
+        "id": "map-fabs",
+        "x": 960,
+        "y": 548,
+        "w": 44,
+        "h": 200
+      },
+      {
+        "id": "bottomNav",
+        "x": 357,
+        "y": 688,
+        "w": 311,
+        "h": 65
+      },
+      {
+        "id": "listSheet",
+        "x": 686,
+        "y": 757,
+        "w": 322,
+        "h": 100
+      },
+      {
+        "id": "detailSheet",
+        "x": 932,
+        "y": 755,
+        "w": 76,
+        "h": 56
+      },
+      {
+        "id": "alertSheet",
+        "x": 932,
+        "y": 755,
+        "w": 76,
+        "h": 56
+      },
+      {
+        "id": "suivisSheet",
+        "x": 896,
+        "y": 757,
+        "w": 112,
+        "h": 90
+      },
+      {
+        "id": "safetySheet",
+        "x": 796,
+        "y": 757,
+        "w": 212,
+        "h": 90
+      },
+      {
+        "id": "vigSheet",
+        "x": 932,
+        "y": 755,
+        "w": 76,
+        "h": 56
+      },
+      {
+        "id": "situationSheet",
+        "x": 770,
+        "y": 759,
+        "w": 238,
+        "h": 134
+      },
+      {
+        "id": "aideSheet",
+        "x": 932,
+        "y": 757,
+        "w": 76,
+        "h": 90
+      },
+      {
+        "id": "burntSheet",
+        "x": 932,
+        "y": 755,
+        "w": 76,
+        "h": 56
+      },
+      {
+        "id": "roadSheet",
+        "x": 932,
+        "y": 755,
+        "w": 76,
+        "h": 56
+      },
+      {
+        "id": "countrySheet",
+        "x": 528,
+        "y": 767,
+        "w": 480,
+        "h": 300
+      }
+    ],
+    "overlayCount": 15,
+    "mapCoveredPct": 29,
+    "hScroll": false,
+    "searchWidthPct": null,
+    "heroVisible": true,
+    "shot": "fr-1024x768.png"
+  },
+  {
+    "lang": "fr",
+    "w": 1280,
+    "h": 800,
+    "overlays": [
+      {
+        "id": "home-top",
+        "x": 0,
+        "y": 0,
+        "w": 1280,
+        "h": 170
+      },
+      {
+        "id": "home-bottom",
+        "x": 400,
+        "y": 574,
+        "w": 479,
+        "h": 138
+      },
+      {
+        "id": "map-fabs",
+        "x": 1216,
+        "y": 580,
+        "w": 44,
+        "h": 200
+      },
+      {
+        "id": "bottomNav",
+        "x": 485,
+        "y": 720,
+        "w": 311,
+        "h": 65
+      },
+      {
+        "id": "filterSheet",
+        "x": 1320,
+        "y": 68,
+        "w": 400,
+        "h": 732
+      },
+      {
+        "id": "listSheet",
+        "x": 1320,
+        "y": 68,
+        "w": 400,
+        "h": 732
+      },
+      {
+        "id": "detailSheet",
+        "x": 1320,
+        "y": 68,
+        "w": 400,
+        "h": 732
+      },
+      {
+        "id": "alertSheet",
+        "x": 1320,
+        "y": 68,
+        "w": 400,
+        "h": 732
+      },
+      {
+        "id": "suivisSheet",
+        "x": 1320,
+        "y": 68,
+        "w": 400,
+        "h": 732
+      },
+      {
+        "id": "safetySheet",
+        "x": 1320,
+        "y": 68,
+        "w": 400,
+        "h": 732
+      },
+      {
+        "id": "vigSheet",
+        "x": 1320,
+        "y": 68,
+        "w": 400,
+        "h": 732
+      },
+      {
+        "id": "situationSheet",
+        "x": 1320,
+        "y": 68,
+        "w": 400,
+        "h": 732
+      },
+      {
+        "id": "aideSheet",
+        "x": 1320,
+        "y": 68,
+        "w": 400,
+        "h": 732
+      },
+      {
+        "id": "burntSheet",
+        "x": 1320,
+        "y": 68,
+        "w": 400,
+        "h": 732
+      },
+      {
+        "id": "roadSheet",
+        "x": 1320,
+        "y": 68,
+        "w": 400,
+        "h": 732
+      },
+      {
+        "id": "layersSheet",
+        "x": 1320,
+        "y": 68,
+        "w": 400,
+        "h": 732
+      },
+      {
+        "id": "countrySheet",
+        "x": 1320,
+        "y": 68,
+        "w": 400,
+        "h": 732
+      }
+    ],
+    "overlayCount": 17,
+    "mapCoveredPct": 26,
+    "hScroll": false,
+    "searchWidthPct": null,
+    "heroVisible": true,
+    "shot": "fr-1280x800.png"
+  },
+  {
+    "lang": "fr",
+    "w": 1440,
+    "h": 900,
+    "overlays": [
+      {
+        "id": "home-top",
+        "x": 0,
+        "y": 0,
+        "w": 1440,
+        "h": 170
+      },
+      {
+        "id": "home-bottom",
+        "x": 480,
+        "y": 674,
+        "w": 479,
+        "h": 138
+      },
+      {
+        "id": "map-fabs",
+        "x": 1376,
+        "y": 680,
+        "w": 44,
+        "h": 200
+      },
+      {
+        "id": "bottomNav",
+        "x": 565,
+        "y": 820,
+        "w": 311,
+        "h": 65
+      },
+      {
+        "id": "filterSheet",
+        "x": 1480,
+        "y": 68,
+        "w": 400,
+        "h": 832
+      },
+      {
+        "id": "listSheet",
+        "x": 1480,
+        "y": 68,
+        "w": 400,
+        "h": 832
+      },
+      {
+        "id": "detailSheet",
+        "x": 1480,
+        "y": 68,
+        "w": 400,
+        "h": 832
+      },
+      {
+        "id": "alertSheet",
+        "x": 1480,
+        "y": 68,
+        "w": 400,
+        "h": 832
+      },
+      {
+        "id": "suivisSheet",
+        "x": 1480,
+        "y": 68,
+        "w": 400,
+        "h": 832
+      },
+      {
+        "id": "safetySheet",
+        "x": 1480,
+        "y": 68,
+        "w": 400,
+        "h": 832
+      },
+      {
+        "id": "vigSheet",
+        "x": 1480,
+        "y": 68,
+        "w": 400,
+        "h": 832
+      },
+      {
+        "id": "situationSheet",
+        "x": 1480,
+        "y": 68,
+        "w": 400,
+        "h": 832
+      },
+      {
+        "id": "aideSheet",
+        "x": 1480,
+        "y": 68,
+        "w": 400,
+        "h": 832
+      },
+      {
+        "id": "burntSheet",
+        "x": 1480,
+        "y": 68,
+        "w": 400,
+        "h": 832
+      },
+      {
+        "id": "roadSheet",
+        "x": 1480,
+        "y": 68,
+        "w": 400,
+        "h": 832
+      },
+      {
+        "id": "layersSheet",
+        "x": 1480,
+        "y": 68,
+        "w": 400,
+        "h": 832
+      },
+      {
+        "id": "countrySheet",
+        "x": 1480,
+        "y": 68,
+        "w": 400,
+        "h": 832
+      }
+    ],
+    "overlayCount": 17,
+    "mapCoveredPct": 22,
+    "hScroll": false,
+    "searchWidthPct": null,
+    "heroVisible": true,
+    "shot": "fr-1440x900.png"
+  },
+  {
+    "lang": "fr",
+    "w": 1920,
+    "h": 1080,
+    "overlays": [
+      {
+        "id": "home-top",
+        "x": 0,
+        "y": 0,
+        "w": 1920,
+        "h": 170
+      },
+      {
+        "id": "home-bottom",
+        "x": 720,
+        "y": 854,
+        "w": 479,
+        "h": 138
+      },
+      {
+        "id": "map-fabs",
+        "x": 1856,
+        "y": 860,
+        "w": 44,
+        "h": 200
+      },
+      {
+        "id": "bottomNav",
+        "x": 805,
+        "y": 1000,
+        "w": 311,
+        "h": 65
+      },
+      {
+        "id": "filterSheet",
+        "x": 1960,
+        "y": 68,
+        "w": 400,
+        "h": 1012
+      },
+      {
+        "id": "listSheet",
+        "x": 1960,
+        "y": 68,
+        "w": 400,
+        "h": 1012
+      },
+      {
+        "id": "detailSheet",
+        "x": 1960,
+        "y": 68,
+        "w": 400,
+        "h": 1012
+      },
+      {
+        "id": "alertSheet",
+        "x": 1960,
+        "y": 68,
+        "w": 400,
+        "h": 1012
+      },
+      {
+        "id": "suivisSheet",
+        "x": 1960,
+        "y": 68,
+        "w": 400,
+        "h": 1012
+      },
+      {
+        "id": "safetySheet",
+        "x": 1960,
+        "y": 68,
+        "w": 400,
+        "h": 1012
+      },
+      {
+        "id": "vigSheet",
+        "x": 1960,
+        "y": 68,
+        "w": 400,
+        "h": 1012
+      },
+      {
+        "id": "situationSheet",
+        "x": 1960,
+        "y": 68,
+        "w": 400,
+        "h": 1012
+      },
+      {
+        "id": "aideSheet",
+        "x": 1960,
+        "y": 68,
+        "w": 400,
+        "h": 1012
+      },
+      {
+        "id": "burntSheet",
+        "x": 1960,
+        "y": 68,
+        "w": 400,
+        "h": 1012
+      },
+      {
+        "id": "roadSheet",
+        "x": 1960,
+        "y": 68,
+        "w": 400,
+        "h": 1012
+      },
+      {
+        "id": "layersSheet",
+        "x": 1960,
+        "y": 68,
+        "w": 400,
+        "h": 1012
+      },
+      {
+        "id": "countrySheet",
+        "x": 1960,
+        "y": 68,
+        "w": 400,
+        "h": 1012
+      }
+    ],
+    "overlayCount": 17,
+    "mapCoveredPct": 14,
+    "hScroll": false,
+    "searchWidthPct": null,
+    "heroVisible": true,
+    "shot": "fr-1920x1080.png"
+  },
+  {
+    "lang": "ar",
+    "w": 375,
+    "h": 667,
+    "overlays": [
+      {
+        "id": "home-top",
+        "x": 0,
+        "y": 0,
+        "w": 375,
+        "h": 170
+      },
+      {
+        "id": "home-bottom",
+        "x": 0,
+        "y": 451,
+        "w": 375,
+        "h": 156
+      },
+      {
+        "id": "map-fabs",
+        "x": 14,
+        "y": 395,
+        "w": 44,
+        "h": 200
+      },
+      {
+        "id": "bottomNav",
+        "x": 0,
+        "y": 604,
+        "w": 375,
+        "h": 64
+      }
+    ],
+    "overlayCount": 4,
+    "mapCoveredPct": 48,
+    "hScroll": false,
+    "searchWidthPct": null,
+    "heroVisible": true,
+    "shot": "ar-375x667.png"
+  },
+  {
+    "lang": "ar",
+    "w": 768,
+    "h": 1024,
+    "overlays": [
+      {
+        "id": "home-top",
+        "x": 0,
+        "y": 0,
+        "w": 768,
+        "h": 170
+      },
+      {
+        "id": "home-bottom",
+        "x": 192,
+        "y": 780,
+        "w": 384,
+        "h": 156
+      },
+      {
+        "id": "map-fabs",
+        "x": 20,
+        "y": 804,
+        "w": 44,
+        "h": 200
+      },
+      {
+        "id": "bottomNav",
+        "x": 250,
+        "y": 944,
+        "w": 268,
+        "h": 65
+      },
+      {
+        "id": "listSheet",
+        "x": 16,
+        "y": 1013,
+        "w": 252,
+        "h": 104
+      },
+      {
+        "id": "detailSheet",
+        "x": 16,
+        "y": 1011,
+        "w": 76,
+        "h": 56
+      },
+      {
+        "id": "alertSheet",
+        "x": 16,
+        "y": 1011,
+        "w": 76,
+        "h": 56
+      },
+      {
+        "id": "suivisSheet",
+        "x": 16,
+        "y": 1013,
+        "w": 91,
+        "h": 90
+      },
+      {
+        "id": "safetySheet",
+        "x": 16,
+        "y": 1013,
+        "w": 99,
+        "h": 90
+      },
+      {
+        "id": "vigSheet",
+        "x": 16,
+        "y": 1011,
+        "w": 76,
+        "h": 56
+      },
+      {
+        "id": "situationSheet",
+        "x": 16,
+        "y": 1017,
+        "w": 210,
+        "h": 182
+      },
+      {
+        "id": "aideSheet",
+        "x": 16,
+        "y": 1013,
+        "w": 88,
+        "h": 90
+      },
+      {
+        "id": "burntSheet",
+        "x": 16,
+        "y": 1011,
+        "w": 76,
+        "h": 56
+      },
+      {
+        "id": "roadSheet",
+        "x": 16,
+        "y": 1011,
+        "w": 76,
+        "h": 56
+      },
+      {
+        "id": "countrySheet",
+        "x": 16,
+        "y": 1022,
+        "w": 480,
+        "h": 277
+      }
+    ],
+    "overlayCount": 15,
+    "mapCoveredPct": 24,
+    "hScroll": false,
+    "searchWidthPct": null,
+    "heroVisible": true,
+    "shot": "ar-768x1024.png"
+  },
+  {
+    "lang": "ar",
+    "w": 1440,
+    "h": 900,
+    "overlays": [
+      {
+        "id": "home-top",
+        "x": 0,
+        "y": 0,
+        "w": 1440,
+        "h": 170
+      },
+      {
+        "id": "home-bottom",
+        "x": 512,
+        "y": 674,
+        "w": 417,
+        "h": 138
+      },
+      {
+        "id": "map-fabs",
+        "x": 20,
+        "y": 680,
+        "w": 44,
+        "h": 200
+      },
+      {
+        "id": "bottomNav",
+        "x": 586,
+        "y": 820,
+        "w": 268,
+        "h": 65
+      },
+      {
+        "id": "filterSheet",
+        "x": -440,
+        "y": 68,
+        "w": 400,
+        "h": 832
+      },
+      {
+        "id": "listSheet",
+        "x": -440,
+        "y": 68,
+        "w": 400,
+        "h": 832
+      },
+      {
+        "id": "detailSheet",
+        "x": -440,
+        "y": 68,
+        "w": 400,
+        "h": 832
+      },
+      {
+        "id": "alertSheet",
+        "x": -440,
+        "y": 68,
+        "w": 400,
+        "h": 832
+      },
+      {
+        "id": "suivisSheet",
+        "x": -440,
+        "y": 68,
+        "w": 400,
+        "h": 832
+      },
+      {
+        "id": "safetySheet",
+        "x": -440,
+        "y": 68,
+        "w": 400,
+        "h": 832
+      },
+      {
+        "id": "vigSheet",
+        "x": -440,
+        "y": 68,
+        "w": 400,
+        "h": 832
+      },
+      {
+        "id": "situationSheet",
+        "x": -440,
+        "y": 68,
+        "w": 400,
+        "h": 832
+      },
+      {
+        "id": "aideSheet",
+        "x": -440,
+        "y": 68,
+        "w": 400,
+        "h": 832
+      },
+      {
+        "id": "burntSheet",
+        "x": -440,
+        "y": 68,
+        "w": 400,
+        "h": 832
+      },
+      {
+        "id": "roadSheet",
+        "x": -440,
+        "y": 68,
+        "w": 400,
+        "h": 832
+      },
+      {
+        "id": "layersSheet",
+        "x": -440,
+        "y": 68,
+        "w": 400,
+        "h": 832
+      },
+      {
+        "id": "countrySheet",
+        "x": -440,
+        "y": 68,
+        "w": 400,
+        "h": 832
+      }
+    ],
+    "overlayCount": 17,
+    "mapCoveredPct": 21,
+    "hScroll": false,
+    "searchWidthPct": null,
+    "heroVisible": true,
+    "shot": "ar-1440x900.png"
+  }
+]
