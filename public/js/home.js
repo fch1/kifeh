@@ -53,6 +53,9 @@ API.get('/api/public/config').then((c) => {
   pushKey = c.pushKey || null; // clé publique VAPID (alertes de zone)
   // Fond de carte configuré côté serveur (fournisseur principal + secours).
   setTileProviders(c.tileProviders, c.tileFailThreshold);
+  // Moteur MapLibre du mode feux (#103, drapeau OFF par défaut) : on ARME
+  // seulement — rien ne se charge tant que le mode feux n'est pas actif.
+  window.kifehGLBoot?.(c);
   // Pays réellement activés côté serveur : les autres options sont masquées.
   if (Array.isArray(c.countries)) {
     const enabled = new Set(c.countries.map((x) => x.code));
@@ -1488,6 +1491,10 @@ function syncTypeControls() {
   if (confWrap) confWrap.hidden = !filters.types.has('satellite') && !filters.satConf;
   document.getElementById('fSource').value = filters.source;
   updateFilterBadge();
+  // Le moteur GL (#103) suit l'état du filtre feu dès la PUCE (pas seulement
+  // le panneau de filtres) — événement inerte tant que le drapeau est éteint,
+  // et strictement sans effet sur la bande « mode feux » existante.
+  document.dispatchEvent(new CustomEvent('kifeh:fire-mode', { detail: { on: fireFilterActive() } }));
 }
 document.getElementById('fSatLayer')?.addEventListener('change', (e) => {
   window.track?.(e.currentTarget.checked ? 'layer_enabled' : 'layer_disabled', { layer_name: 'satellite' });
@@ -1507,6 +1514,9 @@ syncTypeControls(); // état initial (confiance satellite masquée par défaut)
 function syncFireModeBar() {
   let bar = document.getElementById('fireModeBar');
   const wanted = fireFilterActive();
+  // Signal d'entrée/sortie du mode feux (consommé par fire-map-gl.js #103 —
+  // inerte tant que le drapeau serveur est éteint).
+  document.dispatchEvent(new CustomEvent('kifeh:fire-mode', { detail: { on: wanted } }));
   let hidden = false;
   try { hidden = localStorage.getItem('kifeh_firemode_bar_hidden') === '1'; } catch {}
   if (!wanted || hidden) { bar?.remove(); return; }

@@ -415,6 +415,7 @@ const I18N = {
     api_degraded: 'Impossible de mettre à jour les incidents. Les dernières informations disponibles sont affichées.',
     // Détections satellitaires (NASA FIRMS) — jamais « confirmé par la NASA »
     sat_detection: 'Détection satellite',
+    gl_frp: 'Puissance radiative (FRP) : ~{n} MW — une intensité observée, jamais une taille ni une surface.',
     sat_potential_fire: 'Incendie potentiel détecté par satellite',
     sat_corroborated: 'Signalement corroboré par satellite',
     sat_source: 'Source : NASA FIRMS',
@@ -995,6 +996,7 @@ const I18N = {
     offline_snapshot: 'آخر المعلومات المتوفرة — تم تحديثها {t}.',
     api_degraded: 'تعذّر تحديث البلاغات. تُعرض آخر المعلومات المتوفرة.',
     sat_detection: 'رصد عبر الأقمار الاصطناعية',
+    gl_frp: 'القدرة الإشعاعية (FRP): ~{n} ميغاواط — شدة مرصودة، وليست حجمًا ولا مساحة.',
     sat_potential_fire: 'حريق محتمل مرصود عبر الأقمار الاصطناعية',
     sat_corroborated: 'بلاغ معزَّز برصد عبر الأقمار الاصطناعية',
     sat_source: 'المصدر: NASA FIRMS',

@@ -617,6 +617,9 @@ publicRouter.get('/config', (req, res) => {
     ].filter((p) => p.url),
     tileFailThreshold: getSettingNum('tile_fail_threshold') || 6,
     desktopRail: getSetting('fire_desktop_rail_enabled') !== '0',
+    // Moteur MapLibre du mode feux (#103) : opt-in EXPLICITE ('1') — le client
+    // ne charge pas un octet de la librairie tant que ce champ n'est pas vrai.
+    fireMapLibre: getSetting('fire_maplibre_enabled') === '1',
     // Alertes de zone (Web Push) : clé publique VAPID — la clé privée reste en base.
     pushKey: publicVapidKey(),
     // Multi-pays : profils CLIENT-SÛRS uniquement (jamais de clé, jamais de

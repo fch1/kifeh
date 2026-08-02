@@ -630,6 +630,41 @@ async function main() {
   ok(typeof sAir.data.air.observedAt === 'string' && sAir.data.air.provider === 'open_meteo_air',
     'air : horodatage + fournisseur transmis');
 
+  // ── Chantier #103 : moteur MapLibre du mode feux (drapeau OFF, câblage) ──
+  section('Moteur MapLibre (#103) : drapeau éteint par défaut, chargement paresseux');
+  {
+    const cfg0 = await api('GET', '/api/public/config');
+    ok(cfg0.data.fireMapLibre === false,
+      'config publique : fireMapLibre=false PAR DÉFAUT (opt-in explicite)');
+    const adminSet = (settings) => fetch(`${BASE}/api/admin/settings`, {
+      method: 'POST', headers: { ...hdr, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ settings }),
+    });
+    await adminSet({ fire_maplibre_enabled: '1' });
+    const cfg1 = await api('GET', '/api/public/config');
+    ok(cfg1.data.fireMapLibre === true, 'bascule à chaud admin → fireMapLibre=true');
+    await adminSet({ fire_maplibre_enabled: '0' });
+    const cfg2 = await api('GET', '/api/public/config');
+    ok(cfg2.data.fireMapLibre === false, 'coupure à chaud → fireMapLibre=false (réversible)');
+    // Câblage client : module servi, librairie vendorisée présente mais JAMAIS
+    // référencée dans le HTML (chargée uniquement à l'activation du mode feux).
+    const glr = await fetch(`${BASE}/js/fire-map-gl.js`);
+    const gl = await glr.text();
+    ok(glr.status === 200 && gl.includes('kifehGLBoot') && gl.includes('kifeh:fire-mode'),
+      'module fire-map-gl.js servi (armement config + suivi du mode feux)');
+    ok(gl.includes('AbortController') && gl.includes('LRU_MAX') && gl.includes('cellKeys'),
+      'moteur : cellules + cache LRU + annulation des requêtes présents');
+    ok(gl.includes('markFailed') && gl.includes("'no_webgl'") && gl.includes('AGE_COLORS'),
+      'moteur : fallback Leaflet obligatoire + 5 classes d’ancienneté');
+    const htmlr = await fetch(`${BASE}/`);
+    const html = await htmlr.text();
+    ok((html.match(/fire-map-gl\.js/g) || []).length === 1 && !html.includes('vendor/maplibre'),
+      'index.html : module inclus une fois, librairie MapLibre ABSENTE du HTML initial');
+    ok(fs.existsSync('public/vendor/maplibre/maplibre-gl.js')
+      && fs.existsSync('public/vendor/maplibre/maplibre-gl.css'),
+      'librairie vendorisée sur disque (aucun CDN au moment de l’activation)');
+  }
+
   console.log('\n────────────────────────────');
   console.log(`${passed} réussis · ${failed} échoués`);
   process.exit(failed ? 1 : 0);

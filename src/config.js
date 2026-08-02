@@ -198,6 +198,10 @@ export const defaultSettings = {
   // Farah : « revert, le front est dégueulasse ») ; itération sur maquettes
   // validées AVANT toute réactivation.
   fire_desktop_rail_enabled: '0',
+  // Chantier #103 : moteur MapLibre du mode feux — ÉTEINT par défaut (opt-in
+  // explicite '1'). Ne remplace l'affichage qu'après captures validées par
+  // Farah (règle du plan : maquette → OK → code → captures → drapeau → mesure).
+  fire_maplibre_enabled: '0',
   // Vent : modèle Météo-France (AROME/ARPEGE) servi par Open-Meteo — libre,
   // sans clé. Fournisseur configurable (WIND_URL pour les tests/alternatives).
   wind_provider: 'arome_france_hd_openmeteo', // AROME France HD, EXPLICITE (jamais le mode auto),

@@ -974,6 +974,28 @@ html, body { overscroll-behavior: none; }
   .sheet.pos-half { max-height: 52dvh; }
 }
 
+/* ── Chantier #103 : moteur MapLibre du mode feux (drapeau serveur OFF) ─────
+   #glMap n'EXISTE dans le DOM qu'à la première activation (drapeau + mode
+   feux) : zéro impact visuel ou perf tant que le drapeau est éteint. Il
+   recouvre la carte Leaflet — qui reste vivante dessous, prête à reprendre
+   seule au moindre échec (fallback obligatoire). */
+#glMap {
+  position: absolute;
+  inset: 0;
+  z-index: 800; /* au-dessus des panes Leaflet (≤700), sous les feuilles/FAB */
+  background: var(--kifeh-bg, #FAF7F1);
+}
+#glMap .maplibregl-canvas { outline: none; }
+.gl-citizen { cursor: pointer; }
+.gl-popup .maplibregl-popup-content {
+  font-family: inherit;
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: 0 4px 18px rgba(15, 58, 87, .22);
+  line-height: 1.45;
+}
+.gl-popup .muted { color: var(--kifeh-muted, #5C6B79); font-size: .8rem; }
+
 /* ── REFONTE PR 2 : composition desktop ≥1200 px (drapeau rail-ok) ──────────
    Rail vertical gauche (droite en RTL), header inchangé mais recherche
    BORNÉE, carte héro permanente → puce compacte. Mobile/tablette intacts.
