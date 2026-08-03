@@ -398,7 +398,31 @@ ok(smX.includes('/fr/fr/incendies/gironde') && smX.includes('/ar/tn/incendies/sf
 ok(smX.includes('comprendre/detections-satellite')
   && !smX.includes('/tn/incendies/comprendre/reperes-dfci'),
   'sitemap : comprendre listées, DFCI jamais côté tunisien');
-ok((smX.match(/<loc>/g) || []).length === 51, `sitemap : 51 URLs (${(smX.match(/<loc>/g) || []).length})`);
+ok((smX.match(/<loc>/g) || []).length === 52, `sitemap : 52 URLs (${(smX.match(/<loc>/g) || []).length})`);
+
+section('Widget embarquable + kit média (#93)');
+const wg = await fetch(`${BASE}/widget?country=FR&lang=fr&zone=gironde`);
+const wgH = await wg.text();
+ok(wg.status === 200 && wgH.includes('Gironde') && /signalement|Aucun signalement/.test(wgH),
+  '/widget?zone=gironde : carte de situation servie avec comptes vivants');
+ok(wg.headers.get('x-frame-options') === null
+  && String(wg.headers.get('content-security-policy')).includes('frame-ancestors *'),
+  'widget : ENCAPSULABLE (X-Frame-Options retiré, frame-ancestors *) — seule surface du site');
+ok(wgH.includes('noindex') && !wgH.includes('<script'),
+  'widget : noindex + ZÉRO JavaScript (méta-rafraîchissement)');
+const wgAr = await (await fetch(`${BASE}/widget?country=TN&lang=ar&zone=tunis`)).text();
+ok(wgAr.includes('dir="rtl"') && wgAr.includes('تونس'), 'widget TN arabe : RTL réel + nom arabe');
+ok((await fetch(`${BASE}/widget?country=FR&zone=zone-inconnue`)).status === 404,
+  'widget : zone inconnue → 404 explicite');
+const anyPage = await fetch(`${BASE}/fr/fr/incendies`);
+ok(anyPage.headers.get('x-frame-options') === 'SAMEORIGIN',
+  'le reste du site reste NON encapsulable (SAMEORIGIN conservé)');
+const pk = await fetch(`${BASE}/presse`);
+const pkH = await pk.text();
+ok(pk.status === 200 && pkH.includes('&lt;iframe') && pkH.includes('zone=gironde'),
+  '/presse : kit média avec extraits d’intégration prêts à coller');
+ok(pkH.includes('github.com/fch1/kifeh') && !pkH.includes('@gmail'),
+  '/presse : contact via le dépôt — jamais un courriel personnel publié');
 
 section('healthz : fraîcheur typée par source');
 const hz = await api('/healthz');

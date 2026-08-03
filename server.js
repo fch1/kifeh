@@ -17,6 +17,7 @@ import { adminRouter } from './src/routes/admin.js';
 import { eventsRouter } from './src/routes/events.js';
 import { devRouter } from './src/routes/dev.js';
 import { seoRouter } from './src/routes/seo.js';
+import { widgetRouter } from './src/routes/widget.js';
 import { startScheduler } from './src/services/scheduler.js';
 import { effisStatus } from './src/services/effis.js';
 import { roadsStatus } from './src/services/roads.js';
@@ -207,6 +208,9 @@ if (config.isDev) app.use('/api/dev', devRouter);
 // Pages d'intention rendues serveur (/{langue}/{territoire}/incendies) —
 // AVANT le statique : contenu réel + canonical + hreflang (docs/URL_CONVENTION.md).
 app.use(seoRouter);
+// Widget embarquable + kit média (#93) — /widget (seule surface encapsulable)
+// et /presse, rendus serveur, avant le statique.
+app.use(widgetRouter);
 
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders(res, filePath) {

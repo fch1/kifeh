@@ -98,7 +98,7 @@ ${hreflangs}
 <meta property="og:url" content="${BASE}${path(lang, cc)}">
 <meta property="og:image" content="${BASE}/img/og-image.png">
 <meta property="og:type" content="website">
-<link rel="icon" href="/img/logo-icon.svg" type="image/svg+xml">
+<link rel="icon" href="/img/logo.svg" type="image/svg+xml">
 <script type="application/ld+json">${JSON.stringify({
     '@context': 'https://schema.org',
     '@type': 'Dataset',
@@ -188,7 +188,7 @@ ${hreflangs}
 <link rel="alternate" hreflang="x-default" href="${BASE}${path('fr', 'fr')}">
 <meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}">
 <meta property="og:image" content="${BASE}/img/og-image.png"><meta property="og:type" content="website">
-<link rel="icon" href="/img/logo-icon.svg" type="image/svg+xml">
+<link rel="icon" href="/img/logo.svg" type="image/svg+xml">
 <style>body{font-family:'IBM Plex Sans',-apple-system,sans-serif;background:#FAF7F1;color:#1E2A4D;line-height:1.65;margin:0}
 main{max-width:680px;margin:0 auto;padding:1.25rem 1rem 3rem}h1{font-size:1.4rem;line-height:1.3}h2{font-size:1.05rem;margin-top:1.4rem}
 .muted{color:#5C6B79;font-size:.85rem}.box{background:#fff;border:1px solid #E7E1D6;border-radius:14px;padding:1rem;margin:1rem 0}
@@ -342,6 +342,7 @@ seoRouter.get('/sitemap.xml', (req, res) => {
     { loc: '/faq.html', freq: 'monthly', prio: '0.7', langParam: true },
     { loc: '/a-propos.html', freq: 'monthly', prio: '0.6', langParam: true },
     { loc: '/legal.html', freq: 'monthly', prio: '0.4', langParam: true },
+    { loc: '/presse', freq: 'monthly', prio: '0.5', langParam: true }, // kit média (#93)
   ];
   const urls = [];
   for (const s of staticPages) {
@@ -448,7 +449,7 @@ function zonePageHtml(lang, cc, zone) {
 <link rel="alternate" hreflang="x-default" href="${BASE}${path('fr')}">
 <meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}">
 <meta property="og:image" content="${BASE}/img/og-image.png"><meta property="og:type" content="website">
-<link rel="icon" href="/img/logo-icon.svg" type="image/svg+xml">
+<link rel="icon" href="/img/logo.svg" type="image/svg+xml">
 <script type="application/ld+json">${JSON.stringify({
     '@context': 'https://schema.org', '@type': 'Dataset',
     name: title, description: desc, url: `${BASE}${path(lang)}`,
@@ -556,7 +557,7 @@ function comprendreHtml(lang, cc, topic) {
 <link rel="alternate" hreflang="x-default" href="${BASE}${path('fr')}">
 <meta property="og:title" content="${esc(h1)}"><meta property="og:description" content="${esc(desc)}">
 <meta property="og:image" content="${BASE}/img/og-image.png"><meta property="og:type" content="article">
-<link rel="icon" href="/img/logo-icon.svg" type="image/svg+xml">
+<link rel="icon" href="/img/logo.svg" type="image/svg+xml">
 <script type="application/ld+json">${JSON.stringify({
     '@context': 'https://schema.org', '@type': 'Article',
     headline: h1, description: desc, inLanguage: lang,
