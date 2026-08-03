@@ -403,7 +403,80 @@ ok(smX.includes('/fr/fr/incendies/gironde') && smX.includes('/ar/tn/incendies/sf
 ok(smX.includes('comprendre/detections-satellite')
   && !smX.includes('/tn/incendies/comprendre/reperes-dfci'),
   'sitemap : comprendre listées, DFCI jamais côté tunisien');
-ok((smX.match(/<loc>/g) || []).length === 52, `sitemap : 52 URLs (${(smX.match(/<loc>/g) || []).length})`);
+ok((smX.match(/<loc>/g) || []).length === 54, `sitemap : 54 URLs (${(smX.match(/<loc>/g) || []).length})`);
+ok(smX.includes('/fr/donnees-ouvertes/incendies') && smX.includes('/ar/donnees-ouvertes/incendies'),
+  'sitemap : pages données ouvertes listées (fr + ar)');
+
+section('URLs produit /{lang}/incendies/* : alias 301 vers les canoniques');
+{
+  const r = (p) => fetch(`${BASE}${p}`, { redirect: 'manual' });
+  const carte = await r('/fr/incendies/carte');
+  ok(carte.status === 301 && carte.headers.get('location') === '/?country=FR&lang=fr&types=fire',
+    '/fr/incendies/carte → 301 vers l’application (mode feux FR)');
+  const zone = await r('/fr/incendies/gironde');
+  ok(zone.status === 301 && zone.headers.get('location') === '/fr/fr/incendies/gironde',
+    '/fr/incendies/gironde → 301 vers la page canonique de zone');
+  const zoneAr = await r('/ar/incendies/corse-du-sud');
+  ok(zoneAr.status === 301 && zoneAr.headers.get('location') === '/ar/fr/incendies/corse-du-sud',
+    '/ar/incendies/corse-du-sud → 301 (variante arabe conservée)');
+  const meth = await r('/fr/incendies/methodologie');
+  ok(meth.status === 301 && meth.headers.get('location') === '/fr/fr/incendies/comprendre/detections-satellite',
+    '/fr/incendies/methodologie → 301 vers la méthodologie satellite');
+  const prev = await r('/fr/incendies/previsions');
+  ok(prev.status === 301 && prev.headers.get('location') === '/fr/fr/incendies/previsions',
+    '/fr/incendies/previsions → 301 (sujet prévisions du registre)');
+  const stx = await r('/fr/incendies/situation-textuelle');
+  ok(stx.status === 301 && stx.headers.get('location') === '/fr/fr/incendies',
+    '/fr/incendies/situation-textuelle → 301 vers la synthèse textuelle');
+  ok((await r('/fr/incendies/zone-fantome')).status === 404,
+    '/fr/incendies/zone-fantome → 404 (jamais de redirection fantôme)');
+  ok((await r('/fr/incendies/comprendre/sujet-fantome')).status === 404,
+    'comprendre inconnu → 404 explicite');
+}
+
+section('API ouverte /api/open : JSON stables, honnêtes, attribués');
+{
+  const sit = await api('/api/open/fire-situation.json');
+  ok(sit.status === 200 && sit.data.meta?.api === 'kifeh-open/1',
+    'fire-situation.json : version d’API explicite');
+  ok(sit.data.countries?.FR?.satellite24h && 'observations' in sit.data.countries.FR.satellite24h,
+    'situation FR : observations satellite 24 h présentes');
+  ok(sit.data.countries?.FR?.satellite24h?.note?.includes('pas des incendies confirmés'),
+    'situation : la note d’honnêteté accompagne les détections');
+  ok(sit.data.countries?.TN && !('burnedAreas45d' in sit.data.countries.TN)
+    && !JSON.stringify(sit.data.countries.TN).includes('EFFIS'),
+    'situation TN : jamais EFFIS hors couverture');
+  const src = await api('/api/open/fire-sources.json');
+  ok(src.status === 200 && src.data.countries?.FR?.layers?.thermalDetections?.upstream?.provider?.includes('NASA'),
+    'fire-sources.json : attribution NASA FIRMS présente');
+  ok(src.data.countries?.FR?.layers?.thermalDetections?.freshnessThresholdsSeconds?.fresh > 0,
+    'fire-sources.json : seuils de fraîcheur documentés');
+  const tnLayers = src.data.countries?.TN?.layers || {};
+  ok(Object.values(tnLayers).some((l) => l.enabled === false && l.disabledReason),
+    'fire-sources.json TN : une capacité désactivée porte toujours sa raison');
+  const met = await api('/api/open/fire-methodology.json');
+  ok(met.status === 200 && met.data.principles?.fr?.some((p) => p.includes('quasi temps réel')),
+    'fire-methodology.json : « quasi temps réel » explicité');
+  ok(met.data.principles?.fr?.some((p) => p.includes('jamais') && p.includes('confirmé'))
+    && met.data.links?.sourceCode?.includes('github.com/fch1/kifeh'),
+    'fire-methodology.json : observation ≠ confirmation + lien code source');
+  ok(met.data.freshness?.thresholdsSeconds && met.data.freshness?.labels?.fresh?.ar,
+    'fire-methodology.json : seuils + libellés bilingues');
+  const rawRes = await fetch(`${BASE}/api/open/fire-situation.json`);
+  ok((rawRes.headers.get('cache-control') || '').includes('public'),
+    'API ouverte : cache HTTP public (5 min)');
+
+  const od = await fetch(`${BASE}/fr/donnees-ouvertes/incendies`);
+  const odH = await od.text();
+  ok(od.status === 200 && odH.includes('"@type":"Dataset"') && odH.includes('api/open/fire-situation.json'),
+    '/fr/donnees-ouvertes/incendies : page réelle + JSON-LD Dataset');
+  const odAr = await (await fetch(`${BASE}/ar/donnees-ouvertes/incendies`)).text();
+  ok(odAr.includes('dir="rtl"') && odAr.includes('donnees-ouvertes/incendies'),
+    '/ar/donnees-ouvertes/incendies : variante arabe RTL réelle');
+  const llms = await (await fetch(`${BASE}/llms.txt`)).text();
+  ok(llms.includes('/api/open/fire-sources.json') && llms.includes('donnees-ouvertes'),
+    'llms.txt : l’API ouverte et sa documentation sont citées');
+}
 
 section('Lead generation : IndexNow + vérification Search Console prête');
 {

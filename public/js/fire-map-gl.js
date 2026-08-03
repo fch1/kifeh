@@ -229,6 +229,9 @@
         const p = TILE_PROVIDERS[map._tileState?.index || 0] || TILE_PROVIDERS[0];
         S.gl = new maplibregl.Map({
           container: S.wrap, attributionControl: { compact: true },
+          // ?glshot=1 : capture d'écran du canvas (validation visuelle) —
+          // coût mémoire accepté UNIQUEMENT en mode capture, jamais par défaut.
+          preserveDrawingBuffer: new URLSearchParams(location.search).has('glshot'),
           style: {
             version: 8,
             sources: { base: { type: 'raster', tiles: [p.url], tileSize: 256, attribution: p.attribution } },

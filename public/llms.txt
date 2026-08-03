@@ -28,4 +28,19 @@ Pages utiles :
 - [À propos](https://kifeh.app/a-propos.html)
 - [Confidentialité et mentions légales](https://kifeh.app/legal.html)
 
+Pages incendies (rendues serveur, horodatées, 4 variantes langue×territoire) :
+
+- [Carte des feux — France](https://kifeh.app/fr/fr/incendies) (raccourci : /fr/incendies)
+- [Carte des feux — Tunisie](https://kifeh.app/fr/tn/incendies) (وبالعربية : /ar/tn/incendies)
+- [Comprendre les détections satellite](https://kifeh.app/fr/fr/incendies/comprendre/detections-satellite)
+- [Les repères DFCI](https://kifeh.app/fr/fr/incendies/comprendre/reperes-dfci)
+- [Prévisions et danger météo des feux](https://kifeh.app/fr/fr/incendies/previsions)
+
+Données ouvertes (JSON stables et citables, attribution requise) :
+
+- [Documentation](https://kifeh.app/fr/donnees-ouvertes/incendies)
+- Situation factuelle : https://kifeh.app/api/open/fire-situation.json
+- Sources, licences, cadences : https://kifeh.app/api/open/fire-sources.json
+- Méthodologie (ce que les données ne sont PAS) : https://kifeh.app/api/open/fire-methodology.json
+
 Contact : contact@kifeh.org

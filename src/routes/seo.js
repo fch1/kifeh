@@ -170,6 +170,30 @@ for (const lang of LANGS) {
   for (const cc of CCS) seoRouter.get(`/${lang}/${cc}/incendies`, serve(lang, cc));
   // Convention : /fr/incendies est ambigu → 301 vers la variante complète.
   seoRouter.get(`/${lang}/incendies`, (req, res) => res.redirect(301, `/${lang}/fr/incendies`));
+
+  // Sous-chemins du raccourci /{lang}/incendies/* (URLs produit du master
+  // feux §5/§20) : chaque alias redirige en 301 vers l'URL CANONIQUE déjà
+  // servie — jamais de contenu dupliqué, jamais de page fantôme (→ 404).
+  const appTarget = `/?country=FR&lang=${lang}&types=fire`;
+  seoRouter.get(`/${lang}/incendies/carte`, (req, res) => res.redirect(301, appTarget));
+  seoRouter.get(`/${lang}/incendies/replay`, (req, res) => res.redirect(301, appTarget));
+  for (const alias of ['en-cours', 'sources', 'situation-textuelle']) {
+    seoRouter.get(`/${lang}/incendies/${alias}`, (req, res) => res.redirect(301, `/${lang}/fr/incendies`));
+  }
+  seoRouter.get(`/${lang}/incendies/methodologie`,
+    (req, res) => res.redirect(301, `/${lang}/fr/incendies/comprendre/detections-satellite`));
+  seoRouter.get(`/${lang}/incendies/comprendre/:topic`, (req, res) => {
+    const t = String(req.params.topic || '');
+    if (!['detections-satellite', 'reperes-dfci'].includes(t)) return res.status(404).end();
+    res.redirect(301, `/${lang}/fr/incendies/comprendre/${t}`);
+  });
+  seoRouter.get(`/${lang}/incendies/:slug`, (req, res) => {
+    const s = String(req.params.slug || '');
+    const known = FC_TOPICS.includes(s)
+      || (getProfile('FR')?.seoZones || []).some((z) => z.slug === s);
+    if (!known) return res.status(404).end();
+    res.redirect(301, `/${lang}/fr/incendies/${s}`);
+  });
 }
 
 // ── Pages SEO prévisions (master PR 8) : previsions · danger-feu ·
@@ -328,11 +352,115 @@ seoRouter.get('/i/:publicId', (req, res) => {
 </body></html>`);
 });
 
+// ── Page « Données ouvertes — incendies » (master feux §9/§22) ──────────────
+// Documente l'API ouverte /api/open/* : quoi, licences, cadences, limites.
+// Contenu RÉEL (compteurs vivants) — jamais une page vide. 2 variantes (fr/ar).
+function openDataHtml(lang) {
+  const rtl = lang === 'ar';
+  const cFR = liveCounts('FR'), cTN = liveCounts('TN');
+  const now = fmtDateTime(new Date().toISOString(), { language: lang, countryCode: 'FR' }) || '';
+  const title = rtl ? 'البيانات المفتوحة — الحرائق | كيفاه' : 'Données ouvertes — incendies | Kifeh';
+  const desc = rtl
+    ? 'وثائق JSON مفتوحة وقابلة للاقتباس: الوضع الفوري، المصادر وتراخيصها، والمنهجية. مع ذكر المصدر.'
+    : 'Documents JSON ouverts et citables : situation factuelle, sources et licences, méthodologie. Réutilisation libre avec attribution.';
+  const path = (l) => `/${l}/donnees-ouvertes/incendies`;
+  const hre = LANGS.map((l) => `<link rel="alternate" hreflang="${l}" href="${BASE}${path(l)}">`).join('\n  ');
+  const endpoints = ['fire-situation', 'fire-sources', 'fire-methodology'];
+  const epRows = endpoints.map((e) => `<li><a href="/api/open/${e}.json"><code dir="ltr">/api/open/${e}.json</code></a></li>`).join('\n    ');
+  return `<!doctype html>
+<html lang="${lang}" dir="${rtl ? 'rtl' : 'ltr'}">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(title)}</title>
+<meta name="description" content="${esc(desc)}">
+<link rel="canonical" href="${BASE}${path(lang)}">
+${hre}
+  <link rel="alternate" hreflang="x-default" href="${BASE}${path('fr')}">
+<meta property="og:title" content="${esc(title)}">
+<meta property="og:description" content="${esc(desc)}">
+<meta property="og:url" content="${BASE}${path(lang)}">
+<meta property="og:image" content="${BASE}/img/og-image.png">
+<meta property="og:type" content="website">
+<link rel="icon" href="/img/logo.svg" type="image/svg+xml">
+<script type="application/ld+json">${JSON.stringify({
+    '@context': 'https://schema.org', '@type': 'Dataset',
+    name: rtl ? 'كيفاه — بيانات الحرائق المفتوحة' : 'Kifeh — données ouvertes incendies',
+    description: desc,
+    url: `${BASE}${path(lang)}`,
+    creator: { '@type': 'Organization', name: 'Kifeh', url: BASE },
+    license: 'https://github.com/fch1/kifeh/blob/main/LICENSE',
+    isAccessibleForFree: true,
+    spatialCoverage: rtl ? 'فرنسا وتونس' : 'France et Tunisie',
+    temporalCoverage: '2026/..',
+    distribution: endpoints.map((e) => ({
+      '@type': 'DataDownload', encodingFormat: 'application/json',
+      contentUrl: `${BASE}/api/open/${e}.json`,
+    })),
+  })}</script>
+<style>
+  body{font-family:'IBM Plex Sans',-apple-system,'Segoe UI',sans-serif;background:#FAF7F1;color:#1E2A4D;line-height:1.6;margin:0}
+  main{max-width:680px;margin:0 auto;padding:1.25rem 1rem 3rem}
+  h1{font-size:1.5rem;line-height:1.3}h2{font-size:1.1rem;margin-top:1.5rem}
+  .facts{background:#fff;border:1px solid #E7E1D6;border-radius:14px;padding:1rem;margin:1rem 0}
+  .muted{color:#5C6B79;font-size:.85rem}
+  a{color:#1E2A4D}code{background:#fff;border:1px solid #E7E1D6;border-radius:6px;padding:.1rem .35rem}
+  nav a{margin-inline-end:.75rem}
+</style>
+</head>
+<body>
+<main>
+<nav class="muted"><a href="/">Kifeh كيفاه</a> › ${rtl ? 'البيانات المفتوحة' : 'Données ouvertes'}</nav>
+<h1>${rtl ? 'البيانات المفتوحة — الحرائق' : 'Données ouvertes — incendies'}</h1>
+<p>${rtl
+    ? 'كيفاه منصة مواطنية مفتوحة المصدر. توفّر هذه الصفحة وثائق JSON مستقرة وقابلة للاقتباس، للصحافيين والباحثين والمطوّرين.'
+    : 'Kifeh est une plateforme citoyenne open source. Cette page documente des documents JSON stables et citables, pensés pour les journalistes, chercheurs et développeurs.'}</p>
+<div class="facts">
+  <h2 style="margin-top:0">${rtl ? 'نقاط الوصول' : 'Points d’accès'}</h2>
+  <ul>
+    ${epRows}
+  </ul>
+  <p class="muted">${rtl
+    ? 'JSON، مخبأة 5 دقائق، مع إصدار API صريح وترخيص كل مصدر أصلي.'
+    : 'JSON, cache 5 minutes, version d’API explicite, licence de chaque source amont incluse.'}</p>
+</div>
+<h2>${rtl ? 'ماذا تصف هذه الوثائق؟' : 'Ce que ces documents décrivent'}</h2>
+<p>${rtl
+    ? `الوضع الفوري لكل إقليم (تبليغات المواطنين النشطة، أرصاد الأقمار خلال 24 ساعة — ${cFR.det24.n} فوق فرنسا و${cTN.det24.n} فوق تونس عند تحديث هذه الصفحة)، المصادر وإيقاعها وعتبات نضارتها، والمنهجية: ما تمثله البيانات وما لا تمثله أبدًا.`
+    : `La situation factuelle par territoire (signalements citoyens actifs, observations satellite des dernières 24 h — ${cFR.det24.n} au-dessus de la France et ${cTN.det24.n} au-dessus de la Tunisie à l’actualisation de cette page), les sources avec cadence et seuils de fraîcheur, et la méthodologie : ce que les données représentent — et ne représentent jamais.`}</p>
+<h2>${rtl ? 'الصدق قبل كل شيء' : 'L’honnêteté d’abord'}</h2>
+<p>${rtl
+    ? 'نقطة ساتلية = شذوذ حراري مُرصَد، وليست حريقًا مؤكدًا. كيفاه يكتب « شبه آنيّ » لا « آنيّ ». المواقع المنشورة تقريبية لحماية المبلّغين. كل معطى يحمل مصدره وتوقيته.'
+    : 'Un point satellite est une anomalie thermique observée, pas un incendie confirmé. Kifeh écrit « quasi temps réel », jamais « temps réel ». Les positions publiées sont approximatives (vie privée). Chaque donnée porte sa source et son horodatage.'}</p>
+<h2>${rtl ? 'الترخيص والإسناد' : 'Licence et attribution'}</h2>
+<p>${rtl
+    ? 'الكود: MIT. البيانات المجمّعة: إعادة استخدام حرة مع ذكر « Kifeh — kifeh.app » والمصادر الأصلية (NASA FIRMS، Copernicus EFFIS، Météo-France، Open-Meteo، OpenStreetMap).'
+    : 'Code : MIT. Données agrégées : réutilisation libre avec attribution « Kifeh — kifeh.app » et attribution des sources amont (NASA FIRMS, Copernicus EFFIS, Météo-France, Open-Meteo, OpenStreetMap).'}</p>
+<p><a href="/${lang}/fr/incendies">${rtl ? '→ خريطة الحرائق — فرنسا' : '→ Carte des feux — France'}</a> ·
+   <a href="/presse">${rtl ? 'الملف الصحفي' : 'Kit presse'}</a> ·
+   <a href="https://github.com/fch1/kifeh">${rtl ? 'الكود المصدري' : 'Code source'}</a></p>
+<p class="muted">${rtl ? 'حُدّثت هذه الصفحة في ' : 'Page actualisée le '}<span dir="ltr">${esc(now)}</span>.</p>
+</main>
+</body></html>`;
+}
+for (const lang of LANGS) {
+  seoRouter.get(`/${lang}/donnees-ouvertes/incendies`, (req, res) => {
+    const key = `opendata/${lang}`;
+    const hit = cache.get(key);
+    if (hit && Date.now() - hit.at < CACHE_MS) {
+      return res.set('Cache-Control', 'public, max-age=300').type('html').send(hit.html);
+    }
+    const html = openDataHtml(lang);
+    cache.set(key, { html, at: Date.now() });
+    res.set('Cache-Control', 'public, max-age=300').type('html').send(html);
+  });
+}
+
 // Liste des URLs publiques indexables — LA MÊME vérité que le sitemap
 // (consommée par IndexNow : une page qui existe est poussée, une page
 // retirée disparaît des pings).
 export function listSeoUrls() {
   const urls = ['/', '/declare.html', '/faq.html', '/a-propos.html', '/legal.html', '/presse'];
+  for (const lang of LANGS) urls.push(`/${lang}/donnees-ouvertes/incendies`);
   for (const lang of LANGS) {
     for (const cc of CCS) {
       urls.push(`/${lang}/${cc}/incendies`);
@@ -413,6 +541,7 @@ seoRouter.get('/sitemap.xml', (req, res) => {
       add(`/${lang}/${cc}/incendies/comprendre/detections-satellite`, 'monthly', '0.6');
       if (cc === 'fr') add(`/${lang}/fr/incendies/comprendre/reperes-dfci`, 'monthly', '0.6');
     }
+    add(`/${lang}/donnees-ouvertes/incendies`, 'weekly', '0.5'); // API ouverte documentée
   }
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"

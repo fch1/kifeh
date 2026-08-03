@@ -17,6 +17,7 @@ import { adminRouter } from './src/routes/admin.js';
 import { eventsRouter } from './src/routes/events.js';
 import { devRouter } from './src/routes/dev.js';
 import { seoRouter } from './src/routes/seo.js';
+import { openDataRouter } from './src/routes/openData.js';
 import { widgetRouter } from './src/routes/widget.js';
 import { startScheduler } from './src/services/scheduler.js';
 import { effisStatus } from './src/services/effis.js';
@@ -209,6 +210,7 @@ app.use('/api/declare', declareRouter);
 app.use('/api/manage', manageRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/events', eventsRouter);
+app.use('/api/open', openDataRouter); // documents JSON ouverts, citables (master feux §9)
 if (config.isDev) app.use('/api/dev', devRouter);
 
 // Pages d'intention rendues serveur (/{langue}/{territoire}/incendies) —
