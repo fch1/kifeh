@@ -258,21 +258,38 @@
 
 <!-- Feuille : Couches d'information — chaque couche affiche SA source et SA
      dernière mise à jour ; aucune couche secondaire n'est active d'office. -->
+<!-- Calques v2 (maquette A « Groupes clairs », validée par le master §calques) :
+     4 groupes lisibles, chaque ligne = icône + nom + source · heure + voyant
+     de fraîcheur + interrupteur 44 px. Les IDs de contrôles sont INCHANGÉS. -->
 <div class="sheet" id="layersSheet" role="dialog" aria-modal="true" data-i18n-aria="layers_btn_aria">
   <div class="handle"></div>
   <h2 data-i18n="layers_title"></h2>
+  <p class="muted small" data-i18n="layers_sub"></p>
   <div role="group">
-    <label class="checkbox-row"><input type="checkbox" id="fSatLayer"> 🛰️ <span data-i18n="layer_sat"></span></label>
-    <p class="muted small layer-src" id="srcSat"></p>
-    <p class="muted small layer-src" data-i18n="sat_age_legend"></p>
-    <label class="checkbox-row" id="wxRow" hidden><input type="checkbox" id="fWxLayer"> 🌡️ <span data-i18n="wx_layer_btn"></span></label>
-    <p class="muted small layer-src" id="srcWx" hidden></p>
-    <label class="checkbox-row" id="fRoadsRow" hidden><input type="checkbox" id="fRoadsLayer"> 🚧 <span data-i18n="layer_roads"></span></label>
-    <p class="muted small layer-src" id="srcRoads" hidden></p>
-    <label class="checkbox-row" id="fBurntRow" hidden><input type="checkbox" id="fBurntLayer"> ▨ <span data-i18n="burnt_legend"></span></label>
-    <p class="muted small layer-src" id="srcBurnt" hidden></p>
+    <p class="lay-grp">👁️ <span data-i18n="lgrp_observed"></span></p>
+    <label class="layer-row"><span class="lay-ico" aria-hidden="true">🛰️</span>
+      <span class="lay-txt"><span class="lay-name" data-i18n="layer_sat"></span>
+        <span class="muted lay-src" id="srcSat"></span>
+        <span class="muted lay-src" data-i18n="sat_age_legend"></span></span>
+      <input type="checkbox" id="fSatLayer" class="lay-sw"></label>
+    <p class="lay-grp" id="grpBurnt" hidden>▨ <span data-i18n="lgrp_published"></span></p>
+    <label class="layer-row" id="fBurntRow" hidden><span class="lay-ico" aria-hidden="true">🟫</span>
+      <span class="lay-txt"><span class="lay-name" data-i18n="burnt_legend"></span>
+        <span class="muted lay-src" id="srcBurnt"></span></span>
+      <input type="checkbox" id="fBurntLayer" class="lay-sw"></label>
+    <p class="lay-grp" id="grpWx" hidden>🌡️ <span data-i18n="lgrp_conditions"></span></p>
+    <label class="layer-row" id="wxRow" hidden><span class="lay-ico" aria-hidden="true">🌡️</span>
+      <span class="lay-txt"><span class="lay-name" data-i18n="wx_layer_btn"></span>
+        <span class="muted lay-src" id="srcWx"></span></span>
+      <input type="checkbox" id="fWxLayer" class="lay-sw"></label>
+    <p class="lay-grp" id="grpRoads" hidden>🧭 <span data-i18n="lgrp_context"></span></p>
+    <label class="layer-row" id="fRoadsRow" hidden><span class="lay-ico" aria-hidden="true">🚧</span>
+      <span class="lay-txt"><span class="lay-name" data-i18n="layer_roads"></span>
+        <span class="muted lay-src" id="srcRoads"></span></span>
+      <input type="checkbox" id="fRoadsLayer" class="lay-sw"></label>
   </div>
   <p class="muted small" data-i18n="layers_note"></p>
+  <p class="muted small" data-i18n="layers_absent_note"></p>
 </div>
 
 <!-- Feuille : choix du pays (première visite et bouton pays).

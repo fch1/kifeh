@@ -46,6 +46,9 @@
   --primary: #1E2A4D;       /* marine — structure, textes forts, boutons secondaires */
   --primary-dark: #141D38;
   --brand-red: #E8432E;     /* rouge Kifeh (identique à la communication) */
+  /* Rouge Kifeh EN TEXTE PETIT sur fond clair (WCAG 1.4.3 : 5,29:1 sur
+     blanc — le #E8432E 3,98:1 reste le rouge des SURFACES pleines). */
+  --brand-red-text: #C93318;
   --brand-red-dark: #C4331F;
   --secondary: #C4622D;     /* terracotta (héritée) */
   --danger: #C7392F;
@@ -214,11 +217,14 @@ html[dir="rtl"] .topbar .back .arrow { display: inline-block; transform: scaleX(
 /* La LANGUE est une préférence, pas un territoire : contrôle discret (🌐,
    sans drapeau, plus petit) — jamais la même pilule que le choix du pays. */
 .lang-switch {
-  min-height: 40px; padding: 0 .6rem; border-radius: 12px; border: 1px dashed var(--border);
-  background: transparent; font-weight: 500; font-size: .8rem; cursor: pointer;
+  /* WCAG 1.4.3 : fond SURFACE permanent — le contraste ne dépend plus de
+     l'imagerie de la carte au-dessous (l'ancien état « survol » devient
+     l'état de repos). */
+  min-height: 40px; padding: 0 .6rem; border-radius: 12px; border: 1px solid var(--border);
+  background: var(--surface); font-weight: 500; font-size: .8rem; cursor: pointer;
   color: var(--muted); font-family: var(--font-latin), var(--font-ar);
 }
-.lang-switch:hover { color: var(--primary); border-style: solid; background: var(--surface); }
+.lang-switch:hover { color: var(--primary); }
 
 /* Choix du pays (indépendant de la langue) : deux grandes options + position */
 .country-options { display: flex; gap: .5rem; margin: .75rem 0; }
@@ -303,7 +309,9 @@ html[dir="rtl"] .topbar .back .arrow { display: inline-block; transform: scaleX(
 /* « Signaler » : l'action centrale de la marque — cercle rouge surélevé. */
 .nav-declare {
   display: flex; flex-direction: column; align-items: center; gap: .125rem;
-  padding: 0 .625rem .375rem; color: var(--brand-red); text-decoration: none;
+  /* WCAG 1.4.3 : libellé 11 px gras → rouge-texte 5,29:1 (le cercle « + »
+     reste une SURFACE pleine --brand-red, inchangé). */
+  padding: 0 .625rem .375rem; color: var(--brand-red-text); text-decoration: none;
   font-size: var(--fs-xs); font-weight: 700;
 }
 .nav-declare-plus {
@@ -594,6 +602,50 @@ html[dir="rtl"] .hero-arrow svg { transform: scaleX(-1); }
 .checkbox-row input { width: 22px; height: 22px; margin-top: 2px; flex-shrink: 0; accent-color: var(--primary); }
 .checkbox-row label { margin: 0; font-weight: 400; font-size: .9rem; }
 
+/* ── Calques v2 (maquette A « Groupes clairs ») ──────────────────────────────
+   Groupes titrés, lignes-cartes (icône · nom · source·heure · voyant de
+   fraîcheur · interrupteur 44 px — cible tactile WCAG). RTL automatique via
+   les propriétés logiques. */
+.lay-grp {
+  display: flex; align-items: center; gap: .5rem;
+  font-weight: 700; font-size: .85rem; margin: 1rem 0 .25rem; color: var(--text);
+}
+.layer-row {
+  display: flex; align-items: center; gap: .625rem;
+  padding: .625rem .5rem; border: 1px solid var(--border); border-radius: 14px;
+  margin: .375rem 0; background: var(--surface); cursor: pointer;
+}
+.lay-ico {
+  width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px; background: var(--bg);
+}
+.lay-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.lay-name { font-weight: 600; font-size: .92rem; }
+.lay-src { display: flex; align-items: center; gap: 5px; font-size: .74rem; }
+.fresh-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; display: inline-block;
+  background: var(--muted);
+}
+.fresh-dot.fresh { background: #1E7F52; }
+.fresh-dot.delayed { background: #9A6A00; }
+.fresh-dot.stale { background: #C0392B; }
+/* Interrupteur : la case devient une pilule 44×26 (cible confortable). */
+.lay-sw {
+  appearance: none; -webkit-appearance: none;
+  width: 44px; height: 26px; border-radius: 999px; background: #CFD6CD;
+  position: relative; flex-shrink: 0; cursor: pointer; margin: 0;
+  transition: background .15s;
+}
+.lay-sw::after {
+  content: ''; position: absolute; top: 3px; inset-inline-start: 3px;
+  width: 20px; height: 20px; border-radius: 50%; background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .25); transition: inset-inline-start .15s;
+}
+.lay-sw:checked { background: var(--primary); }
+.lay-sw:checked::after { inset-inline-start: 21px; }
+.lay-sw:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
 /* OTP */
 .otp-input { letter-spacing: .5em; text-align: center; font-size: 1.5rem; font-variant-numeric: tabular-nums; font-weight: 600; }
 
@@ -621,7 +673,8 @@ html[dir="rtl"] .hero-arrow svg { transform: scaleX(-1); }
   border: 0; border-radius: 8px; padding: .5rem .9rem; font-size: var(--fs-sm);
   font-weight: 600; cursor: pointer; font-family: inherit;
 }
-.consent-accept { background: var(--secondary); color: #fff; }
+/* WCAG 1.4.3 : blanc sur #C4622D = 4,09:1 → terracotta assombrie 5,83:1. */
+.consent-accept { background: #A04E1E; color: #fff; }
 .consent-refuse { background: rgba(255,255,255,.15); color: #fff; border: 1px solid rgba(255,255,255,.45) !important; }
 .offline-banner {
   position: fixed; top: 0; left: 0; right: 0; z-index: 3000; background: var(--warn); color: #fff;

@@ -337,9 +337,20 @@ await ctx2.close();
   ok(await pn.evaluate(() => document.getElementById('layersSheet').classList.contains('open')),
     'bouton flottant Couches → panneau des couches d’information');
   ok(await pn.evaluate(() => {
-    const rows = [...document.querySelectorAll('#layersSheet .layer-src')].filter((p) => !p.hidden);
-    return rows.length >= 2 && rows.every((p) => p.textContent.length > 4);
-  }), 'chaque couche visible affiche sa source (NASA, EFFIS, Bison Futé, météo)');
+    // Calques v2 : lignes .lay-src (source · heure) + voyant de fraîcheur.
+    const rows = [...document.querySelectorAll('#layersSheet .lay-src[id]')].filter((p) => !p.hidden);
+    return rows.length >= 2 && rows.every((p) => p.textContent.length > 4)
+      && rows.every((p) => p.querySelector('.fresh-dot'));
+  }), 'chaque couche visible affiche sa source + un voyant de fraîcheur (Calques v2)');
+  ok(await pn.evaluate(() => {
+    const grp = [...document.querySelectorAll('#layersSheet .lay-grp')].filter((g) => !g.hidden);
+    return grp.length >= 2; // au moins Observé + un groupe territorial
+  }), 'Calques v2 : groupes titrés visibles selon le territoire');
+  ok(await pn.evaluate(() => {
+    const sw = document.getElementById('fSatLayer');
+    const r = sw.getBoundingClientRect();
+    return r.width >= 44 && r.height >= 24;
+  }), 'Calques v2 : interrupteurs = cibles tactiles confortables (≥44 px)');
   await pn.locator('#navMap').click();
   await pn.waitForTimeout(300);
   ok(await pn.evaluate(() => {

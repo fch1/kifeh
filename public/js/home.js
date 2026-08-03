@@ -917,17 +917,38 @@ document.getElementById('btnLayers')?.addEventListener('click', () => {
   openSheet('layersSheet'); window.track?.('layers_opened', {});
 });
 
-// Chaque couche affiche SA source et l'heure de SA dernière mise à jour —
-// une donnée sans source ni horodatage n'a pas sa place sur la carte.
+// Calques v2 (maquette A) : chaque couche affiche SA source, l'heure de SA
+// dernière mise à jour ET un voyant de fraîcheur typé (seuils par source,
+// alignés sur sourceFreshness côté serveur). Une donnée sans source ni
+// horodatage n'a pas sa place sur la carte.
+const LAYER_FRESH_H = { sat: [3, 8], burnt: [26, 50], wx: [1.5, 3], roads: [2, 6] };
+function freshClass(kind, iso) {
+  if (!iso) return '';
+  const ageH = (Date.now() - Date.parse(iso)) / 3600_000;
+  const [f, d] = LAYER_FRESH_H[kind] || [3, 8];
+  return ageH < f ? 'fresh' : ageH < d ? 'delayed' : 'stale';
+}
 function renderLayerSources() {
-  const set = (id, text) => {
+  const set = (id, kind, source, iso) => {
     const el = document.getElementById(id);
-    if (el) { el.hidden = !text; if (text) el.textContent = text; }
+    if (!el) return;
+    if (!source) { el.hidden = true; return; }
+    el.hidden = false;
+    const cls = freshClass(kind, iso);
+    const label = cls ? (t(`lay_${cls}`) || cls) : '';
+    el.innerHTML = `<span class="fresh-dot ${cls}" title="${esc(label)}" aria-hidden="true"></span>`
+      + `${esc(source)}${iso ? ` · ${esc(fmtDate(iso))}` : ''}`
+      + (cls && cls !== 'fresh' ? ` <span class="muted">(${esc(label)})</span>` : '');
   };
-  set('srcSat', satLastSync ? `NASA FIRMS · ${fmtDate(satLastSync)}` : 'NASA FIRMS');
-  set('srcWx', window._lastWxAt ? t('wx_legend_at', { t: fmtDate(window._lastWxAt) }) : (document.getElementById('wxRow')?.hidden ? '' : 'Météo-France via Open-Meteo'));
-  set('srcRoads', window._lastRoadsAt ? `Bison Futé — DIR · ${fmtDate(window._lastRoadsAt)}` : (document.getElementById('fRoadsRow')?.hidden ? '' : 'Bison Futé — DIR'));
-  set('srcBurnt', window._lastBurntAt ? `Copernicus EFFIS · ${fmtDate(window._lastBurntAt)}` : (document.getElementById('fBurntRow')?.hidden ? '' : 'Copernicus EFFIS'));
+  set('srcSat', 'sat', 'NASA FIRMS', satLastSync || null);
+  set('srcWx', 'wx', document.getElementById('wxRow')?.hidden ? '' : 'Météo-France · Open-Meteo', window._lastWxAt || null);
+  set('srcRoads', 'roads', document.getElementById('fRoadsRow')?.hidden ? '' : 'Bison Futé — DIR', window._lastRoadsAt || null);
+  set('srcBurnt', 'burnt', document.getElementById('fBurntRow')?.hidden ? '' : 'Copernicus EFFIS', window._lastBurntAt || null);
+  // Titres de groupes : visibles seulement si le territoire possède la couche.
+  for (const [grp, row] of [['grpBurnt', 'fBurntRow'], ['grpWx', 'wxRow'], ['grpRoads', 'fRoadsRow']]) {
+    const g = document.getElementById(grp);
+    if (g) g.hidden = document.getElementById(row)?.hidden !== false;
+  }
 }
 // Zoom dans la pile flottante : une seule grappe de commandes de carte,
 // miroitée automatiquement en arabe (inset-inline-end).
