@@ -267,6 +267,9 @@ function roadTypeLabel(e) {
 
 async function drawRoads() {
   if (!roadsOn || currentCountry() !== 'FR') return;
+  // CALME : sous le zoom 9, les 🚧 voisins s'empilaient en cascade illisible
+  // (screenshot Farah 04/08, Lyon) — la couche vit à l'échelle locale.
+  if (map.getZoom() < 9) { roadsLayer.clearLayers(); return; }
   const b = map.getBounds();
   let r;
   try {

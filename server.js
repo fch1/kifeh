@@ -224,7 +224,11 @@ app.use(express.static(path.join(__dirname, 'public'), {
     // les ressources rarement modifiées (polices, Leaflet, logo) restent en cache.
     if (filePath.endsWith('.html')) res.set('Cache-Control', 'no-cache');
     else if (filePath.includes('vendor') || filePath.includes('img')) res.set('Cache-Control', 'public, max-age=2592000');
-    else res.set('Cache-Control', config.isDev ? 'no-cache' : 'public, max-age=600');
+    // CSS/JS applicatifs : REVALIDATION à chaque visite (304 quasi gratuit).
+    // Le max-age=600 créait des ÉTATS HYBRIDES après chaque déploiement
+    // (HTML neuf + CSS d'il y a 10 min) — la cause des « bugs visuels »
+    // vus par Farah les 03-04/08. Le hors-ligne reste couvert par le SW.
+    else res.set('Cache-Control', 'no-cache');
   },
 }));
 
