@@ -6,6 +6,7 @@
 // Garde-fous : jamais en sandbox/développement, jamais depuis un serveur de
 // test (hôte kifeh.app uniquement), 1 ping par 24 h, échec silencieux borné.
 import { getSetting, setSetting } from '../db.js';
+import { getBaseUrl } from '../config.js';
 import crypto from 'node:crypto';
 
 const ENDPOINT = () => process.env.INDEXNOW_URL || 'https://api.indexnow.org/indexnow';
@@ -25,7 +26,9 @@ export function indexNowKey() {
 // Appelé par le scheduler (tick 60 s) : au plus un ping par 24 h.
 export async function syncIndexNow({ listUrls, force = false } = {}) {
   if (getSetting('indexnow_enabled') === '0') return { skipped: 'disabled' };
-  const baseUrl = process.env.BASE_URL || '';
+  // getBaseUrl() : BASE_URL env OU l'URL détectée des requêtes entrantes —
+  // Render ne définit pas forcément BASE_URL (leçon du 1er ping jamais parti).
+  const baseUrl = getBaseUrl() || '';
   if (!force && !baseUrl.includes(HOST)) return { skipped: 'not_prod' }; // jamais depuis un serveur de test
   const last = Date.parse(getSetting('indexnow_last_ping_at') || 0) || 0;
   if (!force && Date.now() - last < 24 * 3600_000) return { skipped: 'recent' };
