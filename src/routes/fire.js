@@ -54,12 +54,16 @@ fireRouter.get('/map', ipRateLimit('firemap_ip', 60, 5), async (req, res) => {
   const since = new Date(Date.parse(at || now) - 72 * 3600_000).toISOString();
 
   // Détections IMMUABLES des 72 h précédant `at` (500 max, plus récentes d'abord).
+  // datetime() DES DEUX CÔTÉS : les bornes arrivent en ISO « T…Z », les
+  // détections sont stockées « YYYY-MM-DD HH:MM:SS » et les périmètres EFFIS
+  // en ISO « T…Z » — sans normalisation des deux côtés, la comparaison TEXTE
+  // se trompe autour des frontières de jour (l'espace trie avant le « T »).
   const detections = db.prepare(
     `SELECT lat, lng, acquired_at AS observedAt, received_at AS receivedAt,
             satellite, instrument, confidence, frp, day_night AS dayNight
      FROM satellite_detections
      WHERE country_code = ? AND lat BETWEEN ? AND ? AND lng BETWEEN ? AND ?
-       AND acquired_at > ? AND acquired_at <= ?
+       AND datetime(acquired_at) > datetime(?) AND datetime(acquired_at) <= datetime(?)
      ORDER BY acquired_at DESC LIMIT 500`
   ).all(country, b.minLat, b.maxLat, b.minLng, b.maxLng, since, at || now);
 
@@ -74,7 +78,7 @@ fireRouter.get('/map', ipRateLimit('firemap_ip', 60, 5), async (req, res) => {
             v.published_at AS publishedAt, v.received_at AS receivedAt
      FROM burned_area_versions v
      JOIN (SELECT effis_feature_id, MAX(published_at) AS mp
-           FROM burned_area_versions WHERE published_at <= ?
+           FROM burned_area_versions WHERE datetime(published_at) <= datetime(?)
            GROUP BY effis_feature_id) last
        ON last.effis_feature_id = v.effis_feature_id AND last.mp = v.published_at
      ORDER BY v.fire_date DESC LIMIT 80`
@@ -217,14 +221,14 @@ fireRouter.get('/timeline', ipRateLimit('firemap_ip', 60, 5), (req, res) => {
     `SELECT ${hour('acquired_at')} AS h, COUNT(*) AS n, ROUND(SUM(COALESCE(frp,0)), 1) AS frpSum
      FROM satellite_detections
      WHERE country_code = ? AND lat BETWEEN ? AND ? AND lng BETWEEN ? AND ?
-       AND acquired_at BETWEEN ? AND ?
+       AND datetime(acquired_at) BETWEEN datetime(?) AND datetime(?)
      GROUP BY h ORDER BY h`
   ).all(country, b.minLat, b.maxLat, b.minLng, b.maxLng, from, to);
   const citizen = db.prepare(
     `SELECT ${hour('created_at')} AS h, COUNT(*) AS n
      FROM incidents WHERE COALESCE(country_code,'TN') = ? AND type = 'fire'
        AND public_lat BETWEEN ? AND ? AND public_lng BETWEEN ? AND ?
-       AND created_at BETWEEN ? AND ?
+       AND datetime(created_at) BETWEEN datetime(?) AND datetime(?)
      GROUP BY h ORDER BY h`
   ).all(country, b.minLat, b.maxLat, b.minLng, b.maxLng, from, to);
   const payload = {
@@ -237,7 +241,7 @@ fireRouter.get('/timeline', ipRateLimit('firemap_ip', 60, 5), (req, res) => {
   if (caps.layers.burnedAreas?.enabled === true) {
     payload.effisPublications = db.prepare(
       `SELECT ${hour('published_at')} AS h, COUNT(*) AS n
-       FROM burned_area_versions WHERE published_at BETWEEN ? AND ?
+       FROM burned_area_versions WHERE datetime(published_at) BETWEEN datetime(?) AND datetime(?)
        GROUP BY h ORDER BY h`
     ).all(from, to);
   }

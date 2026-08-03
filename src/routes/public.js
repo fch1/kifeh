@@ -620,6 +620,8 @@ publicRouter.get('/config', (req, res) => {
     // Moteur MapLibre du mode feux (#103) : opt-in EXPLICITE ('1') — le client
     // ne charge pas un octet de la librairie tant que ce champ n'est pas vrai.
     fireMapLibre: getSetting('fire_maplibre_enabled') === '1',
+    // Replay 72 h (#110) : visible par défaut, coupure à chaud possible.
+    fireReplay: getSetting('fire_replay_enabled') !== '0',
     // Alertes de zone (Web Push) : clé publique VAPID — la clé privée reste en base.
     pushKey: publicVapidKey(),
     // Multi-pays : profils CLIENT-SÛRS uniquement (jamais de clé, jamais de

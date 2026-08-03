@@ -468,6 +468,50 @@ for (const width of [900, 1440]) {
   await ctxD.close();
 }
 
+// ── Replay 72 h (#110) : entrée mode feux, bannière passé, retour au direct ──
+{
+  const ctxR = await browser.newContext({ viewport: { width: 390, height: 780 } });
+  await ctxR.addInitScript(() => {
+    try {
+      localStorage.setItem('lang', 'fr');
+      localStorage.setItem('kifeh_onboarded', '1');
+      localStorage.setItem('kifeh_country', 'FR');
+      localStorage.setItem('ga_consent', 'denied');
+      localStorage.setItem('kifeh_weather_layer', '0');
+    } catch {}
+  });
+  const pgR = await ctxR.newPage();
+  await pgR.goto(BASE, { waitUntil: 'load' });
+  await pgR.waitForTimeout(1200);
+  ok(await pgR.evaluate(() => document.getElementById('replayBar')?.hidden === true
+    && document.getElementById('replayBanner')?.hidden === true),
+  'replay : strictement invisible hors mode feux (jamais intrusif)');
+  await pgR.click('.chip[data-type="fire"]');
+  await pgR.waitForTimeout(600);
+  const hasBtn = await okEventually(pgR, () => Boolean(document.getElementById('fmReplay')),
+    'mode feux → bouton « ⏱ Évolution 72 h » dans la bande (niveau Analyser)');
+  if (hasBtn) {
+    await pgR.click('#fmReplay');
+    await okEventually(pgR, () => window.kifehReplayState?.().active === true,
+      'entrée en replay : état actif');
+    ok(await pgR.evaluate(() => !document.getElementById('replayBar').hidden
+      && !document.getElementById('replayBanner').hidden
+      && document.getElementById('replayBanner').textContent.includes('passé')),
+    'frise + bannière « Vous regardez le passé » affichées');
+    ok(await pgR.evaluate(() => {
+      // le direct s'efface : la grappe d'incidents n'est plus sur la carte
+      return !window.cluster || !document.querySelector('.cluster-badge, .marker-pin:not(.gl-citizen .marker-pin)');
+    }), 'replay : les couches du direct sont masquées (jamais du présent dans le passé)');
+    await pgR.click('#rpExit');
+    await okEventually(pgR, () => window.kifehReplayState?.().active === false,
+      'retour au direct en un geste');
+    ok(await pgR.evaluate(() => document.getElementById('replayBar').hidden
+      && document.getElementById('replayBanner').hidden),
+    'sortie : frise et bannière refermées');
+  }
+  await ctxR.close();
+}
+
 // ── Lien profond de zone (#83) : ?lat&lng&z centre la carte puis s'efface ──
 {
   const ctxZ = await browser.newContext({ viewport: { width: 390, height: 720 } });

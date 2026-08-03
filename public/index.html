@@ -308,6 +308,20 @@
   <p class="muted small" id="countryGeoInfo" role="status" aria-live="polite"></p>
 </div>
 
+<!-- Replay 72 h (#110) : bannière « passé » + frise de relecture — jamais
+     intrusifs (hidden par défaut, uniquement via la bande mode feux). -->
+<div id="replayBanner" class="replay-banner" hidden role="status">
+  <strong></strong> <span data-i18n="replay_live_hint"></span>
+</div>
+<div id="replayBar" class="replay-bar" hidden role="group" data-i18n-aria="replay_bar_aria">
+  <button type="button" id="rpExit" class="rp-btn rp-exit" data-i18n="replay_live"></button>
+  <button type="button" id="rpPlay" class="rp-btn" aria-label="">▶</button>
+  <button type="button" id="rpSpeed" class="rp-btn" aria-label="×">×4</button>
+  <input type="range" id="rpSlider" min="0" max="72" value="0" step="1" data-i18n-aria="replay_slider_aria">
+  <span id="rpTime" class="rp-time" dir="auto"></span>
+  <span id="rpEmpty" class="rp-empty small" data-i18n="replay_empty" hidden></span>
+</div>
+
 <script src="vendor/leaflet/leaflet.js"></script>
 <script src="js/i18n.js"></script>
 <script src="js/api.js"></script>
@@ -315,6 +329,7 @@
 <script src="js/home.js"></script>
 <script src="js/home-layers.js"></script>
 <script src="js/fire-map-gl.js"></script>
+<script src="js/replay.js"></script>
 <!-- Contenu crawlable sans JavaScript (moteurs classiques, moteurs de réponse
      IA, lecteurs sans JS) : le même message que l'application — jamais un
      contenu différent de ce que voient les utilisateurs (aucun cloaking). -->

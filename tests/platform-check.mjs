@@ -405,6 +405,22 @@ ok(smX.includes('comprendre/detections-satellite')
   'sitemap : comprendre listées, DFCI jamais côté tunisien');
 ok((smX.match(/<loc>/g) || []).length === 52, `sitemap : 52 URLs (${(smX.match(/<loc>/g) || []).length})`);
 
+section('Replay 72 h (#110) : drapeau serveur actif par défaut, coupure à chaud');
+{
+  const adminSet2 = (settings) => fetch(`${BASE}/api/admin/settings`, {
+    method: 'POST', headers: { ...hdr, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ settings }),
+  });
+  const c1 = await api('/api/public/config');
+  ok(c1.data.fireReplay === true, 'config publique : fireReplay=true par défaut (visible)');
+  await adminSet2({ fire_replay_enabled: '0' });
+  const c2 = await api('/api/public/config');
+  ok(c2.data.fireReplay === false, 'coupure à chaud → fireReplay=false');
+  await adminSet2({ fire_replay_enabled: '1' });
+  const c3 = await api('/api/public/config');
+  ok(c3.data.fireReplay === true, 'réouverture à chaud (réversible)');
+}
+
 section('Widget embarquable + kit média (#93)');
 const wg = await fetch(`${BASE}/widget?country=FR&lang=fr&zone=gironde`);
 const wgH = await wg.text();

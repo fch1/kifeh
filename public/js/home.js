@@ -69,6 +69,8 @@ API.get('/api/public/config').then((c) => {
   // Moteur MapLibre du mode feux (#103, drapeau OFF par défaut) : on ARME
   // seulement — rien ne se charge tant que le mode feux n'est pas actif.
   window.kifehGLBoot?.(c);
+  // Replay 72 h (#110) : actif par défaut, coupure à chaud serveur.
+  window.kifehReplayBoot?.(c);
   // Pays réellement activés côté serveur : les autres options sont masquées.
   if (Array.isArray(c.countries)) {
     const enabled = new Set(c.countries.map((x) => x.code));
@@ -1529,10 +1531,10 @@ function syncTypeControls() {
   if (confWrap) confWrap.hidden = !filters.types.has('satellite') && !filters.satConf;
   document.getElementById('fSource').value = filters.source;
   updateFilterBadge();
-  // Le moteur GL (#103) suit l'état du filtre feu dès la PUCE (pas seulement
-  // le panneau de filtres) — événement inerte tant que le drapeau est éteint,
-  // et strictement sans effet sur la bande « mode feux » existante.
-  document.dispatchEvent(new CustomEvent('kifeh:fire-mode', { detail: { on: fireFilterActive() } }));
+  // La bande mode feux suit l'état du filtre feu QUEL QUE SOIT le chemin
+  // (puce rapide ou panneau de filtres) — elle dispatch aussi l'événement
+  // kifeh:fire-mode consommé par le moteur GL (#103) et le replay (#110).
+  syncFireModeBar();
 }
 document.getElementById('fSatLayer')?.addEventListener('change', (e) => {
   window.track?.(e.currentTarget.checked ? 'layer_enabled' : 'layer_disabled', { layer_name: 'satellite' });
@@ -1566,10 +1568,13 @@ function syncFireModeBar() {
   bar.innerHTML = `<strong>🔥 ${esc(t('firemode_title'))}</strong>
     <button type="button" class="btn secondary small-btn" id="fmUnderstand">${esc(t('firemode_understand'))}</button>
     <button type="button" class="btn secondary small-btn" id="fmExplore">${esc(t('firemode_explore'))}</button>
+    ${window.kifehReplayEnabled?.() ? `<button type="button" class="btn secondary small-btn" id="fmReplay">⏱ ${esc(t('replay_btn'))}</button>` : ''}
     <button type="button" class="fm-close" aria-label="×">×</button>`;
   document.querySelector('.chips')?.insertAdjacentElement('afterend', bar);
   bar.querySelector('#fmUnderstand').addEventListener('click', () => document.getElementById('navSituation')?.click());
   bar.querySelector('#fmExplore').addEventListener('click', () => document.getElementById('btnLayers')?.click());
+  // Niveau « Analyser » (master §7) : la relecture des 72 dernières heures.
+  bar.querySelector('#fmReplay')?.addEventListener('click', () => window.kifehReplayEnter?.());
   bar.querySelector('.fm-close').addEventListener('click', () => {
     try { localStorage.setItem('kifeh_firemode_bar_hidden', '1'); } catch {}
     bar.remove();

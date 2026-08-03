@@ -202,6 +202,9 @@ export const defaultSettings = {
   // explicite '1'). Ne remplace l'affichage qu'après captures validées par
   // Farah (règle du plan : maquette → OK → code → captures → drapeau → mesure).
   fire_maplibre_enabled: '0',
+  // Replay visible (#110, master PR 5) : « Voir l'évolution 72 h » en mode
+  // feux — ACTIF par défaut (exécution visible demandée), coupure à chaud.
+  fire_replay_enabled: '1',
   // Chantier #82 : moyens aériens ADS-B — ingestion serveur livrée, ÉTEINTE
   // par territoire tant que l'interface calques (Phase 1) ne l'accueille pas.
   fire_aircraft_enabled_fr: '0',
