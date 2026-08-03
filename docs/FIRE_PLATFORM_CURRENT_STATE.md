@@ -1,115 +1,141 @@
-# Plateforme Feux — état RÉEL de l'existant (Lot 0)
+# Plateforme Feux — état RÉEL de l'existant
 
-Établi le 31/07/2026, vérifié contre la production (kifeh.app/healthz) et le
-dépôt. Règle de lecture : chaque élément est classé selon son état réel —
-jamais une hypothèse présentée comme un fait.
+Établi le 31/07/2026, **mis à jour le 04/08/2026** après audit complet contre
+la production (kifeh.app/healthz + parcours navigateur) et le dépôt. Règle de
+lecture : chaque élément est classé selon son état réel — jamais une hypothèse
+présentée comme un fait.
 
 ## Socle technique
 
 Node 22 + Express 5, SQLite (better-sqlite3, WAL) sur disque persistant
-Render, frontend vanilla JS + Leaflet vendorisé (scripts classiques ordonnés,
-aucun bundler), SSE, Playwright pour les tests navigateur, déploiement par
-push (autodeploy Render, healthz zéro-coupure). i18n FR/AR (RTL) double
-obligatoire. CI GitHub (suites API + navigateur), surveillance production
-30 min (healthz toutes sources) + parcours navigateur lecture seule 6 h.
+Render, frontend vanilla JS + Leaflet vendorisé + MapLibre GL 5 vendorisé
+(scripts classiques ordonnés, aucun bundler), SSE, Playwright pour les tests
+navigateur, déploiement par push (autodeploy Render, healthz zéro-coupure).
+i18n FR/AR (RTL) par espaces de noms. CI GitHub (suites API + navigateur),
+surveillance production 30 min + parcours navigateur 6 h.
+**Cache honnête (leçon du 04/08)** : CSS/JS applicatifs en `no-cache`
+(revalidation à chaque déploiement — fin des états hybrides), vendor/images
+30 j, service worker `kifeh-shell-v3` réseau-d'abord.
 
-## Disponible EN PRODUCTION (vérifié)
+## Disponible EN PRODUCTION (vérifié le 04/08)
 
-- Signalements citoyens 4 types, confirmations communautaires, corrections
-  de localisation, fins d'incident, capsule de confiance, multi-pays TN/FR.
+- Signalements citoyens 4 types, confirmations communautaires, corrections de
+  localisation, fins d'incident, capsule de confiance, multi-pays TN/FR,
+  navigation fixe Carte · Situation · Signaler · Suivis · Aide.
 - NASA FIRMS : synchro 15 min, VIIRS ×3 + MODIS, observations IMMUABLES
-  (INSERT OR IGNORE + empreinte unique + brut conservé + received_at +
-  source_batch_id), regroupement en événements, corroboration citoyenne
-  (< 2 km), fusion visuelle feux/satellite.
-- Copernicus EFFIS : synchro 6 h sans clé, contours simplifiés serveur,
-  VERSIONNEMENT des publications (burned_area_versions : published_at +
-  received_at + is_latest, surface = valeur source), couche carte + fiche.
+  (empreinte unique + brut conservé + received_at + source_batch_id),
+  regroupement en événements, corroboration citoyenne (< 2 km).
+- Copernicus EFFIS : synchro 6 h, VERSIONNEMENT des publications
+  (published_at + received_at + is_latest, surface = valeur source),
+  géométrie originale préservée, simplification uniquement pour le rendu.
 - Vigilance Météo-France (clé serveur, expire 2026-10-27) : bulletins
-  orange/rouge → informations officielles + marqueurs.
-- Météo : AROME France HD EXPLICITE via Open-Meteo (un seul appel par point,
-  anti-martèlement, dédoublonnage — après la panne de quota du 28/07),
-  voile température + flèches de vent, grille clipée aux frontières.
-- Qualité de l'air PM2.5 (Open-Meteo Air Quality, sans clé).
-- Routes barrées Bison Futé (DATEX II, sans clé) : ~500-700 entraves,
-  couche opt-in.
-- DFCI : référentiel officiel local (339 264 carreaux, checksum vérifié),
-  calcul serveur ACTIF en prod, prévisualisation + copie au signalement ;
-  AFFICHAGE PUBLIC ÉTEINT (dfci_public_display_enabled=0) en attente de
-  validation opérationnelle (docs/DFCI.md).
-- API « Feux FR » Lot 1 : /api/fire/map (instantané, meta.sources par
-  source, paramètre `at` restituant UNIQUEMENT ce qui était connu — EFFIS à
-  sa date de publication) et /api/fire/timeline (agrégats horaires bornés
-  10 j). SSE typé reprenable (id croissants, Last-Event-ID, tampon 500,
-  battement 20 s, filtre pays ; événements fire.batch / burned-area.batch).
-- Alertes : push VAPID + e-mail Resend (double consentement, chiffré) +
-  brief quotidien opt-in ; suivis de zones nommées ; statut de sécurité
-  privé ; PWA (cache shell réseau-d'abord, /api jamais en cache, hors
-  ligne honnête) ; navigation fixe 5 destinations ; onboarding 2 écrans.
-- Wording « quasi temps réel » appliqué (métas, titres, llms.txt, API).
-- FONDATIONS MUTUALISÉES (addendum, 31/07) : registre pays étendu
-  (src/countries/ + schema.js — capacités par concepts génériques, numéros
-  d'urgence vérifiés, fuseaux, devises) ; registre de capacités effectives
-  (src/services/capabilityRegistry.js + /api/public/capabilities) ; fraîcheur
-  typée (sourceFreshness) ; formatage localisé canonique→territoire
-  (localizationFormatter, pluriels arabes) ; i18n par espaces de noms
-  (i18n/fr|ar/{common,fire,map,replay,sources,alerts,seo}.json + API, parité
-  testée) ; matrice de capacités GÉNÉRÉE (docs/COUNTRY_CAPABILITY_MATRIX.md,
-  test anti-divergence) ; tokens --kifeh-* (docs/KIFEH_DESIGN_SYSTEM.md) ;
-  captures de non-régression de marque 320→1440 px FR+AR (npm run test:brand).
-  /api/fire/* MUTUALISÉE : la Tunisie sert détections + signalements + replay ;
-  une réponse tunisienne ne mentionne jamais EFFIS/DFCI/AROME.
+  orange/rouge → informations officielles + marqueurs carte (zoom ≥ 7).
+- Météo : AROME France HD EXPLICITE via Open-Meteo (`models=
+  meteofrance_arome_france_hd` — jamais le mode auto), voile température +
+  flèches de vent ; qualité de l'air PM2.5 ; routes barrées Bison Futé.
+- DFCI : référentiel officiel local (339 264 carreaux), calcul serveur,
+  prévisualisation + copie au signalement, AFFICHAGE PUBLIC ACTIF (précision
+  « indicative »), événement analytics dfci_copied.
+- API « Feux » : /api/fire/map (bbox+zoom+at+layers+country, meta.sources
+  avec fraîcheur TYPÉE par source, `at` restituant UNIQUEMENT ce qui était
+  connu à T — datetime() des deux côtés depuis le correctif 04/08) ;
+  /api/fire/timeline (agrégats horaires bornés 10 j) ; SSE typé reprenable
+  (id croissants, Last-Event-ID, tampon 500, battement 20 s, filtre pays).
+- **Replay 72 h VISIBLE** (04/08) : frise + lecture ×1/×4/×12, opacité par
+  ancienneté-à-T, restitution honnête (jamais une info publiée plus tard),
+  couches annexes masquées à l'entrée et restaurées à la sortie.
+- **Calques v2 VISIBLE** (04/08) : 4 groupes (observé/publié/conditions/
+  contexte), source · heure · pastille de fraîcheur PAR couche
+  (vert/ambre/rouge), raisons des couches absentes par territoire.
+- **Défauts calmes** (04/08) : météo opt-in (kifeh_weather_layer_v2), zones
+  brûlées rien < zoom 7, vigilance ≥ 7, routes ≥ 9, légendes en coin,
+  FABs zoom masqués < 768 px, héro replié quand rien d'actif.
+- Fraîcheur typée CENTRALISÉE (sourceFreshness.js : seuils par cadence
+  réelle, documentés, servis par /healthz, /api/fire/map, Calques v2).
+- SEO serveur : /{langue}/{territoire}/incendies (4 variantes, contenu VIVANT
+  de la base, canonical + hreflang), 7 zones FR + 5 TN, pages « comprendre »,
+  prévisions (previsions/danger-feu/methodologie-previsions), sitemap GÉNÉRÉ
+  (54 URLs), IndexNow quotidien (ACCEPTÉ 202, healthz.indexnow), llms.txt,
+  plomberie Search Console (fichier google* par réglage), /presse, widget
+  encapsulable zéro-JS, JSON-LD Dataset sur les pages de zones.
+- **API OUVERTE** (04/08) : /api/open/fire-situation.json + fire-sources.json
+  + fire-methodology.json (bilingues, attributions amont, seuils documentés,
+  version d'API, cache 5 min) + page /fr|ar/donnees-ouvertes/incendies.
+- **Alias produits** (04/08) : /fr/incendies/{carte,replay,en-cours,sources,
+  methodologie,situation-textuelle,<zone>,<sujet>,comprendre/*} → 301 vers
+  les canoniques (zéro duplication, inconnu → 404).
+- Alertes push VAPID + e-mail Resend (double consentement) + brief quotidien ;
+  suivis multi-zones multi-pays ; PWA ; GA4 (événements canoniques, jamais de
+  coordonnées ; pwa_installed ⭐ ; passage hebdo automatisé lundi 10/08).
+- Wording « quasi temps réel » partout ; une réponse tunisienne ne mentionne
+  JAMAIS EFFIS/DFCI/AROME (testé).
 
-## Présent dans le code mais DÉSACTIVÉ
+## Présent dans le code mais DÉSACTIVÉ (drapeaux)
 
-- Affichage public DFCI (drapeau) ; connecteur STEG (préparé, éteint) ;
-  OTP (verification_required=0 le temps d'un fournisseur SMS/e-mail).
+- **Moteur MapLibre GL du mode feux** (fire_maplibre_enabled=0) : chargement
+  par cellules (LRU 48, TTL 150 s, annulation, max 4 en vol), 5 classes
+  d'ancienneté couleur+opacité, FRP = rayon secondaire borné, fallback
+  Leaflet honnête. ⚠️ Trois DÉFAUTS RACINES corrigés le 04/08 — le moteur
+  n'avait JAMAIS dessiné une détection jusqu'ici : (1) CSP sans worker-src
+  blob: → worker MapLibre bloqué → zéro traitement de données, sans
+  exception ; (2) expressions de style mal typées (at exige to-number,
+  circle-color exige to-color) rejetées par ÉVÉNEMENT silencieux ;
+  (3) aucune garde → état « actif » zombie. Corrections déployées, gl-check
+  exige désormais le style COMPLET **et** des détections réellement RENDUES.
+- Moyens aériens ADS-B Airplanes.live (fire_aircraft_enabled_fr/tn=0) :
+  licence relue le 31/07 (non commercial, 1 req/s), collecte mutualisée
+  serveur, zones actives uniquement, types d'appareils BRUTS (jamais
+  « bombardier d'eau »), User-Agent ASCII (leçon undici).
+- Connecteur STEG (préparé, éteint) ; OTP (verification_required=0).
 
 ## Partiellement implémenté
 
-- Replay : le SERVEUR sait déjà restituer « l'état connu à T » (détections
-  observées ≤ T, versions EFFIS publiées ≤ T) — il n'existe NI interface de
-  frise, NI relecture météo historique, NI regroupement par passage.
-- Timeline : agrégats détections/FRP/EFFIS/citoyens — pas encore de
-  déduplication multi-satellites des agrégats (les bruts, eux, sont tous
-  conservés).
-- Statuts de fraîcheur : CENTRALISÉS (src/services/sourceFreshness.js) —
-  fresh/delayed/stale/unavailable par source, servis par /healthz et
-  /api/fire/map ; le panneau visuel « Sources & fraîcheur » reste à faire
-  (Lot 6).
+- Prévisions : socle + pages SEO ✓, mais le détail par jour J0→J+6 tappable
+  dans la carte Situation reste à livrer (#111) ; 7 jours en second niveau.
+- Replay : 72 h ✓ — fenêtres 24 h / 10 jours et partage d'un instant précis
+  (hash #time=…) restent à faire ; regroupement par passage satellite absent.
+- Mobile : recouvrement carte 390 px réduit 39 → 35 % (320 px : 52 %) — la
+  structure « bottom sheet 3 positions + header léger » du master UX reste
+  le grand chantier (#112/#114).
+- Déduplication multi-satellites : bruts tous conservés ✓, agrégats
+  regroupés par événement ✓ — mais pas encore d'affichage séparé
+  « observations vs activités regroupées vs FRP cumulée du passage ».
 
 ## ABSENT (à construire)
 
-- Route /fr/incendies et l'expérience MapLibre (MapLibre non vendorisé à ce
-  jour) ; chargement par cellules ; panneau bas 3 positions ; URL
-  partageable avec temps et calques.
-- Interface de replay (frise, lecture, passages).
-- Grille AROME fine autour des foyers + interpolation + archivage des runs
-  (Open-Meteo n'expose pas model_run_at — limite documentée à contourner
-  par l'horodatage de récupération + heure valide).
-- Simulation de fumée — ⚠️ TENSION DE CHARTE consignée (le vent n'est
-  jamais une prévision de propagation) : NE PAS construire sans décision
-  explicite de Farah, drapeau dédié prévu.
-- Moyens aériens Airplanes.live (accès sondé 200 le 31/07 ; conditions
-  d'utilisation/licence NON encore relues — bloquant avant intégration).
-- Fonds IGN orthophoto / Sentinel-2 cloudless (accès WMTS sondé 200 ;
-  conditions d'usage à relire), géocodage BAN.
-- Pages SEO rendues serveur (/fr/incendies/*, méthodologies, données
-  ouvertes, situation-textuelle), Dataset schema.org, sitemaps dédiés.
-- Module éditorial « Situation vérifiée » (les informations officielles
-  vigilance existent ; le module presse/préfectures n'existe pas).
-- Métriques SRE détaillées (compteurs d'ingestion, durée des snapshots,
-  connexions SSE).
+- Simulation indicative de fumée — décision de charte REÇUE le 04/08
+  (master feux §6.4 : modèle minimal FRP dédupliquée × vent, σ(t), plafonds,
+  6 h max, graine déterministe, disclaimers permanents, drapeau
+  SMOKE_SIMULATION_ENABLED éteint par défaut).
+- Fonds IGN orthophoto / Géoplateforme + Sentinel-2 cloudless EOX (accès
+  sondés 200 ; conditions à relire avant intégration) ; géocodage BAN.
+- Module éditorial « informations officielles » v2 (préfectures/SDIS
+  curatées main avec validation admin — AUCUNE création automatique depuis
+  un hotspot) ; la vigilance officielle existe déjà.
+- Grille AROME nationale + affinée autour des foyers, interpolation
+  spatio-temporelle, u/v (tests 5 directions) — prérequis fumée.
+- Traces aéronefs (dernières minutes, jamais d'extrapolation) au-delà des
+  positions ; activation du calque FR.
+- SSE : filtres bbox/layers/since par abonnement ; métriques SRE détaillées
+  (sse_connections, durée snapshots, compteurs d'ingestion).
+- Pages /fr/methodologie/{firms,effis,arome,simulation-fumee} de PLEINE
+  qualité (les alias 301 existent ; les pages dédiées viendront avec leurs
+  lots — jamais de pages pauvres).
+- Bottom sheet 3 positions, header léger mobile, FAB « Ma position ».
 
 ## Obsolète / à corriger avant réutilisation
 
-- Rien d'identifié de bloquant ; dettes connues : Firefox/WebKit absents du
-  conteneur de CI locale (documenté), quota Open-Meteo partagé par IP
-  (protections en place, à surveiller via healthz).
+- Rien de bloquant identifié. Dettes connues : Firefox/WebKit absents de la
+  CI locale (documenté) ; quota Open-Meteo partagé par IP (surveillé via
+  healthz) ; tuiles raster OSM/Carto = dépendance externe sans SLA (fallback
+  multi-fournisseurs en place).
 
-## Correspondance avec l'ordre d'implémentation
+## Correspondance avec l'ordre d'implémentation (master feux §30)
 
-Lot 0 ✓ (ce document) · Lot 1 ✓ (historisation + API + SSE, tests 119) ·
-Lots 2-3 : MapLibre /fr/incendies · Lot 4 : replay UI · Lot 5 : AROME fin
-(+ fumée SI décision) · Lot 6 : DFCI calque + aérien (licences d'abord) ·
-Lot 7 : SEO serveur · Lot 8 : croissance. Chaque lot = déploiement séparé,
-testé, réversible.
+Lot 0 ✓ (ce document) · Lot 1 ✓ historisation · Lot 2 ✓ API+SSE (filtres
+bbox restants) · Lot 3 ✓ moteur GL (corrigé 04/08, activation progressive à
+mener) · Lot 4 ✓ replay 72 h (fenêtres 24 h/10 j + partage d'instant
+restants) · Lot 5 fumée+AROME fin : À FAIRE (décision reçue) · Lot 6 DFCI ✓
++ aérien construit (traces + activation restantes) · Lot 7 SEO ✓ (+ pages
+méthodologie dédiées) · Lot 8 croissance : IndexNow ✓, API ouverte ✓,
+kit presse ✓ — diffusion et SEA (jamais sans accord) restants.
