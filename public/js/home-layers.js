@@ -96,7 +96,7 @@ function toggleWeatherLayer() {
     const legend = document.getElementById('wxLegend');
     if (legend) legend.hidden = true;
   }
-  try { localStorage.setItem('kifeh_weather_layer', weatherOn ? '1' : '0'); } catch {}
+  try { localStorage.setItem('kifeh_weather_layer_v2', weatherOn ? '1' : '0'); } catch {}
 }
 
 // Couche météo (France uniquement) + redessin après déplacement.
@@ -116,7 +116,10 @@ function toggleWeatherLayer() {
     weatherTimer = setTimeout(drawWeatherLayer, 450); // jamais pendant le geste
   });
   let saved = null;
-  try { saved = localStorage.getItem('kifeh_weather_layer'); } catch {}
+  // Clé v2 : l'ancienne (« kifeh_weather_layer ») avait été écrite PAR
+  // l'auto-activation au démarrage — on repart calme pour tous, UNE fois ;
+  // le choix explicite est mémorisé dans la v2 dès le premier geste.
+  try { saved = localStorage.getItem('kifeh_weather_layer_v2'); } catch {}
   // CALME PAR DÉFAUT (retour Farah 03/08 : « trop crowded ») : le voile météo
   // est OPT-IN — la règle écrite du panneau (« aucune couche secondaire active
   // d'office ») s'applique enfin à lui aussi. Le choix ON est respecté.
