@@ -457,6 +457,28 @@ for (const width of [900, 1440]) {
   await ctxD.close();
 }
 
+// ── Lien profond de zone (#83) : ?lat&lng&z centre la carte puis s'efface ──
+{
+  const ctxZ = await browser.newContext({ viewport: { width: 390, height: 720 } });
+  await ctxZ.addInitScript(() => {
+    try {
+      localStorage.setItem('lang', 'fr');
+      localStorage.setItem('kifeh_onboarded', '1');
+      localStorage.setItem('kifeh_country', 'FR');
+    } catch {}
+  });
+  const pgZ = await ctxZ.newPage();
+  await pgZ.goto(`${BASE}/?country=FR&lang=fr&lat=44.84&lng=-0.58&z=9`, { waitUntil: 'load' });
+  await pgZ.waitForTimeout(1200);
+  const deep = await pgZ.evaluate(() => ({
+    zoom: window.kifehMapZoom?.(),
+    cleaned: !location.search.includes('lat='),
+  }));
+  ok(deep.zoom === 9, `lien profond : carte centrée au zoom demandé (${deep.zoom})`);
+  ok(deep.cleaned, 'lien profond : paramètres lat/lng/z effacés de l’URL après usage');
+  await ctxZ.close();
+}
+
 await browser.close();
 server.kill();
 for (const f of [DB, `${DB}-wal`, `${DB}-shm`]) fs.rmSync(f, { force: true });

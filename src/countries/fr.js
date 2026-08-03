@@ -54,6 +54,25 @@ export const fr = {
     satelliteCandidate: { provider: 'ign-ortho', blocked: 'license_review_pending' },
   },
   phone: { callingCode: '+33', normalizationStrategy: 'fr', placeholder: '06 12 34 56 78' },
+  // Zones SEO départementales (#83) : pages serveur UTILES par département —
+  // départements à fort enjeu feu d'abord. Emprises APPROXIMATIVES (comptes
+  // « autour de », jamais des frontières administratives exactes).
+  seoZones: [
+    { slug: 'gironde', name: { fr: 'Gironde', ar: 'جيروند' }, center: [44.84, -0.58], zoom: 9,
+      bbox: { minLat: 44.19, maxLat: 45.57, minLng: -1.26, maxLng: 0.32 } },
+    { slug: 'landes', name: { fr: 'Landes', ar: 'لاند' }, center: [43.9, -0.77], zoom: 9,
+      bbox: { minLat: 43.49, maxLat: 44.53, minLng: -1.53, maxLng: 0.14 } },
+    { slug: 'var', name: { fr: 'Var', ar: 'فار' }, center: [43.46, 6.24], zoom: 9,
+      bbox: { minLat: 42.98, maxLat: 43.81, minLng: 5.66, maxLng: 6.93 } },
+    { slug: 'bouches-du-rhone', name: { fr: 'Bouches-du-Rhône', ar: 'بوش دو رون' }, center: [43.44, 5.09], zoom: 9,
+      bbox: { minLat: 43.16, maxLat: 43.92, minLng: 4.23, maxLng: 5.81 } },
+    { slug: 'herault', name: { fr: 'Hérault', ar: 'إيرو' }, center: [43.58, 3.4], zoom: 9,
+      bbox: { minLat: 43.21, maxLat: 43.97, minLng: 2.54, maxLng: 4.19 } },
+    { slug: 'corse-du-sud', name: { fr: 'Corse-du-Sud', ar: 'كورسيكا الجنوبية' }, center: [41.86, 8.97], zoom: 9,
+      bbox: { minLat: 41.33, maxLat: 42.38, minLng: 8.53, maxLng: 9.41 } },
+    { slug: 'haute-corse', name: { fr: 'Haute-Corse', ar: 'كورسيكا العليا' }, center: [42.4, 9.2], zoom: 9,
+      bbox: { minLat: 41.83, maxLat: 43.03, minLng: 8.57, maxLng: 9.56 } },
+  ],
   map: {
     defaultCenter: [46.6, 2.4],
     defaultZoom: 6,

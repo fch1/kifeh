@@ -31,6 +31,19 @@ function initialView() {
 const map = createMap('map', { deferTiles: LITE, zoomless: true, ...initialView() });
 window.kifehMapZoom = () => map.getZoom(); // sonde de test (lecture seule)
 window.kifehSetView = (lat, lng, z) => map.setView([lat, lng], z); // sonde de test
+// Lien profond de zone (pages départementales #83) : ?lat&lng&z centre la
+// carte à l'arrivée puis s'efface de l'URL. SANS paramètre : strictement rien.
+try {
+  const qp = new URLSearchParams(location.search);
+  const dlLat = parseFloat(qp.get('lat')), dlLng = parseFloat(qp.get('lng'));
+  if (Number.isFinite(dlLat) && Number.isFinite(dlLng)
+    && dlLat >= -90 && dlLat <= 90 && dlLng >= -180 && dlLng <= 180) {
+    const dlZ = parseInt(qp.get('z'), 10);
+    map.setView([dlLat, dlLng], Number.isFinite(dlZ) ? Math.min(Math.max(dlZ, 3), 18) : 10);
+    qp.delete('lat'); qp.delete('lng'); qp.delete('z');
+    history.replaceState(null, '', location.pathname + (qp.toString() ? `?${qp}` : '') + location.hash);
+  }
+} catch { /* URL illisible : la vue par défaut s'applique */ }
 map.on('moveend', () => {
   try {
     const v = readViewports();

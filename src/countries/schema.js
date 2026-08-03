@@ -94,6 +94,29 @@ export function validateProfile(p) {
   // Fonds de carte — déclaratifs (le client bascule déjà automatiquement).
   if (!p.basemaps || !isNonEmptyString(p.basemaps.default)) err('basemaps.default requis');
 
+  // Zones SEO (#83) — optionnelles, mais si déclarées : slug propre, noms
+  // fr ET ar, centre plausible, emprise cohérente (min < max).
+  if (p.seoZones !== undefined) {
+    if (!Array.isArray(p.seoZones)) err('seoZones doit être un tableau');
+    else {
+      const seen = new Set();
+      for (const z of p.seoZones) {
+        if (!/^[a-z0-9-]{2,40}$/.test(z?.slug || '')) err(`seoZones : slug invalide (${z?.slug})`);
+        if (seen.has(z?.slug)) err(`seoZones : slug dupliqué (${z?.slug})`);
+        seen.add(z?.slug);
+        if (!z?.name?.fr || !z?.name?.ar) err(`seoZones.${z?.slug} : nom fr ET ar requis`);
+        if (!Array.isArray(z?.center) || z.center.length !== 2
+          || !Number.isFinite(z.center[0]) || !Number.isFinite(z.center[1])) {
+          err(`seoZones.${z?.slug} : center [lat,lng] requis`);
+        }
+        const b = z?.bbox;
+        if (!b || !(b.minLat < b.maxLat) || !(b.minLng < b.maxLng)) {
+          err(`seoZones.${z?.slug} : bbox incohérente`);
+        }
+      }
+    }
+  }
+
   // Existant (contrat historique) — toujours exigé.
   for (const k of ['phone', 'map', 'geocoding', 'polygons', 'firms', 'enabledIncidentTypes']) {
     if (!(k in p)) err(`champ historique manquant : ${k}`);

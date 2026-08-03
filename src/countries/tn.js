@@ -42,6 +42,20 @@ export const tn = {
     satelliteCandidate: { provider: 'sentinel-2-cloudless', blocked: 'license_review_pending' },
   },
   phone: { callingCode: '+216', normalizationStrategy: 'tn', placeholder: '+216 20 123 456' },
+  // Zones SEO par gouvernorat (#83) : l'audience réelle (GA4) est à Tunis et
+  // Sfax — pages serveur UTILES là où vivent les gens. Emprises APPROXIMATIVES.
+  seoZones: [
+    { slug: 'tunis', name: { fr: 'Tunis', ar: 'تونس' }, center: [36.8, 10.18], zoom: 11,
+      bbox: { minLat: 36.68, maxLat: 36.95, minLng: 10.05, maxLng: 10.35 } },
+    { slug: 'sfax', name: { fr: 'Sfax', ar: 'صفاقس' }, center: [34.74, 10.76], zoom: 10,
+      bbox: { minLat: 34.2, maxLat: 35.3, minLng: 9.8, maxLng: 11.2 } },
+    { slug: 'sousse', name: { fr: 'Sousse', ar: 'سوسة' }, center: [35.83, 10.64], zoom: 11,
+      bbox: { minLat: 35.5, maxLat: 36.1, minLng: 10.3, maxLng: 10.8 } },
+    { slug: 'bizerte', name: { fr: 'Bizerte', ar: 'بنزرت' }, center: [37.27, 9.87], zoom: 10,
+      bbox: { minLat: 36.9, maxLat: 37.35, minLng: 8.9, maxLng: 10.1 } },
+    { slug: 'nabeul', name: { fr: 'Nabeul', ar: 'نابل' }, center: [36.45, 10.73], zoom: 10,
+      bbox: { minLat: 36.35, maxLat: 37.1, minLng: 10.5, maxLng: 11.15 } },
+  ],
   map: {
     defaultCenter: [34.2, 9.6],
     defaultZoom: 6,

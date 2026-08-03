@@ -138,8 +138,11 @@ ${hreflangs}
   </div>
   <a class="cta" href="${appUrl}">${rtl ? 'افتح الخريطة التفاعلية' : 'Ouvrir la carte interactive'} →</a>
   ${methodology}
+  ${(p.seoZones || []).length ? `<h2>${rtl ? 'حسب المنطقة' : (cc === 'fr' ? 'Par département' : 'Par gouvernorat')}</h2>
+  <p>${p.seoZones.map((z) => `<a href="/${lang}/${cc}/incendies/${z.slug}">${esc(z.name[lang] || z.name.fr)}</a>`).join(' · ')}</p>` : ''}
   <h2>${rtl ? 'روابط مفيدة' : 'Pour aller plus loin'}</h2>
-  <p><a href="/faq.html">${rtl ? 'أسئلة شائعة' : 'Questions fréquentes'}</a> ·
+  <p><a href="/${lang}/${cc}/incendies/comprendre/detections-satellite">${rtl ? 'فهم الأرصاد الفضائية' : 'Comprendre les détections satellite'}</a> ·
+     ${cc === 'fr' ? `<a href="/${lang}/fr/incendies/comprendre/reperes-dfci">${rtl ? 'ما هو مربّع DFCI؟' : 'Les repères DFCI'}</a> · ` : ''}<a href="/faq.html">${rtl ? 'أسئلة شائعة' : 'Questions fréquentes'}</a> ·
      <a href="/a-propos.html">${rtl ? 'حول كيفاه ومصادره' : 'À propos de Kifeh et de ses sources'}</a> ·
      <a href="https://github.com/fch1/kifeh">Open source (GitHub)</a></p>
   <p class="muted">Kifeh كيفاه — ${esc(nsMsg(lang, 'common', 'tagline') || '')}</p>
@@ -164,7 +167,11 @@ function serve(lang, cc) {
 }
 for (const lang of LANGS) {
   for (const cc of CCS) seoRouter.get(`/${lang}/${cc}/incendies`, serve(lang, cc));
-  // ── Pages SEO prévisions (master PR 8) : previsions · danger-feu ·
+  // Convention : /fr/incendies est ambigu → 301 vers la variante complète.
+  seoRouter.get(`/${lang}/incendies`, (req, res) => res.redirect(301, `/${lang}/fr/incendies`));
+}
+
+// ── Pages SEO prévisions (master PR 8) : previsions · danger-feu ·
 // methodologie-previsions — éditorial STABLE (le dynamique vit dans l'app),
 // localisé par territoire via le registre (TN ne mentionne jamais
 // Météo-France/EFFIS/DFCI), disclaimer partout. 12 pages (3 × 4 variantes).
@@ -320,6 +327,265 @@ seoRouter.get('/i/:publicId', (req, res) => {
 </body></html>`);
 });
 
-// Convention : /fr/incendies est ambigu → 301 vers la variante complète.
-  seoRouter.get(`/${lang}/incendies`, (req, res) => res.redirect(301, `/${lang}/fr/incendies`));
+// ── Sitemap GÉNÉRÉ depuis les registres (#83) ───────────────────────────────
+// Fini le fichier statique qui dérive : le plan du site est produit des mêmes
+// boucles que les routes (langues × territoires × sujets × zones du registre
+// pays). Une page qui existe est listée ; une page retirée disparaît seule.
+seoRouter.get('/sitemap.xml', (req, res) => {
+  const hit = cache.get('sitemap');
+  if (hit && Date.now() - hit.at < 3600_000) {
+    return res.set('Cache-Control', 'public, max-age=3600').type('application/xml').send(hit.html);
+  }
+  const staticPages = [
+    { loc: '/', freq: 'hourly', prio: '1.0', langParam: true },
+    { loc: '/declare.html', freq: 'monthly', prio: '0.8', langParam: true },
+    { loc: '/faq.html', freq: 'monthly', prio: '0.7', langParam: true },
+    { loc: '/a-propos.html', freq: 'monthly', prio: '0.6', langParam: true },
+    { loc: '/legal.html', freq: 'monthly', prio: '0.4', langParam: true },
+  ];
+  const urls = [];
+  for (const s of staticPages) {
+    urls.push(`  <url>
+    <loc>${BASE}${s.loc}</loc>
+    <changefreq>${s.freq}</changefreq>
+    <priority>${s.prio}</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="${BASE}${s.loc}?lang=fr"/>
+    <xhtml:link rel="alternate" hreflang="ar" href="${BASE}${s.loc}?lang=ar"/>
+  </url>`);
+  }
+  const add = (path, freq, prio) => urls.push(`  <url>
+    <loc>${BASE}${path}</loc>
+    <changefreq>${freq}</changefreq>
+    <priority>${prio}</priority>
+  </url>`);
+  for (const lang of LANGS) {
+    for (const cc of CCS) {
+      add(`/${lang}/${cc}/incendies`, 'hourly', '0.9');
+      for (const topic of ['previsions', 'danger-feu', 'methodologie-previsions']) {
+        add(`/${lang}/${cc}/incendies/${topic}`, 'weekly', '0.7');
+      }
+      for (const z of getProfile(cc.toUpperCase())?.seoZones || []) {
+        add(`/${lang}/${cc}/incendies/${z.slug}`, 'daily', '0.8');
+      }
+      add(`/${lang}/${cc}/incendies/comprendre/detections-satellite`, 'monthly', '0.6');
+      if (cc === 'fr') add(`/${lang}/fr/incendies/comprendre/reperes-dfci`, 'monthly', '0.6');
+    }
+  }
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+${urls.join('\n')}
+</urlset>
+`;
+  cache.set('sitemap', { html: xml, at: Date.now() });
+  res.set('Cache-Control', 'public, max-age=3600').type('application/xml').send(xml);
+});
+
+// ── Pages départementales / par gouvernorat UTILES (#83) ────────────────────
+// Une page par zone déclarée dans le REGISTRE pays (seoZones) : données
+// VIVANTES de la zone (détections 24 h, signalements actifs — jamais une page
+// vide), numéros d'urgence du territoire, lien profond vers la carte centrée.
+// Emprises approximatives assumées (« autour de »), hreflang fr↔ar par zone.
+function zoneCounts(CC, b) {
+  const g = (sql, ...p) => { try { return db.prepare(sql).get(...p); } catch { return null; } };
+  return {
+    det24: g(`SELECT COUNT(*) AS n, MAX(acquired_at) AS last FROM satellite_detections
+              WHERE country_code=? AND acquired_at > datetime('now','-1 day')
+                AND lat BETWEEN ? AND ? AND lng BETWEEN ? AND ?`,
+    CC, b.minLat, b.maxLat, b.minLng, b.maxLng) || { n: 0, last: null },
+    actives: g(`SELECT COUNT(*) AS n FROM incidents WHERE status='active'
+                AND COALESCE(country_code,'TN')=?
+                AND public_lat BETWEEN ? AND ? AND public_lng BETWEEN ? AND ?`,
+    CC, b.minLat, b.maxLat, b.minLng, b.maxLng)?.n ?? 0,
+    fires: g(`SELECT COUNT(*) AS n FROM incidents WHERE status='active' AND type='fire'
+              AND COALESCE(country_code,'TN')=?
+              AND public_lat BETWEEN ? AND ? AND public_lng BETWEEN ? AND ?`,
+    CC, b.minLat, b.maxLat, b.minLng, b.maxLng)?.n ?? 0,
+  };
+}
+
+function zonePageHtml(lang, cc, zone) {
+  const CC = cc.toUpperCase();
+  const caps = getCapabilities({ countryCode: CC, language: lang });
+  if (!caps) return null;
+  const rtl = lang === 'ar';
+  const name = zone.name[lang] || zone.name.fr;
+  const territory = nsMsg(lang, 'seo', `territory_${cc}`) || CC;
+  const title = rtl
+    ? `${name}: الحرائق والحوادث — خريطة شبه فورية`
+    : `${name} : incendies et incidents — carte en quasi temps réel`;
+  const desc = rtl
+    ? `الوضع الحالي في ${name} (${territory}): أرصاد حرارية بالأقمار الاصطناعية، تبليغات المواطنين، أرقام النجدة. مجانًا وبدون حساب.`
+    : `La situation actuelle à ${name} (${territory}) : détections satellite, signalements citoyens, numéros d'urgence. Gratuit, sans compte.`;
+  const c = zoneCounts(CC, zone.bbox);
+  const fmt = (iso) => (iso ? fmtDateTime(iso, { language: lang, countryCode: CC }) : null);
+  const path = (l) => `/${l}/${cc}/incendies/${zone.slug}`;
+  const emg = emergencyLine(CC, lang, 'fire') || '';
+  const srcDict = getNamespace(lang, 'sources') || {};
+  const fireDict = getNamespace(lang, 'fire') || {};
+
+  const detLine = c.det24.n > 0
+    ? (rtl ? `رُصد ${c.det24.n} شذوذًا حراريًا بالأقمار الاصطناعية حول ${name} خلال الـ24 ساعة الأخيرة (آخر رصد: ${fmt(c.det24.last)}).`
+      : `${c.det24.n} anomalie(s) thermique(s) observée(s) par satellite autour de ${name} ces dernières 24 heures (dernière : ${fmt(c.det24.last)}).`)
+    : (rtl ? `لا أرصاد حرارية بالأقمار الاصطناعية حول ${name} خلال الـ24 ساعة الأخيرة.`
+      : `Aucune anomalie thermique satellite observée autour de ${name} ces dernières 24 heures.`);
+  const actLine = c.actives > 0
+    ? (rtl ? `${c.actives} تبليغ نشط من المواطنين في المنطقة${c.fires > 0 ? ` (منها ${c.fires} حريق)` : ''}.`
+      : `${c.actives} signalement(s) citoyen(s) actif(s) dans la zone${c.fires > 0 ? ` (dont ${c.fires} incendie(s))` : ''}.`)
+    : (rtl ? 'لا تبليغات نشطة من المواطنين في المنطقة حاليًا.'
+      : 'Aucun signalement citoyen actif dans la zone en ce moment.');
+
+  const appUrl = `/?country=${CC}&lang=${lang}&types=fire&lat=${zone.center[0]}&lng=${zone.center[1]}&z=${zone.zoom || 10}`;
+  const now = fmt(new Date().toISOString());
+  return `<!doctype html>
+<html lang="${lang}" dir="${rtl ? 'rtl' : 'ltr'}">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(title)}</title><meta name="description" content="${esc(desc)}">
+<link rel="canonical" href="${BASE}${path(lang)}">
+<link rel="alternate" hreflang="fr-${CC}" href="${BASE}${path('fr')}">
+<link rel="alternate" hreflang="ar-${CC}" href="${BASE}${path('ar')}">
+<link rel="alternate" hreflang="x-default" href="${BASE}${path('fr')}">
+<meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}">
+<meta property="og:image" content="${BASE}/img/og-image.png"><meta property="og:type" content="website">
+<link rel="icon" href="/img/logo-icon.svg" type="image/svg+xml">
+<script type="application/ld+json">${JSON.stringify({
+    '@context': 'https://schema.org', '@type': 'Dataset',
+    name: title, description: desc, url: `${BASE}${path(lang)}`,
+    creator: { '@type': 'Organization', name: 'Kifeh', url: BASE },
+    isAccessibleForFree: true, spatialCoverage: `${name}, ${territory}`,
+  })}</script>
+<style>body{font-family:'IBM Plex Sans',-apple-system,sans-serif;background:#FAF7F1;color:#1E2A4D;line-height:1.6;margin:0}
+main{max-width:680px;margin:0 auto;padding:1.25rem 1rem 3rem}h1{font-size:1.45rem;line-height:1.3}h2{font-size:1.05rem;margin-top:1.4rem}
+.cta{display:inline-block;background:#E8432E;color:#fff;text-decoration:none;padding:.75rem 1.25rem;border-radius:14px;font-weight:600;margin:.5rem 0}
+.facts{background:#fff;border:1px solid #E7E1D6;border-radius:14px;padding:1rem;margin:1rem 0}
+.muted{color:#5C6B79;font-size:.85rem}.emergency{background:#1E2A4D;color:#fff;border-radius:14px;padding:.75rem 1rem;margin:1rem 0}
+a{color:#1E2A4D}.emergency a{color:#fff}</style>
+</head>
+<body><main>
+<nav class="muted"><a href="/">Kifeh كيفاه</a> › <a href="/${lang}/${cc}/incendies">${esc(territory)}</a> › ${esc(name)}</nav>
+<h1>${esc(title)}</h1>
+<p>${esc(desc)}</p>
+<p class="emergency"><strong>${esc(emg)}</strong><br><span>${esc(nsMsg(lang, 'fire', 'emergency_reminder') || '')}</span></p>
+<div class="facts">
+  <h2 style="margin-top:0">${esc(nsMsg(lang, 'fire', 'situation_title') || '')}</h2>
+  <p>${esc(detLine)}</p>
+  <p>${esc(actLine)}</p>
+  <p class="muted">${rtl ? 'الأعداد محسوبة على منطقة تقريبية حول ' : 'Comptes calculés sur une emprise approximative autour de '}${esc(name)} — ${rtl ? 'آخر تحديث: ' : 'page actualisée le '}<span dir="ltr">${esc(now)}</span>.</p>
+</div>
+<a class="cta" href="${appUrl}">${rtl ? `افتح الخريطة على ${name}` : `Ouvrir la carte sur ${name}`} →</a>
+<h2>${rtl ? 'كيف تُقرأ هذه البيانات؟' : 'Comment lire ces données ?'}</h2>
+<p>${esc(fireDict.detection_note || '')} ${esc(srcDict.thermal_limitations || '')}</p>
+<p><a href="/${lang}/${cc}/incendies/comprendre/detections-satellite">${rtl ? '→ فهم الأرصاد الفضائية' : '→ Comprendre les détections satellite'}</a>${cc === 'fr' ? ` · <a href="/${lang}/fr/incendies/comprendre/reperes-dfci">${rtl ? 'ما هو مربّع DFCI؟' : 'Qu’est-ce qu’un repère DFCI ?'}</a>` : ''}</p>
+<p><a href="/${lang}/${cc}/incendies">${rtl ? `→ صفحة ${territory} الكاملة` : `→ La page ${territory} complète`}</a></p>
+<p class="muted">Kifeh كيفاه — ${esc(nsMsg(lang, 'common', 'tagline') || '')}</p>
+</main></body></html>`;
+}
+
+for (const lang of LANGS) {
+  for (const cc of CCS) {
+    const zones = getProfile(cc.toUpperCase())?.seoZones || [];
+    for (const zone of zones) {
+      seoRouter.get(`/${lang}/${cc}/incendies/${zone.slug}`, (req, res) => {
+        const key = `${lang}/${cc}/z/${zone.slug}`;
+        const hit = cache.get(key);
+        if (hit && Date.now() - hit.at < CACHE_MS) return res.set('Cache-Control', 'public, max-age=300').type('html').send(hit.html);
+        const html = zonePageHtml(lang, cc, zone);
+        if (!html) return res.status(404).end();
+        cache.set(key, { html, at: Date.now() });
+        res.set('Cache-Control', 'public, max-age=300').type('html').send(html);
+      });
+    }
+  }
+}
+
+// ── Pages « comprendre » par source (#83) : pédagogie honnête ───────────────
+// detections-satellite (FR + TN) · reperes-dfci (FRANCE UNIQUEMENT — le
+// carroyage DFCI est un concept français : la variante tunisienne N'EXISTE
+// PAS, elle répond 404, conformément au registre de capacités).
+function comprendreHtml(lang, cc, topic) {
+  const CC = cc.toUpperCase();
+  const caps = getCapabilities({ countryCode: CC, language: lang });
+  if (!caps) return null;
+  if (topic === 'reperes-dfci' && caps.layers.emergencyGrid?.enabled !== true) return null;
+  const rtl = lang === 'ar';
+  const territory = nsMsg(lang, 'seo', `territory_${cc}`) || CC;
+  const srcDict = getNamespace(lang, 'sources') || {};
+  const fireDict = getNamespace(lang, 'fire') || {};
+  let h1, desc, body;
+  if (topic === 'detections-satellite') {
+    h1 = rtl ? 'كيف تُقرأ الأرصاد الفضائية للحرائق؟' : 'Comment lire une détection satellite de feu ?';
+    desc = rtl ? 'ما الذي يراه القمر الاصطناعي فعلًا، ما دلالة الثقة وFRP، وما حدود هذه البيانات.'
+      : 'Ce que le satellite observe vraiment, ce que signifient la confiance et la FRP, et les limites honnêtes de cette donnée.';
+    body = `
+<h2>${rtl ? 'ما الذي يُرصد؟' : 'Ce qui est observé'}</h2>
+<p>${rtl ? 'ترصد أقمار وكالة ناسا (أجهزة MODIS وVIIRS) شذوذات حرارية على سطح الأرض عدة مرات يوميًا. الشذوذ الحراري نقطة أكثر سخونة من محيطها — غالبًا حريق، لكنه قد يكون أيضًا شعلة صناعية أو انعكاس شمس.'
+    : 'Les satellites de la NASA (instruments MODIS et VIIRS) repèrent des anomalies thermiques à la surface, plusieurs fois par jour. Une anomalie est un point plus chaud que son environnement — souvent un feu, mais parfois aussi une torchère industrielle ou un reflet solaire.'}</p>
+<p><strong>${esc(fireDict.detection_note || '')}</strong></p>
+<h2>${rtl ? 'الثقة' : 'La confiance'}</h2>
+<p>${rtl ? 'يرفق كل رصد بدرجة ثقة (ضعيفة، متوسطة، مرتفعة) تحسبها ناسا. الثقة المرتفعة تعني شذوذًا واضحًا — لا تعني تأكيدًا رسميًا لحريق.'
+    : 'Chaque détection porte un niveau de confiance (faible, nominal, élevé) calculé par la NASA. Une confiance élevée signifie une anomalie nette — jamais une confirmation officielle d’incendie.'}</p>
+<h2>${rtl ? 'FRP: شدة وليست مساحة' : 'La FRP : une intensité, pas une surface'}</h2>
+<p>${rtl ? 'القدرة الإشعاعية (FRP) تقيس بالميغاواط شدة الإشعاع الحراري لحظة المرور. لا تقول شيئًا عن مساحة الحريق ولا حجمه ولا محيطه.'
+    : 'La puissance radiative (FRP) mesure, en mégawatts, l’intensité du rayonnement thermique au moment du passage. Elle ne dit RIEN de la surface, de la taille ni du périmètre d’un feu.'} ${esc(fireDict.frp_note || '')}</p>
+<h2>${rtl ? 'الحدود' : 'Les limites'}</h2>
+<p>${rtl ? 'بين مرورين للقمر قد تمضي ساعات؛ الغيوم والدخان الكثيف يحجبان الرصد؛ النقطة المعروضة تقريبية (بضع مئات من الأمتار). لهذا تعرض كيفاه دائمًا وقت الرصد، وتخفّف ألوان الأرصاد القديمة.'
+    : 'Entre deux passages, des heures peuvent s’écouler ; les nuages et une fumée dense masquent l’observation ; le point affiché est approximatif (quelques centaines de mètres). C’est pourquoi Kifeh affiche toujours l’heure d’observation et estompe les détections anciennes.'} ${esc(srcDict.thermal_limitations || '')}</p>`;
+  } else {
+    h1 = rtl ? 'ما هو مربّع DFCI؟' : 'Qu’est-ce qu’un repère DFCI ?';
+    desc = rtl ? 'شبكة تربيع يستعملها رجال الإطفاء في فرنسا لتحديد المواقع — وكيف تعرضها كيفاه بدقة كيلومترين إرشادية.'
+      : 'Le carroyage utilisé par les services de lutte contre l’incendie en France pour se localiser — et comment Kifeh l’affiche, avec une précision indicative de 2 km.';
+    body = `
+<h2>${rtl ? 'الفكرة' : 'Le principe'}</h2>
+<p>${rtl ? 'DFCI (الدفاع عن الغابات ضد الحرائق) شبكة مربعات تغطي فرنسا، يتواصل بها المتدخلون ميدانيًا: بدل إحداثيات طويلة، رمز قصير مثل KD64D6 يعيّن مربعًا بعينه.'
+    : 'Le carroyage DFCI (Défense des Forêts Contre l’Incendie) découpe la France en carreaux. Les intervenants se le partagent sur le terrain : plutôt que de longues coordonnées, un code court comme KD64D6 désigne un carreau précis.'}</p>
+<h2>${rtl ? 'في كيفاه' : 'Dans Kifeh'}</h2>
+<p>${rtl ? 'تعرض كيفاه رمز المربّع (بدقة كيلومترين) في بطاقات الأحداث الفرنسية، للمساعدة على التواصل مع المصالح — الحساب يتم على الخادم انطلاقًا من الموقع الدقيق، الذي لا يُنشر أبدًا للعموم.'
+    : 'Kifeh affiche le carreau (précision 2 km) dans les fiches d’incidents en France, comme aide à la communication avec les services — le calcul se fait côté serveur depuis la position exacte, qui n’est jamais publiée.'}</p>
+<h2>${rtl ? 'حدود صريحة' : 'Des limites assumées'}</h2>
+<p>${rtl ? 'الرمز إرشادي: لا يعوّض تحديد الموقع الذي تطلبه مصالح النجدة أثناء المكالمة. عند الاتصال بـ112 أو 18، اتبعوا تعليمات المُجيب.'
+    : 'Le repère est indicatif : il ne remplace jamais la localisation demandée par les secours pendant l’appel. Au 112 ou au 18, suivez les consignes de l’opérateur.'}</p>`;
+  }
+  const path = (l) => `/${l}/${cc}/incendies/comprendre/${topic}`;
+  return `<!doctype html><html lang="${lang}" dir="${rtl ? 'rtl' : 'ltr'}"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(h1)} — Kifeh</title><meta name="description" content="${esc(desc)}">
+<link rel="canonical" href="${BASE}${path(lang)}">
+<link rel="alternate" hreflang="fr-${CC}" href="${BASE}${path('fr')}">
+<link rel="alternate" hreflang="ar-${CC}" href="${BASE}${path('ar')}">
+<link rel="alternate" hreflang="x-default" href="${BASE}${path('fr')}">
+<meta property="og:title" content="${esc(h1)}"><meta property="og:description" content="${esc(desc)}">
+<meta property="og:image" content="${BASE}/img/og-image.png"><meta property="og:type" content="article">
+<link rel="icon" href="/img/logo-icon.svg" type="image/svg+xml">
+<script type="application/ld+json">${JSON.stringify({
+    '@context': 'https://schema.org', '@type': 'Article',
+    headline: h1, description: desc, inLanguage: lang,
+    author: { '@type': 'Organization', name: 'Kifeh', url: BASE },
+  })}</script>
+<style>body{font-family:'IBM Plex Sans',-apple-system,sans-serif;background:#FAF7F1;color:#1E2A4D;line-height:1.65;margin:0}
+main{max-width:680px;margin:0 auto;padding:1.25rem 1rem 3rem}h1{font-size:1.4rem;line-height:1.3}h2{font-size:1.05rem;margin-top:1.4rem}
+.muted{color:#5C6B79;font-size:.85rem}a{color:#1E2A4D}</style>
+</head><body><main>
+<nav class="muted"><a href="/">Kifeh كيفاه</a> › <a href="/${lang}/${cc}/incendies">${esc(territory)}</a></nav>
+<h1>${esc(h1)}</h1>
+${body}
+<p><a href="/${lang}/${cc}/incendies">${rtl ? '→ خريطة الحرائق' : '→ Carte des feux'} — ${esc(territory)}</a> · <a href="/?country=${CC}&lang=${lang}">${rtl ? 'التطبيق' : 'l’application'}</a></p>
+<p class="muted">Kifeh كيفاه — ${esc(nsMsg(lang, 'common', 'tagline') || '')}</p>
+</main></body></html>`;
+}
+
+for (const lang of LANGS) {
+  for (const cc of CCS) {
+    for (const topic of ['detections-satellite', 'reperes-dfci']) {
+      seoRouter.get(`/${lang}/${cc}/incendies/comprendre/${topic}`, (req, res) => {
+        const key = `${lang}/${cc}/c/${topic}`;
+        const hit = cache.get(key);
+        if (hit && Date.now() - hit.at < CACHE_MS) return res.set('Cache-Control', 'public, max-age=600').type('html').send(hit.html);
+        const html = comprendreHtml(lang, cc, topic);
+        if (!html) return res.status(404).end(); // ex. DFCI côté tunisien : n'existe pas
+        cache.set(key, { html, at: Date.now() });
+        res.set('Cache-Control', 'public, max-age=600').type('html').send(html);
+      });
+    }
+  }
 }

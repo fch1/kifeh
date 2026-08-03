@@ -357,6 +357,49 @@ const meAr = await (await fetch(`${BASE}/ar/fr/incendies/methodologie-previsions
 ok(meAr.includes('dir="rtl"') && /[؀-ۿ]/.test(meAr), 'méthodologie ar/fr : RTL réel');
 ok((await fetch(`${BASE}/fr/de/incendies/previsions`)).status === 404, 'variante non servie → 404');
 
+section('Pages de zone (#83) : départements/gouvernorats depuis le REGISTRE');
+const gi = await fetch(`${BASE}/fr/fr/incendies/gironde`);
+const giH = await gi.text();
+ok(gi.status === 200 && giH.includes('rel="canonical" href="https://kifeh.app/fr/fr/incendies/gironde"'),
+  '/fr/fr/incendies/gironde : servie + canonical exact');
+ok(/anomalie|Aucune anomalie/.test(giH) && /18|112/.test(giH),
+  'Gironde : données vivantes de zone + numéros d’urgence français');
+ok(giH.includes('emprise approximative'),
+  'Gironde : honnêteté sur l’emprise (jamais des frontières exactes)');
+ok(giH.includes('lat=44.84') && giH.includes('types=fire'),
+  'Gironde : lien profond vers la carte centrée sur la zone');
+const sx = await (await fetch(`${BASE}/ar/tn/incendies/sfax`)).text();
+ok(sx.includes('dir="rtl"') && sx.includes('صفاقس'),
+  '/ar/tn/incendies/sfax : RTL réel + nom arabe');
+ok(!/Météo-France|EFFIS|DFCI|AROME/i.test(sx.replace(/kifeh\.app/g, '')) && sx.includes('198'),
+  'Sfax : aucune source française, le 198 — jamais le 18');
+ok((await fetch(`${BASE}/fr/fr/incendies/zone-inconnue`)).status === 404, 'zone inconnue → 404');
+const intFr = await (await fetch(`${BASE}/fr/fr/incendies`)).text();
+ok(intFr.includes('/fr/fr/incendies/gironde') && intFr.includes('Par département'),
+  'page d’intention FR : maillage interne vers les départements');
+
+section('Pages « comprendre » (#83) : pédagogie par source, DFCI France seule');
+const cs = await (await fetch(`${BASE}/fr/tn/incendies/comprendre/detections-satellite`)).text();
+ok(cs.includes('intensité') && cs.includes('jamais une confirmation officielle'),
+  'detections-satellite TN : FRP=intensité + jamais une confirmation officielle');
+const dfciFr = await fetch(`${BASE}/fr/fr/incendies/comprendre/reperes-dfci`);
+ok(dfciFr.status === 200 && (await dfciFr.text()).includes('indicatif'),
+  'reperes-dfci FR : servie, précision « indicative » assumée');
+ok((await fetch(`${BASE}/ar/tn/incendies/comprendre/reperes-dfci`)).status === 404,
+  'reperes-dfci TN : N’EXISTE PAS (404) — le registre de capacités décide');
+
+section('Sitemap GÉNÉRÉ depuis les registres (plus de fichier statique)');
+const sm = await fetch(`${BASE}/sitemap.xml`);
+const smX = await sm.text();
+ok(sm.status === 200 && sm.headers.get('content-type').includes('xml'),
+  '/sitemap.xml : servi par la route (fichier statique supprimé)');
+ok(smX.includes('/fr/fr/incendies/gironde') && smX.includes('/ar/tn/incendies/sfax'),
+  'sitemap : les zones du registre y sont');
+ok(smX.includes('comprendre/detections-satellite')
+  && !smX.includes('/tn/incendies/comprendre/reperes-dfci'),
+  'sitemap : comprendre listées, DFCI jamais côté tunisien');
+ok((smX.match(/<loc>/g) || []).length === 51, `sitemap : 51 URLs (${(smX.match(/<loc>/g) || []).length})`);
+
 section('healthz : fraîcheur typée par source');
 const hz = await api('/healthz');
 ok(hz.data.firms && 'status' in hz.data.firms
