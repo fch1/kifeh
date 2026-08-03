@@ -117,9 +117,10 @@ function toggleWeatherLayer() {
   });
   let saved = null;
   try { saved = localStorage.getItem('kifeh_weather_layer'); } catch {}
-  // Visible AU PREMIER REGARD : le voile météo est ACTIF par défaut en France
-  // (jamais en mode léger) ; le choix de le couper est respecté et mémorisé.
-  if (saved !== '0' && !LITE) toggleWeatherLayer();
+  // CALME PAR DÉFAUT (retour Farah 03/08 : « trop crowded ») : le voile météo
+  // est OPT-IN — la règle écrite du panneau (« aucune couche secondaire active
+  // d'office ») s'applique enfin à lui aussi. Le choix ON est respecté.
+  if (saved === '1' && !LITE) toggleWeatherLayer();
 })();
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -142,6 +143,14 @@ async function drawBurntAreas() {
     return;
   }
   const legend = document.getElementById('burntLegend');
+  // CALME PAR DÉFAUT : rien en dessous du zoom 7 — au zoom national, les
+  // dizaines de points bruns étaient du bruit (retour Farah 03/08). La couche
+  // reste active : elle apparaît dès qu'on s'approche d'une région.
+  if (map.getZoom() < 7) {
+    burntLayer.clearLayers();
+    if (legend) legend.hidden = true;
+    return;
+  }
   const b = map.getBounds();
   let r;
   try {

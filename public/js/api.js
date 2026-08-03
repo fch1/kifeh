@@ -32,6 +32,7 @@ const API = {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new ApiError(data.error || `Erreur ${res.status}`, res.status, data);
+      window.kifehNetOk?.(); // réponse reçue = en ligne, la bannière s'efface
       return data;
     } catch (e) {
       if (e instanceof ApiError) throw e;
@@ -111,6 +112,11 @@ function initOfflineBanner() {
   const update = () => banner.classList.toggle('visible', navigator.onLine === false);
   window.addEventListener('online', update);
   window.addEventListener('offline', update);
+  // Un réveil de veille peut rater l'événement « online » : on revérifie.
+  document.addEventListener('visibilitychange', update);
+  // Une requête RÉUSSIE prouve la connexion, quoi qu'en dise navigator.onLine
+  // (VPN, portails captifs et Wi-Fi capricieux le font mentir) : on efface.
+  window.kifehNetOk = () => banner.classList.remove('visible');
   update();
 }
 document.addEventListener('DOMContentLoaded', initOfflineBanner);

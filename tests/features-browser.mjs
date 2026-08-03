@@ -494,9 +494,9 @@ for (const width of [900, 1440]) {
     await pgR.click('#fmReplay');
     await okEventually(pgR, () => window.kifehReplayState?.().active === true,
       'entrée en replay : état actif');
-    ok(await pgR.evaluate(() => !document.getElementById('replayBar').hidden
+    await okEventually(pgR, () => !document.getElementById('replayBar').hidden
       && !document.getElementById('replayBanner').hidden
-      && document.getElementById('replayBanner').textContent.includes('passé')),
+      && document.getElementById('replayBanner').textContent.includes('passé'),
     'frise + bannière « Vous regardez le passé » affichées');
     ok(await pgR.evaluate(() => {
       // le direct s'efface : la grappe d'incidents n'est plus sur la carte

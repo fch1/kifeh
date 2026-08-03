@@ -1306,23 +1306,35 @@ async function openVigilanceSheet() {
 
 // Marqueurs ⚠️ des départements en alerte — un point honnête au centre du
 // département, jamais un faux périmètre. Rafraîchis à chaque chargement.
+// CALME PAR DÉFAUT (retour Farah 03/08) : au zoom national, une canicule
+// mettait 30+ ⚠️ sur la carte — l'information vit dans la Situation et la
+// pastille du héro. Les ⚠️ n'apparaissent qu'à l'échelle régionale (zoom ≥ 7).
 async function refreshVigilanceMarkers() {
   try {
     vigLayer.clearLayers();
-    if (!fireSit?.vigilance || fireSit.vigilance.activeDepartments === 0) return;
+    if (!fireSit?.vigilance || fireSit.vigilance.activeDepartments === 0) { vigAlertsCache = null; return; }
     const v = await API.get('/api/fire-situation/vigilance');
-    for (const a of v.alerts || []) {
-      if (a.lat == null || a.lng == null) continue;
-      L.marker([a.lat, a.lng], {
-        icon: L.divIcon({
-          className: '',
-          html: `<div class="vig-marker ${a.color === 'rouge' ? 'vig-rouge' : 'vig-orange'}" title="${esc(a.title)}">⚠️</div>`,
-          iconSize: [34, 34], iconAnchor: [17, 17],
-        }),
-      }).on('click', openVigilanceSheet).addTo(vigLayer);
-    }
+    vigAlertsCache = v.alerts || [];
+    drawVigilanceMarkers();
   } catch { /* jamais bloquant pour la carte */ }
 }
+let vigAlertsCache = null;
+function drawVigilanceMarkers() {
+  vigLayer.clearLayers();
+  if (map.getZoom() < 7 || !vigAlertsCache) return;
+  for (const a of vigAlertsCache) {
+    if (a.lat == null || a.lng == null) continue;
+    L.marker([a.lat, a.lng], {
+      icon: L.divIcon({
+        className: '',
+        html: `<div class="vig-marker ${a.color === 'rouge' ? 'vig-rouge' : 'vig-orange'}" title="${esc(a.title)}">⚠️</div>`,
+        iconSize: [34, 34], iconAnchor: [17, 17],
+      }),
+    }).on('click', openVigilanceSheet).addTo(vigLayer);
+  }
+}
+// Franchir le seuil de zoom fait apparaître/disparaître les ⚠️ sans refetch.
+map.on('zoomend', drawVigilanceMarkers);
 
 // Nombre de filtres actifs (badge du bouton « Plus de filtres »).
 function activeFilterCount() {

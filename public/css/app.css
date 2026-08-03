@@ -717,8 +717,14 @@ html[dir="rtl"] .hero-arrow svg { transform: scaleX(-1); }
 .consent-accept { background: #A04E1E; color: #fff; }
 .consent-refuse { background: rgba(255,255,255,.15); color: #fff; border: 1px solid rgba(255,255,255,.45) !important; }
 .offline-banner {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 3000; background: var(--warn); color: #fff;
-  text-align: center; padding: .5rem; font-size: var(--fs-sm); font-weight: 600; display: none;
+  /* Pilule DISCRÈTE au-dessus de la navigation — plus jamais un bandeau qui
+     recouvre l'en-tête (retour Farah 03/08). */
+  position: fixed; bottom: calc(4.25rem + env(safe-area-inset-bottom));
+  left: 50%; transform: translateX(-50%); max-width: 92vw;
+  z-index: 1450; background: var(--warn); color: #fff;
+  text-align: center; padding: .45rem .9rem; border-radius: 999px;
+  font-size: var(--fs-xs); font-weight: 600; display: none;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .22);
 }
 .offline-banner.visible { display: block; }
 .spinner {
@@ -916,6 +922,12 @@ html, body { overscroll-behavior: none; }
 }
 .wx-legend .small { font-size: .72rem; }
 .wx-legend .muted.small { flex-basis: 100%; }
+/* Desktop : les légendes quittent l'axe central de la carte (retour Farah
+   03/08 « trop crowded ») — coin bas, hors du chemin visuel, RTL miroir. */
+@media (min-width: 1100px) {
+  .wx-legend { position: fixed; inset-inline-start: 1rem; bottom: calc(4rem + env(safe-area-inset-bottom)); margin: 0; z-index: 1000; }
+  #burntLegend { bottom: calc(6.4rem + env(safe-area-inset-bottom)); }
+}
 
 /* Boutons d'action de la bulle : sur UNE ligne, jamais empilés */
 .summary-actions {
