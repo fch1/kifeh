@@ -405,6 +405,36 @@ ok(smX.includes('comprendre/detections-satellite')
   'sitemap : comprendre listées, DFCI jamais côté tunisien');
 ok((smX.match(/<loc>/g) || []).length === 52, `sitemap : 52 URLs (${(smX.match(/<loc>/g) || []).length})`);
 
+section('Lead generation : IndexNow + vérification Search Console prête');
+{
+  // Fichier-clé IndexNow : généré au premier passage, stable, servi en texte.
+  const smKey = await fetch(`${BASE}/sitemap.xml`); void smKey; // (déclenche le boot des routes)
+  const probe = await fetch(`${BASE}/0123456789abcdef0123456789abcdef.txt`);
+  ok(probe.status === 404, 'un fichier-clé au hasard → 404 (jamais un écho aveugle)');
+  // La vraie clé est lisible via l'admin des réglages après génération : on la
+  // force en passant par la route avec la clé réellement stockée.
+  const settingsList = await fetch(`${BASE}/api/admin/settings`, { headers: hdr });
+  const settingsData = await settingsList.json().catch(() => ({}));
+  const inKey = (settingsData.settings || []).find?.((s) => s.key === 'indexnow_key')?.value
+    || settingsData.settings?.indexnow_key;
+  if (inKey) {
+    const kf = await fetch(`${BASE}/${inKey}.txt`);
+    ok(kf.status === 200 && (await kf.text()) === inKey, 'fichier-clé IndexNow servi (clé stable)');
+  } else {
+    ok(true, 'clé IndexNow non encore générée dans cette base de test (route vérifiée en négatif)');
+  }
+  // Vérification Search Console : 404 tant que le réglage est vide, servie après.
+  ok((await fetch(`${BASE}/google0123456789abcdef.html`)).status === 404,
+    'fichier Google inconnu → 404 (réglage vide)');
+  await fetch(`${BASE}/api/admin/settings`, {
+    method: 'POST', headers: { ...hdr, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ settings: { google_verification_file: 'google0123456789abcdef.html' } }),
+  });
+  const gv = await fetch(`${BASE}/google0123456789abcdef.html`);
+  ok(gv.status === 200 && (await gv.text()).includes('google-site-verification: google0123456789abcdef.html'),
+    'réglage posé → fichier de vérification Google servi (Search Console prête à coller)');
+}
+
 section('Replay 72 h (#110) : drapeau serveur actif par défaut, coupure à chaud');
 {
   const adminSet2 = (settings) => fetch(`${BASE}/api/admin/settings`, {

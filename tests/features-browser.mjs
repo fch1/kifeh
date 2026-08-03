@@ -354,19 +354,27 @@ await ctx2.close();
   await pn.locator('#navMap').click();
   await pn.waitForTimeout(300);
   ok(await pn.evaluate(() => {
-    const f = document.querySelectorAll('.map-fabs .fab');
-    return f.length === 4 && [...f].every((b) => b.getBoundingClientRect().width >= 40);
-  }), 'quatre boutons flottants (zoom ±, position, couches) à taille tactile');
+    // #112 incrément D : sur MOBILE, le pincement zoome — seuls position et
+    // couches restent visibles (à taille tactile) ; les ± sont masqués.
+    const visible = [...document.querySelectorAll('.map-fabs .fab')]
+      .filter((b) => getComputedStyle(b).display !== 'none');
+    const zoomHidden = [...document.querySelectorAll('.map-fabs .fab-zoom')]
+      .every((b) => getComputedStyle(b).display === 'none');
+    return visible.length === 2 && zoomHidden
+      && visible.every((b) => b.getBoundingClientRect().width >= 40);
+  }), 'mobile : 2 boutons flottants essentiels (position, couches) — zoom au pincement');
   // Zoom via la pile flottante (le contrôle Leaflet n'existe plus sur l'accueil).
   ok(await pn.evaluate(() => !document.querySelector('.leaflet-control-zoom')),
     'plus de double commande de zoom Leaflet');
   await pn.locator('#navMap').click(); // referme la feuille des couches
   await pn.waitForTimeout(400);
+  // #112 : les ± sont masqués sur mobile (pincement) — on vérifie le zoom via
+  // le bouton en JS direct (il reste câblé et sert dès la tablette).
   const zBefore = await pn.evaluate(() => window.kifehMapZoom?.() ?? null);
-  await pn.locator('#fabZoomIn').click();
+  await pn.evaluate(() => document.getElementById('fabZoomIn')?.click());
   await pn.waitForTimeout(500);
   const zAfter = await pn.evaluate(() => window.kifehMapZoom?.() ?? null);
-  ok(zBefore === null || zAfter === zBefore + 1, `zoom ＋ fonctionne (${zBefore} → ${zAfter})`);
+  ok(zBefore === null || zAfter === zBefore + 1, `zoom ＋ câblé (${zBefore} → ${zAfter})`);
   // Marque cliquable : recentre sur la vue d'ensemble du pays.
   await pn.locator('#brandHome').click();
   await pn.waitForTimeout(600);
@@ -398,9 +406,12 @@ await ctx2.close();
     return n && n.getBoundingClientRect().width <= 321 && n.scrollWidth <= n.clientWidth + 1;
   }), '320 px : la navigation à 5 destinations tient sans défiler');
   ok(await p3.evaluate(() => {
-    const f = document.querySelectorAll('.map-fabs .fab');
-    return [...f].every((b) => { const r = b.getBoundingClientRect(); return r.right <= 321 && r.width >= 40; });
-  }), '320 px : boutons flottants visibles et tactiles');
+    // #112 : à 320 px seuls position et couches restent (zoom au pincement).
+    const f = [...document.querySelectorAll('.map-fabs .fab')]
+      .filter((b) => getComputedStyle(b).display !== 'none');
+    return f.length === 2
+      && f.every((b) => { const r = b.getBoundingClientRect(); return r.right <= 321 && r.width >= 40; });
+  }), '320 px : boutons flottants essentiels visibles et tactiles (zoom au pincement)');
   await ctx320.close();
 }
 

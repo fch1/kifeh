@@ -741,8 +741,15 @@ function renderSummary(degraded, snapshotAt) {
     const chipState = heroFire ? '🔥' : (active.length ? `⚠ ${active.length}` : '✓');
     chip.innerHTML = `<strong>${esc(t('nav_situation'))}</strong> · ${chipState}${satsShown.length ? ` · 🛰️ ${satsShown.length}` : ''}${snapshotAt ? ` · <span class="muted">${esc(timeAgo(new Date(snapshotAt).toISOString()))}</span>` : ''}`;
   }
-  let heroCollapsed = false;
-  try { heroCollapsed = localStorage.getItem('kifeh_hero_collapsed') === '1'; } catch {}
+  // #112 incrément A — CALME PAR DÉFAUT : quand il ne se passe RIEN dans la
+  // zone (ni signalement actif, ni feu), la carte héro démarre REPLIÉE (une
+  // ligne + chevron) et rend la carte au regard. Dès qu'il y a quelque chose
+  // à dire, elle s'ouvre. Le choix explicite de la personne gagne toujours.
+  let heroCollapsed;
+  try {
+    const saved = localStorage.getItem('kifeh_hero_collapsed');
+    heroCollapsed = saved != null ? saved === '1' : (!active.length && !heroFire);
+  } catch { heroCollapsed = false; }
   counter.classList.toggle('hero-collapsed', heroCollapsed);
   const heroToggle = `<button type="button" class="hero-toggle" id="heroToggle"
       aria-expanded="${heroCollapsed ? 'false' : 'true'}"

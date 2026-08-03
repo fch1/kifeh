@@ -13,6 +13,8 @@
 const weatherLayer = L.layerGroup();
 let weatherOn = false;
 let weatherTimer = null;
+let wxFailStreak = 0;   // échecs consécutifs de la grille (bannière ≥ 2)
+let wxLastWarnAt = 0;   // anti-matraquage : 1 avertissement par 5 min max
 
 function tempFill(c) {
   if (c >= 34) return '#C4622D';
@@ -31,11 +33,22 @@ async function drawWeatherLayer() {
       minLng: b.getWest().toFixed(3), maxLng: b.getEast().toFixed(3),
     })}`);
   } catch { r = null; }
-  weatherLayer.clearLayers();
   if (!r?.enabled || !r.grid?.cells?.length) {
-    if (weatherOn) transientBanner(t('wx_layer_unavailable'));
+    // HONNÊTETÉ (retour Farah 03/08 : « pas vrai ») : un échec PONCTUEL ne
+    // doit ni effacer le voile déjà affiché, ni crier « indisponible ». On
+    // garde le connu, on ne prévient qu'après 2 échecs, 1 fois par 5 min,
+    // avec le bon message selon qu'un voile est visible ou non.
+    wxFailStreak++;
+    const hasVeil = weatherLayer.getLayers().length > 0;
+    if (!hasVeil) weatherLayer.clearLayers();
+    if (weatherOn && wxFailStreak >= 2 && Date.now() - wxLastWarnAt > 5 * 60_000) {
+      wxLastWarnAt = Date.now();
+      transientBanner(t(hasVeil ? 'wx_layer_refresh_failed' : 'wx_layer_unavailable'));
+    }
     return;
   }
+  wxFailStreak = 0;
+  weatherLayer.clearLayers();
   const g = r.grid;
   window._lastWxAt = g.updatedAt || window._lastWxAt;
   // Panne amont : la DERNIÈRE grille connue s'affiche avec son heure réelle

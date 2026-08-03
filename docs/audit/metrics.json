@@ -21,9 +21,9 @@
       {
         "id": "map-fabs",
         "x": 262,
-        "y": 296,
+        "y": 400,
         "w": 44,
-        "h": 200
+        "h": 96
       },
       {
         "id": "bottomNav",
@@ -34,7 +34,7 @@
       }
     ],
     "overlayCount": 4,
-    "mapCoveredPct": 54,
+    "mapCoveredPct": 52,
     "hScroll": false,
     "searchWidthPct": null,
     "heroVisible": true,
@@ -55,16 +55,16 @@
       {
         "id": "home-bottom",
         "x": 0,
-        "y": 428,
+        "y": 466,
         "w": 360,
-        "h": 152
+        "h": 114
       },
       {
         "id": "map-fabs",
         "x": 302,
-        "y": 368,
+        "y": 472,
         "w": 44,
-        "h": 200
+        "h": 96
       },
       {
         "id": "bottomNav",
@@ -75,7 +75,7 @@
       }
     ],
     "overlayCount": 4,
-    "mapCoveredPct": 47,
+    "mapCoveredPct": 40,
     "hScroll": false,
     "searchWidthPct": null,
     "heroVisible": true,
@@ -96,16 +96,16 @@
       {
         "id": "home-bottom",
         "x": 0,
-        "y": 455,
+        "y": 493,
         "w": 375,
-        "h": 152
+        "h": 114
       },
       {
         "id": "map-fabs",
         "x": 317,
-        "y": 395,
+        "y": 499,
         "w": 44,
-        "h": 200
+        "h": 96
       },
       {
         "id": "bottomNav",
@@ -116,7 +116,7 @@
       }
     ],
     "overlayCount": 4,
-    "mapCoveredPct": 48,
+    "mapCoveredPct": 44,
     "hScroll": false,
     "searchWidthPct": null,
     "heroVisible": true,
@@ -137,16 +137,16 @@
       {
         "id": "home-bottom",
         "x": 0,
-        "y": 563,
+        "y": 690,
         "w": 390,
-        "h": 221
+        "h": 95
       },
       {
         "id": "map-fabs",
         "x": 332,
-        "y": 572,
+        "y": 676,
         "w": 44,
-        "h": 200
+        "h": 96
       },
       {
         "id": "bottomNav",
@@ -157,7 +157,7 @@
       }
     ],
     "overlayCount": 4,
-    "mapCoveredPct": 47,
+    "mapCoveredPct": 35,
     "hScroll": false,
     "searchWidthPct": null,
     "heroVisible": true,
@@ -178,9 +178,9 @@
       {
         "id": "home-bottom",
         "x": 192,
-        "y": 803,
+        "y": 842,
         "w": 384,
-        "h": 133
+        "h": 95
       },
       {
         "id": "map-fabs",
@@ -275,7 +275,7 @@
       }
     ],
     "overlayCount": 15,
-    "mapCoveredPct": 23,
+    "mapCoveredPct": 22,
     "hScroll": false,
     "searchWidthPct": null,
     "heroVisible": true,
@@ -296,9 +296,9 @@
       {
         "id": "home-bottom",
         "x": 272,
-        "y": 566,
+        "y": 604,
         "w": 479,
-        "h": 114
+        "h": 76
       },
       {
         "id": "map-fabs",
@@ -393,7 +393,7 @@
       }
     ],
     "overlayCount": 15,
-    "mapCoveredPct": 28,
+    "mapCoveredPct": 27,
     "hScroll": false,
     "searchWidthPct": null,
     "heroVisible": true,
@@ -412,18 +412,11 @@
         "h": 170
       },
       {
-        "id": "situChip",
-        "x": 92,
-        "y": 749,
-        "w": 111,
-        "h": 35
-      },
-      {
         "id": "home-bottom",
-        "x": 92,
-        "y": 698,
-        "w": 282,
-        "h": 46
+        "x": 400,
+        "y": 636,
+        "w": 479,
+        "h": 76
       },
       {
         "id": "map-fabs",
@@ -434,10 +427,10 @@
       },
       {
         "id": "bottomNav",
-        "x": 0,
-        "y": 240,
-        "w": 76,
-        "h": 321
+        "x": 485,
+        "y": 720,
+        "w": 311,
+        "h": 65
       },
       {
         "id": "filterSheet",
@@ -531,11 +524,11 @@
         "h": 732
       }
     ],
-    "overlayCount": 18,
-    "mapCoveredPct": 16,
+    "overlayCount": 17,
+    "mapCoveredPct": 25,
     "hScroll": false,
     "searchWidthPct": null,
-    "heroVisible": false,
+    "heroVisible": true,
     "shot": "fr-1280x800.png"
   },
   {
@@ -551,18 +544,11 @@
         "h": 170
       },
       {
-        "id": "situChip",
-        "x": 92,
-        "y": 849,
-        "w": 111,
-        "h": 35
-      },
-      {
         "id": "home-bottom",
-        "x": 92,
-        "y": 798,
-        "w": 282,
-        "h": 46
+        "x": 480,
+        "y": 736,
+        "w": 479,
+        "h": 76
       },
       {
         "id": "map-fabs",
@@ -573,10 +559,10 @@
       },
       {
         "id": "bottomNav",
-        "x": 0,
-        "y": 290,
-        "w": 76,
-        "h": 321
+        "x": 565,
+        "y": 820,
+        "w": 311,
+        "h": 65
       },
       {
         "id": "filterSheet",
@@ -670,11 +656,11 @@
         "h": 832
       }
     ],
-    "overlayCount": 18,
-    "mapCoveredPct": 14,
+    "overlayCount": 17,
+    "mapCoveredPct": 21,
     "hScroll": false,
     "searchWidthPct": null,
-    "heroVisible": false,
+    "heroVisible": true,
     "shot": "fr-1440x900.png"
   },
   {
@@ -690,18 +676,11 @@
         "h": 170
       },
       {
-        "id": "situChip",
-        "x": 92,
-        "y": 1029,
-        "w": 111,
-        "h": 35
-      },
-      {
         "id": "home-bottom",
-        "x": 92,
-        "y": 978,
-        "w": 282,
-        "h": 46
+        "x": 720,
+        "y": 916,
+        "w": 479,
+        "h": 76
       },
       {
         "id": "map-fabs",
@@ -712,10 +691,10 @@
       },
       {
         "id": "bottomNav",
-        "x": 0,
-        "y": 380,
-        "w": 76,
-        "h": 321
+        "x": 805,
+        "y": 1000,
+        "w": 311,
+        "h": 65
       },
       {
         "id": "filterSheet",
@@ -809,11 +788,11 @@
         "h": 1012
       }
     ],
-    "overlayCount": 18,
-    "mapCoveredPct": 8,
+    "overlayCount": 17,
+    "mapCoveredPct": 12,
     "hScroll": false,
     "searchWidthPct": null,
-    "heroVisible": false,
+    "heroVisible": true,
     "shot": "fr-1920x1080.png"
   },
   {
@@ -831,16 +810,16 @@
       {
         "id": "home-bottom",
         "x": 0,
-        "y": 474,
+        "y": 513,
         "w": 375,
-        "h": 133
+        "h": 95
       },
       {
         "id": "map-fabs",
         "x": 14,
-        "y": 395,
+        "y": 499,
         "w": 44,
-        "h": 200
+        "h": 96
       },
       {
         "id": "bottomNav",
@@ -851,7 +830,7 @@
       }
     ],
     "overlayCount": 4,
-    "mapCoveredPct": 45,
+    "mapCoveredPct": 41,
     "hScroll": false,
     "searchWidthPct": null,
     "heroVisible": true,
@@ -872,9 +851,9 @@
       {
         "id": "home-bottom",
         "x": 192,
-        "y": 803,
+        "y": 842,
         "w": 384,
-        "h": 133
+        "h": 95
       },
       {
         "id": "map-fabs",
@@ -969,7 +948,7 @@
       }
     ],
     "overlayCount": 15,
-    "mapCoveredPct": 23,
+    "mapCoveredPct": 22,
     "hScroll": false,
     "searchWidthPct": null,
     "heroVisible": true,
@@ -988,18 +967,11 @@
         "h": 170
       },
       {
-        "id": "situChip",
-        "x": 1259,
-        "y": 847,
-        "w": 89,
-        "h": 37
-      },
-      {
         "id": "home-bottom",
-        "x": 1094,
-        "y": 798,
-        "w": 254,
-        "h": 46
+        "x": 512,
+        "y": 736,
+        "w": 417,
+        "h": 76
       },
       {
         "id": "map-fabs",
@@ -1010,10 +982,10 @@
       },
       {
         "id": "bottomNav",
-        "x": 1364,
-        "y": 284,
-        "w": 76,
-        "h": 333
+        "x": 586,
+        "y": 820,
+        "w": 268,
+        "h": 65
       },
       {
         "id": "filterSheet",
@@ -1107,11 +1079,11 @@
         "h": 832
       }
     ],
-    "overlayCount": 18,
-    "mapCoveredPct": 14,
+    "overlayCount": 17,
+    "mapCoveredPct": 20,
     "hScroll": false,
     "searchWidthPct": null,
-    "heroVisible": false,
+    "heroVisible": true,
     "shot": "ar-1440x900.png"
   }
 ]

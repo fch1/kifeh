@@ -16,6 +16,7 @@ import { syncVigilance } from './vigilance.js';
 import { syncEffis } from './effis.js';
 import { syncRoads } from './roads.js';
 import { syncAircraft } from './aircraft.js';
+import { syncIndexNow } from './indexnow.js';
 import { msg } from '../i18n.js';
 
 export function startScheduler() {
@@ -55,6 +56,14 @@ export async function tick() {
   // n'est allumé — le service se borne lui-même (90 s, 3 zones, 1,2 s/req).
   if (!config.isSandbox) {
     try { await syncAircraft(); } catch (e) { console.error('[aircraft]', e.message); }
+  }
+  // IndexNow : 1 ping quotidien des URLs publiques vers Bing/Yandex —
+  // uniquement depuis la production réelle (jamais un serveur de test).
+  if (!config.isSandbox) {
+    try {
+      const { listSeoUrls } = await import('../routes/seo.js');
+      await syncIndexNow({ listUrls: listSeoUrls });
+    } catch (e) { console.error('[indexnow]', e.message); }
   }
   // Purge RGPD des abonnements d'alertes dormants (voir services/push.js).
   try { prunePushSubscriptions(); } catch { /* jamais bloquant */ }

@@ -205,6 +205,10 @@ export const defaultSettings = {
   // Replay visible (#110, master PR 5) : « Voir l'évolution 72 h » en mode
   // feux — ACTIF par défaut (exécution visible demandée), coupure à chaud.
   fire_replay_enabled: '1',
+  // Lead generation : IndexNow (Bing/Yandex, quotidien, prod uniquement) et
+  // fichier de vérification Search Console (Farah colle le nom → migration).
+  indexnow_enabled: '1',
+  google_verification_file: '',
   // Chantier #82 : moyens aériens ADS-B — ingestion serveur livrée, ÉTEINTE
   // par territoire tant que l'interface calques (Phase 1) ne l'accueille pas.
   fire_aircraft_enabled_fr: '0',

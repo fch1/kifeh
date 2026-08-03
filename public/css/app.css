@@ -329,6 +329,9 @@ html[dir="rtl"] .topbar .back .arrow { display: inline-block; transform: scaleX(
   bottom: calc(4.5rem + env(safe-area-inset-bottom));
   display: flex; flex-direction: column; gap: .5rem;
 }
+/* #112 incrément D — mobile : le pincement zoome déjà, les boutons +/− sont
+   du mobilier en trop sur petit écran (les concurrents n'en ont pas). Ils
+   restent dès la tablette (clavier/souris). */
 .fab {
   appearance: none; border: 1px solid var(--border, #e5e0d8); cursor: pointer;
   width: 2.75rem; height: 2.75rem; border-radius: 50%;
@@ -337,6 +340,11 @@ html[dir="rtl"] .topbar .back .arrow { display: inline-block; transform: scaleX(
 }
 .fab:active { transform: scale(.96); }
 .fab-zoom { font-size: 1.375rem; font-weight: 600; color: var(--primary-dark); }
+/* #112 incrément D — mobile : le pincement zoome déjà ; +/− dès la tablette.
+   (Placé APRÈS .fab : même l'ordre de la cascade ne peut pas le trahir.) */
+@media (max-width: 767px) {
+  .map-fabs .fab-zoom { display: none; }
+}
 
 /* Marque cliquable (retour à la vue d'ensemble) — un bouton qui garde
    EXACTEMENT l'apparence pilule du logo (la règle .home-brandbar .brand-name
@@ -922,11 +930,12 @@ html, body { overscroll-behavior: none; }
 }
 .wx-legend .small { font-size: .72rem; }
 .wx-legend .muted.small { flex-basis: 100%; }
-/* Desktop : les légendes quittent l'axe central de la carte (retour Farah
-   03/08 « trop crowded ») — coin bas, hors du chemin visuel, RTL miroir. */
+/* Desktop : les légendes quittent l'axe central SANS toucher la carte héro
+   (qui vit à gauche — le chevauchement du 03/08 au soir était ma collision) :
+   côté FIN, au-dessus des boutons flottants, RTL miroir automatique. */
 @media (min-width: 1100px) {
-  .wx-legend { position: fixed; inset-inline-start: 1rem; bottom: calc(4rem + env(safe-area-inset-bottom)); margin: 0; z-index: 1000; }
-  #burntLegend { bottom: calc(6.4rem + env(safe-area-inset-bottom)); }
+  .wx-legend { position: fixed; inset-inline-end: 4.5rem; inset-inline-start: auto; bottom: 1.25rem; margin: 0; z-index: 1000; }
+  #burntLegend { bottom: 3.6rem; }
 }
 
 /* Boutons d'action de la bulle : sur UNE ligne, jamais empilés */

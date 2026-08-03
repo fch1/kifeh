@@ -10,6 +10,7 @@ import { db, getSetting } from '../db.js';
 import { getProfile } from '../countries/index.js';
 import { getCapabilities } from '../services/capabilityRegistry.js';
 import { nsMsg, getNamespace } from '../services/i18nNamespaces.js';
+import { indexNowKey } from '../services/indexnow.js';
 import { fmtDateTime, emergencyLine } from '../services/localizationFormatter.js';
 import { getDailyForecast, forecastEnabled } from '../services/fireForecast.js';
 import { summarizeConditions } from '../services/fireForecastSummary.js';
@@ -325,6 +326,47 @@ seoRouter.get('/i/:publicId', (req, res) => {
 <p><strong>${esc(title)}</strong></p><p>${esc(desc)}</p>
 <p><a href="${appUrl}">Kifeh كيفاه →</a></p>
 </body></html>`);
+});
+
+// Liste des URLs publiques indexables — LA MÊME vérité que le sitemap
+// (consommée par IndexNow : une page qui existe est poussée, une page
+// retirée disparaît des pings).
+export function listSeoUrls() {
+  const urls = ['/', '/declare.html', '/faq.html', '/a-propos.html', '/legal.html', '/presse'];
+  for (const lang of LANGS) {
+    for (const cc of CCS) {
+      urls.push(`/${lang}/${cc}/incendies`);
+      for (const topic of ['previsions', 'danger-feu', 'methodologie-previsions']) {
+        urls.push(`/${lang}/${cc}/incendies/${topic}`);
+      }
+      for (const z of getProfile(cc.toUpperCase())?.seoZones || []) {
+        urls.push(`/${lang}/${cc}/incendies/${z.slug}`);
+      }
+      urls.push(`/${lang}/${cc}/incendies/comprendre/detections-satellite`);
+      if (cc === 'fr') urls.push(`/${lang}/fr/incendies/comprendre/reperes-dfci`);
+    }
+  }
+  return urls;
+}
+
+// ── Fichier-clé IndexNow + vérification Search Console ─────────────────────
+// /{clé}.txt : preuve de propriété IndexNow (clé stable, réglage).
+// /googleXXXX.html : preuve Search Console — Farah colle le NOM DE FICHIER
+// donné par Google, une migration pose le réglage, la route répond. Zéro
+// contenu tant que le réglage est vide (404 propre).
+seoRouter.get('/:keyfile', (req, res, next) => {
+  const f = String(req.params.keyfile || '');
+  if (/^[a-f0-9]{32}\.txt$/.test(f)) {
+    const key = indexNowKey(); // générée au premier passage, stable ensuite
+    if (f === `${key}.txt`) return res.type('text/plain').send(key);
+  }
+  if (/^google[a-f0-9]{16}\.html$/.test(f)) {
+    const wanted = getSetting('google_verification_file');
+    if (wanted && f === wanted) {
+      return res.type('html').send(`google-site-verification: ${f}`);
+    }
+  }
+  next(); // pas pour nous : statique et 404 habituels
 });
 
 // ── Sitemap GÉNÉRÉ depuis les registres (#83) ───────────────────────────────
