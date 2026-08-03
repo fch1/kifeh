@@ -21,6 +21,9 @@
 'use strict';
 
 (function kifehFireMapGL() {
+  // Mode capture (?glshot=1) : tampon de dessin conservé + poignée de
+  // diagnostic — jamais actif en usage normal.
+  const GLSHOT = new URLSearchParams(location.search).has('glshot');
   const S = {
     armed: false,      // drapeau serveur reçu et positif
     wanted: false,     // le mode feux est actif côté filtres
@@ -231,7 +234,7 @@
           container: S.wrap, attributionControl: { compact: true },
           // ?glshot=1 : capture d'écran du canvas (validation visuelle) —
           // coût mémoire accepté UNIQUEMENT en mode capture, jamais par défaut.
-          preserveDrawingBuffer: new URLSearchParams(location.search).has('glshot'),
+          preserveDrawingBuffer: GLSHOT,
           style: {
             version: 8,
             sources: { base: { type: 'raster', tiles: [p.url], tileSize: 256, attribution: p.attribution } },
@@ -241,6 +244,7 @@
           dragRotate: false, pitchWithRotate: false, touchPitch: false,
         });
         S.gl.touchZoomRotate?.disableRotation();
+        if (GLSHOT) window.__glMap = S.gl; // diagnostic capture uniquement
         S.gl.on('error', (e) => {
           // Les échecs de TUILES ne tuent JAMAIS le moteur (philosophie
           // Leaflet : fond neutre, les données restent visibles) — seuls les
@@ -256,6 +260,7 @@
           if (S.errBurst.length >= 5) markFailed('errors');
         });
         S.gl.on('load', () => {
+          try {
           S.gl.addSource('kifeh-detections', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
           S.gl.addSource('kifeh-burned', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
           // Zones brûlées : même brun assumé que Leaflet, jamais le rouge feu.
@@ -265,19 +270,30 @@
             paint: { 'line-color': '#6E4A33', 'line-width': 1.6, 'line-dasharray': [3, 2] } });
           // Détections : halo doux puis cœur — l'ÂGE est la couleur (5 classes),
           // la FRP n'ajoute qu'un rayon SECONDAIRE borné (jamais une surface).
-          const ageExpr = (arr) => ['at', ['get', 'age'], ['literal', arr]];
+          // Typage STRICT des expressions (validation par ÉVÉNEMENT, sans
+          // exception → zombie si on se trompe) : « at » exige un indice
+          // NOMBRE, et circle-color exige array<color> — un ['literal',
+          // ['#…']] reste array<string> tant qu'on ne passe pas to-color.
+          const ageExpr = (arr) => ['at', ['to-number', ['get', 'age']], ['literal', arr]];
+          const ageColor = (arr) => ['to-color', ageExpr(arr)];
           const frpRadius = ['*', 0.35, ['sqrt', ['min', ['coalesce', ['get', 'frp'], 0], 300]]];
+          // Règle style-spec : ['zoom'] n'est légal qu'en ENTRÉE d'un
+          // interpolate/step de PREMIER niveau — la FRP s'ajoute donc dans
+          // les SORTIES de chaque palier (['+', base, frpRadius]), jamais
+          // autour de l'interpolation (addLayer lèverait et tuerait le style).
           S.gl.addLayer({ id: 'det-halo', type: 'circle', source: 'kifeh-detections',
             paint: {
-              'circle-color': ageExpr(AGE_COLORS), 'circle-blur': 0.8,
+              'circle-color': ageColor(AGE_COLORS), 'circle-blur': 0.8,
               'circle-opacity': ['*', 0.35, ageExpr(AGE_OPACITY)],
-              'circle-radius': ['+', ['interpolate', ['linear'], ['zoom'], 4, 6, 8, 10, 12, 16], frpRadius],
+              'circle-radius': ['interpolate', ['linear'], ['zoom'],
+                4, ['+', 6, frpRadius], 8, ['+', 10, frpRadius], 12, ['+', 16, frpRadius]],
             } });
           S.gl.addLayer({ id: 'det-core', type: 'circle', source: 'kifeh-detections',
             paint: {
-              'circle-color': ageExpr(AGE_COLORS), 'circle-opacity': ageExpr(AGE_OPACITY),
+              'circle-color': ageColor(AGE_COLORS), 'circle-opacity': ageExpr(AGE_OPACITY),
               'circle-stroke-color': '#FFFFFF', 'circle-stroke-width': 0.8,
-              'circle-radius': ['+', ['interpolate', ['linear'], ['zoom'], 4, 2.5, 8, 4, 12, 6], frpRadius],
+              'circle-radius': ['interpolate', ['linear'], ['zoom'],
+                4, ['+', 2.5, frpRadius], 8, ['+', 4, frpRadius], 12, ['+', 6, frpRadius]],
             } });
           S.gl.on('click', 'det-core', (e) => {
             const f = e.features?.[0]; if (!f) return;
@@ -308,7 +324,20 @@
           S.gl.once('idle', () => {
             window.__glPerf = { ...(window.__glPerf || {}), firstIdleMs: Math.round(performance.now() - t0) };
           });
+          // Vérification DÉTERMINISTE : une couche rejetée par la validation
+          // MapLibre l'est par évènement (pas d'exception) — on tranche ici.
+          if (!S.gl.getLayer('det-core') || !S.gl.getLayer('det-halo')
+            || !S.gl.getLayer('burned-fill') || !S.gl.getLayer('burned-line')) {
+            return markFailed('style');
+          }
           loadVisible();
+          } catch (err) {
+            // Un style qui lève = un moteur INCOMPLET : on tranche pour le
+            // repli Leaflet honnête — jamais un zombie qui n'affiche que la
+            // moitié des couches (leçon du 04/08 : det-halo invalide →
+            // détections invisibles alors que « active » restait vrai).
+            markFailed('style');
+          }
         });
       } else {
         S.wrap.style.display = '';
@@ -350,6 +379,12 @@
     S.syncing = false;
   });
   // Sondes de test (lecture seule + activation forcée pour la mesure de perf).
-  window.kifehGLState = () => ({ armed: S.armed, wanted: S.wanted, active: S.active, failed: S.failed, reason: S.failReason || null, cells: lru.size });
+  window.kifehGLState = () => ({
+    armed: S.armed, wanted: S.wanted, active: S.active, failed: S.failed,
+    reason: S.failReason || null, cells: lru.size,
+    // Style COMPLET = les couches de détections existent réellement (la
+    // demi-vérité « actif sans détections » ne doit plus pouvoir passer).
+    styleComplete: !!(S.gl && S.gl.getLayer && !!S.gl.getLayer('det-core') && !!S.gl.getLayer('det-halo')),
+  });
   window.kifehGLHelpers = { ageClass, cellKeys, cellStep };
 })();

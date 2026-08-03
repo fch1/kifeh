@@ -12,7 +12,15 @@ export function securityHeaders(req, res, next) {
       "https://*.cartocdn.com https://*.openstreetmap.fr https://*.google-analytics.com https://*.googletagmanager.com; " +
       "style-src 'self' 'unsafe-inline'; " +
       "script-src 'self' https://www.googletagmanager.com; " +
-      "connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; " +
+      // worker-src : MapLibre GL crée son worker de traitement depuis un blob
+      // même-origine — sans cette directive, le moteur feux ne DESSINE rien
+      // (leçon du 04/08 : zombie silencieux, aucune exception levée).
+      "worker-src 'self' blob:; " +
+      // connect-src : MapLibre télécharge les tuiles par fetch() (Leaflet
+      // passe par <img> / img-src) — mêmes fournisseurs que img-src, rien
+      // de plus.
+      "connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com " +
+      "https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://*.cartocdn.com https://*.openstreetmap.fr; " +
       "frame-ancestors 'self'",
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'SAMEORIGIN',
