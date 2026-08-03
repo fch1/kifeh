@@ -87,6 +87,12 @@ app.get('/healthz', (req, res) => {
       hasError: Boolean(g('offsite_backup_error')),
     };
   } catch { /* idem */ }
+  // IndexNow (#116) : dernier ping quotidien Bing/Yandex (statut, jamais la clé).
+  let indexnow = null;
+  try {
+    const g = (k) => db.prepare(`SELECT value FROM settings WHERE key = ?`).get(k)?.value || null;
+    indexnow = { lastPing: g('indexnow_last_ping_at'), lastStatus: g('indexnow_last_status') };
+  } catch { /* idem */ }
   // Vigilance Météo-France : configurée ? dernier import ? (aucun secret).
   let vigilance = null;
   try {
@@ -134,7 +140,7 @@ app.get('/healthz', (req, res) => {
   };
   res.json({
     ok: true, backupAt, incidents,
-    firms: withAge(firms, 'thermalDetections'), offsite,
+    firms: withAge(firms, 'thermalDetections'), offsite, indexnow,
     vigilance: withAge(vigilance, 'officialAlerts'),
     emailAlerts, effis: withAge(effis, 'burnedAreas'),
     roads: withAge(roads, 'roadEvents'), dfci,

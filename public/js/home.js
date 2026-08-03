@@ -709,6 +709,11 @@ function renderSummary(degraded, snapshotAt) {
   // les détections satellite sont une ligne secondaire, jamais le titre.
   if (fireEmptyMode) mainLine = t('fire_none');
   else if (active.length > 0) mainLine = active.length === 1 ? t('counter_one') : t('counter_n', { n: active.length });
+  // Honnêteté (#113, screenshot Farah) : « Aucun incident » à côté de
+  // « 44 feux détectés par satellite » était une dissonance — quand le
+  // satellite voit de l'activité, le titre le dit (sans jamais présenter
+  // une détection comme un incident confirmé).
+  else if (satsShown.length > 0) mainLine = t('counter_none_sat');
   else mainLine = t('counter_none');
 
   const fz = currentFollowedZone?.() || null;
@@ -748,7 +753,7 @@ function renderSummary(degraded, snapshotAt) {
   let heroCollapsed;
   try {
     const saved = localStorage.getItem('kifeh_hero_collapsed');
-    heroCollapsed = saved != null ? saved === '1' : (!active.length && !heroFire);
+    heroCollapsed = saved != null ? saved === '1' : (!active.length && !heroFire && !satsShown.length);
   } catch { heroCollapsed = false; }
   counter.classList.toggle('hero-collapsed', heroCollapsed);
   const heroToggle = `<button type="button" class="hero-toggle" id="heroToggle"
