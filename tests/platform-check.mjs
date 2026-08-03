@@ -51,8 +51,13 @@ ok(!/"provider":"copernicus-effis"|"provider":"dfci|arome/i.test(tnStr),
   'TN : aucun fournisseur EFFIS/DFCI/AROME déclaré actif');
 ok(tn.capabilities.thermalDetections.enabled === true && tn.capabilities.replay.enabled === true,
   'TN : détections thermiques + replay déclarés (capacités génériques)');
-ok(fr.capabilities.aircraft.enabled === false && fr.capabilities.aircraft.reason === 'license_review_pending',
-  'FR : moyens aériens bloqués tant que la licence n’est pas relue');
+// Licence airplanes.live relue et VÉRIFIÉE le 31/07 (non commercial ✓,
+// 1 req/s, sans clé) : la capacité est désormais déclarée, gardée par un
+// drapeau territorial à chaud, éteint tant que l'interface ne l'accueille pas.
+ok(fr.capabilities.aircraft.enabled === true
+  && fr.capabilities.aircraft.settingFlag === 'fire_aircraft_enabled_fr'
+  && fr.capabilities.aircraft.provider === 'adsb-airplanes-live',
+  'FR : moyens aériens déclarés (licence vérifiée) derrière drapeau territorial');
 ok(fr.capabilities.smokeSimulation.enabled === false && fr.capabilities.smokeSimulation.reason === 'charter_decision_pending',
   'fumée gelée en attente de décision de charte (FR comme TN)');
 

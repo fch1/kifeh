@@ -202,6 +202,10 @@ export const defaultSettings = {
   // explicite '1'). Ne remplace l'affichage qu'après captures validées par
   // Farah (règle du plan : maquette → OK → code → captures → drapeau → mesure).
   fire_maplibre_enabled: '0',
+  // Chantier #82 : moyens aériens ADS-B — ingestion serveur livrée, ÉTEINTE
+  // par territoire tant que l'interface calques (Phase 1) ne l'accueille pas.
+  fire_aircraft_enabled_fr: '0',
+  fire_aircraft_enabled_tn: '0',
   // Vent : modèle Météo-France (AROME/ARPEGE) servi par Open-Meteo — libre,
   // sans clé. Fournisseur configurable (WIND_URL pour les tests/alternatives).
   wind_provider: 'arome_france_hd_openmeteo', // AROME France HD, EXPLICITE (jamais le mode auto),

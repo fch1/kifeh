@@ -15,6 +15,7 @@ import { prunePushSubscriptions } from './push.js';
 import { syncVigilance } from './vigilance.js';
 import { syncEffis } from './effis.js';
 import { syncRoads } from './roads.js';
+import { syncAircraft } from './aircraft.js';
 import { msg } from '../i18n.js';
 
 export function startScheduler() {
@@ -49,6 +50,11 @@ export async function tick() {
   // Bison Futé : routes barrées & entraves (aucune clé requise, cadence 30 min).
   if (!config.isSandbox) {
     try { await syncRoads(); } catch (e) { console.error('[roads]', e.message); }
+  }
+  // Moyens aériens ADS-B (#82) : inactif tant qu'aucun drapeau territorial
+  // n'est allumé — le service se borne lui-même (90 s, 3 zones, 1,2 s/req).
+  if (!config.isSandbox) {
+    try { await syncAircraft(); } catch (e) { console.error('[aircraft]', e.message); }
   }
   // Purge RGPD des abonnements d'alertes dormants (voir services/push.js).
   try { prunePushSubscriptions(); } catch { /* jamais bloquant */ }

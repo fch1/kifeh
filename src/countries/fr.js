@@ -41,7 +41,10 @@ export const fr = {
       enabled: true, provider: 'dfci-2km',
       computeFlag: 'dfci_enabled_fr', displayFlag: 'dfci_public_display_enabled',
     },
-    aircraft:          { enabled: false, reason: 'license_review_pending', candidateProvider: 'airplanes-live' },
+    // Licence airplanes.live VÉRIFIÉE (31/07) : non commercial ✓, 1 req/s,
+    // sans clé. Ingestion serveur livrée (#82) — ouverture par drapeau à chaud
+    // quand l'INTERFACE calques (Phase 1, maquette validée) saura l'accueillir.
+    aircraft:          { enabled: true, provider: 'adsb-airplanes-live', label: 'ADS-B (airplanes.live)', settingFlag: 'fire_aircraft_enabled_fr' },
     smokeSimulation:   { enabled: false, reason: 'charter_decision_pending' },
     replay:            { enabled: true },
   },

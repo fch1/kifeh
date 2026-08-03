@@ -12,5 +12,6 @@
   "last_observation": "Dernière observation : {time}",
   "no_active": "Aucun incendie signalé dans cette zone actuellement.",
   "emergency_reminder": "Kifeh ne remplace jamais les secours.",
-  "forecast_disclaimer": "Cette prévision décrit des conditions météorologiques. Elle ne prédit pas l’apparition ni la trajectoire d’un incendie."
+  "forecast_disclaimer": "Cette prévision décrit des conditions météorologiques. Elle ne prédit pas l’apparition ni la trajectoire d’un incendie.",
+  "aircraft_note": "Aéronefs observés par transpondeur (ADS-B, airplanes.live) au-dessus des zones de feu actives — des appareils OBSERVÉS, jamais une confirmation d'intervention ni l'indication de leur mission. Couverture variable selon les récepteurs au sol."
 }

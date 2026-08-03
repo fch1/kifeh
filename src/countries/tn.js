@@ -29,7 +29,9 @@ export const tn = {
     officialAlerts:    { enabled: false, reason: 'no_verified_source' },
     roadEvents:        { enabled: false, reason: 'no_verified_source' },
     emergencyGrid:     { enabled: false, reason: 'not_applicable' },       // carroyage type DFCI : concept français
-    aircraft:          { enabled: false, reason: 'license_review_pending', candidateProvider: 'airplanes-live' },
+    // Même mécanique que la France (#82) — couverture ADS-B tunisienne plus
+    // clairsemée, dit honnêtement par la note ; drapeau à chaud, éteint.
+    aircraft:          { enabled: true, provider: 'adsb-airplanes-live', label: 'ADS-B (airplanes.live)', settingFlag: 'fire_aircraft_enabled_tn' },
     smokeSimulation:   { enabled: false, reason: 'charter_decision_pending' },
     replay:            { enabled: true }, // détections FIRMS TN immuables + horodatées : rejouables
   },

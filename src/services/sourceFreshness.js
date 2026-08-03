@@ -23,6 +23,7 @@ const THRESHOLDS = {
   officialAlerts: [2 * H, 6 * H],
   roadEvents: [2 * H, 6 * H],
   airQuality: [3 * H, 8 * H],
+  aircraft: [180, 600], // secondes : positions ADS-B — fraîches < 3 min, retardées < 10 min
 };
 
 const ALIASES = {

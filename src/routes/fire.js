@@ -22,6 +22,7 @@ import { getWind, getHeat } from '../services/wind.js';
 import { getDailyForecast, forecastEnabled } from '../services/fireForecast.js';
 import { summarizeConditions } from '../services/fireForecastSummary.js';
 import { effisStatus } from '../services/effis.js';
+import { aircraftInBbox } from '../services/aircraft.js';
 import { getLang, msg } from '../i18n.js';
 import { nsMsg } from '../services/i18nNamespaces.js';
 
@@ -161,6 +162,39 @@ fireRouter.get('/forecast', ipRateLimit('firemap_ip', 60, 5), async (req, res) =
     enabled: true, available: true, ...f,
     summary: summarizeConditions(f.days, lang),
     disclaimer: nsMsg(lang, 'fire', 'forecast_disclaimer'),
+  });
+});
+
+// ── Moyens aériens observés (ADS-B, #82) ────────────────────────────────────
+// Capacité du REGISTRE (drapeau territorial à chaud, éteint par défaut).
+// Des aéronefs OBSERVÉS — jamais une confirmation d'intervention ni une
+// classification inventée : le code constructeur est transmis BRUT.
+fireRouter.get('/aircraft', ipRateLimit('firemap_ip', 60, 5), (req, res) => {
+  const country = requestCountry(req);
+  const caps = getCapabilities({ countryCode: country });
+  if (!caps?.fireMode) return res.json({ enabled: false });
+  const a = caps.layers.aircraft;
+  if (a?.enabled !== true) return res.json({ enabled: false, reason: a?.reason || 'no_verified_source' });
+  const lang = getLang(req) === 'ar' ? 'ar' : 'fr';
+  const b = parseBbox(req.query);
+  if (!b) return res.status(400).json({ error: msg(req, 'invalid_params') });
+  const { aircraft, fetchedAt } = aircraftInBbox(country, b);
+  const ageS = fetchedAt ? Math.max(0, Math.round((Date.now() - Date.parse(fetchedAt)) / 1000)) : null;
+  res.json({
+    enabled: true,
+    meta: {
+      generatedAt: new Date().toISOString(),
+      country,
+      sources: {
+        aircraft: {
+          provider: a.label || a.provider,
+          fetchedAt,
+          status: ageS === null ? 'unavailable' : classifyFreshness('aircraft', ageS),
+        },
+      },
+    },
+    aircraft,
+    note: nsMsg(lang, 'fire', 'aircraft_note'),
   });
 });
 

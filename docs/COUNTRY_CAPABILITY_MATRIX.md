@@ -19,7 +19,7 @@ est servi par `/api/public/capabilities?country=XX`.
 | Alertes officielles | Oui (meteofrance-vigilance) | Non — aucune source vérifiée |
 | Routes barrées / entraves | Oui (bison-fute) | Non — aucune source vérifiée |
 | Carroyage d’urgence | Oui (dfci-2km) | Non — sans objet sur ce territoire |
-| Moyens aériens (ADS-B) | Non — licence à relire — bloquant (candidat : airplanes-live) | Non — licence à relire — bloquant (candidat : airplanes-live) |
+| Moyens aériens (ADS-B) | Oui (adsb-airplanes-live) | Oui (adsb-airplanes-live) |
 | Simulation de fumée | Non — décision de charte en attente | Non — décision de charte en attente |
 | Replay temporel | Oui | Oui |
 

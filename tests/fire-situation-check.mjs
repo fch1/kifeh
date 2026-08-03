@@ -163,12 +163,29 @@ const airSrv = http.createServer((req, res) => {
 });
 await new Promise((r) => airSrv.listen(AIR_PORT, r));
 
+// ── Serveur ADS-B SIMULÉ (#82, format airplanes.live /v2/point) : un aéronef
+//    valide basse altitude, un en croisière (filtré), un au sol (filtré).
+const ADSB_PORT = 3967; // 3968 est déjà pris par le simulateur qualité de l'air
+const adsbSrv = http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({
+    now: Date.now(),
+    ac: [
+      { hex: 'a1b2c3', flight: 'MILAN73 ', t: 'AT8T', lat: 44.51, lon: -0.49, alt_baro: 2400, gs: 165, track: 210, seen: 4 },
+      { hex: 'd4e5f6', flight: 'AFR123', t: 'A320', lat: 44.52, lon: -0.48, alt_baro: 36000, gs: 450, track: 90, seen: 2 },
+      { hex: '070809', flight: 'GRND1', t: 'C172', lat: 44.5, lon: -0.5, alt_baro: 'ground', gs: 0, track: 0, seen: 1 },
+    ],
+  }));
+});
+await new Promise((r) => adsbSrv.listen(ADSB_PORT, r));
+
 const server = spawn('node', ['server.js'], {
   env: {
     ...process.env, NODE_ENV: 'development', PORT: String(PORT), DB_PATH: DB,
     BASE_URL: BASE, ADMIN_PASSWORD: 'test-admin-password-1', ADMIN_USERNAME: 'admin',
     SANDBOX_ENABLED: '0', VERIFICATION_REQUIRED: '0', MIN_FORM_FILL_S: '2',
     TRUST_PUBLISH_THRESHOLD: '10', WEB_PUSH_DISABLED: '1',
+    AIRCRAFT_URL: `http://127.0.0.1:${ADSB_PORT}`,
     WIND_URL: `http://127.0.0.1:${WIND_PORT}`, WIND_CACHE_MIN: '0',
     METEOFRANCE_API_KEY: 'cle-de-test-vigilance',
     VIGILANCE_URL: `http://127.0.0.1:${VIGI_PORT}`,
@@ -629,6 +646,57 @@ async function main() {
     'résumé : air { pm25: 18, eaqi: 31 } (Open-Meteo Air Quality simulé)');
   ok(typeof sAir.data.air.observedAt === 'string' && sAir.data.air.provider === 'open_meteo_air',
     'air : horodatage + fournisseur transmis');
+
+  // ── Chantier #82 : moyens aériens ADS-B (drapeau OFF, ingestion serveur) ──
+  section('Moyens aériens (#82) : drapeau territorial, filtres, honnêteté');
+  {
+    const adminSet = (settings) => fetch(`${BASE}/api/admin/settings`, {
+      method: 'POST', headers: { ...hdr, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ settings }),
+    });
+    const bboxQ = 'minLat=44&maxLat=45&minLng=-1&maxLng=0&country=FR';
+    const off = await api('GET', `/api/fire/aircraft?${bboxQ}`);
+    ok(off.data.enabled === false && off.data.reason === 'not_yet_enabled',
+      'drapeau éteint par défaut → enabled:false, raison propre (not_yet_enabled)');
+    const capOff = await api('GET', '/api/public/capabilities?country=FR');
+    ok(capOff.data.layers.aircraft.enabled === false
+      && capOff.data.layers.aircraft.reason === 'not_yet_enabled',
+      'registre : licence vérifiée mais capacité fermée tant que le drapeau est éteint');
+    // Zone de feu active nécessaire au sondage : signalement feu FR direct en base.
+    {
+      const { default: Database } = await import('better-sqlite3');
+      const d = new Database(DB);
+      d.prepare(`INSERT INTO incidents (public_id, type, status, lat, lng, public_lat, public_lng,
+                 public_area, country_code, started_at, created_at, updated_at)
+                 VALUES ('INC-AIRTEST', 'fire', 'active', 44.5, -0.5, 44.5, -0.5,
+                 'Zone test', 'FR', datetime('now'), datetime('now'), datetime('now'))`).run();
+      d.close();
+    }
+    await adminSet({ fire_aircraft_enabled_fr: '1' });
+    const capOn = await api('GET', '/api/public/capabilities?country=FR');
+    ok(capOn.data.layers.aircraft.enabled === true
+      && capOn.data.layers.aircraft.provider === 'adsb-airplanes-live',
+      'bascule à chaud → capacité ouverte avec son fournisseur déclaré');
+    await api('POST', '/api/dev/tick'); // force une passe du planificateur
+    await new Promise((r) => setTimeout(r, 2600)); // 2 requêtes espacées de 1,2 s
+    const on = await api('GET', `/api/fire/aircraft?${bboxQ}`);
+    ok(on.data.enabled === true && Array.isArray(on.data.aircraft),
+      'drapeau allumé + zone active → réponse structurée');
+    ok(on.data.aircraft.length === 1 && on.data.aircraft[0].hex === 'a1b2c3'
+      && on.data.aircraft[0].callsign === 'MILAN73' && on.data.aircraft[0].type === 'AT8T',
+      'filtres : la croisière (36 000 ft) et le sol sont écartés — reste l’aéronef basse altitude, code constructeur BRUT');
+    ok(on.data.meta.sources.aircraft.status === 'fresh'
+      && typeof on.data.meta.sources.aircraft.fetchedAt === 'string',
+      'fraîcheur TYPÉE (aircraft < 3 min = fresh) + horodatage');
+    ok(typeof on.data.note === 'string' && /jamais une confirmation/i.test(on.data.note),
+      'note honnête : observés — jamais une confirmation d’intervention');
+    const tnOff = await api('GET', '/api/fire/aircraft?minLat=36&maxLat=37&minLng=10&maxLng=11&country=TN');
+    ok(tnOff.data.enabled === false,
+      'Tunisie : drapeau territorial indépendant — FR allumé n’ouvre pas TN');
+    await adminSet({ fire_aircraft_enabled_fr: '0' });
+    const reOff = await api('GET', `/api/fire/aircraft?${bboxQ}`);
+    ok(reOff.data.enabled === false, 'coupure à chaud → refermé immédiatement (réversible)');
+  }
 
   // ── Chantier #103 : moteur MapLibre du mode feux (drapeau OFF, câblage) ──
   section('Moteur MapLibre (#103) : drapeau éteint par défaut, chargement paresseux');
