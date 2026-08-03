@@ -308,8 +308,8 @@ ok(hFrFr.includes('18') && hFrFr.includes('112'), 'urgences françaises (18/112)
 ok(hFrFr.includes('"@type":"Dataset"'), 'Dataset schema.org présent');
 const hArTn = await (await fetch(`${BASE}/ar/tn/incendies`)).text();
 ok(hArTn.includes('dir="rtl"') && hArTn.includes('lang="ar"'), '/ar/tn : RTL réel');
-ok(hArTn.includes('198') && !/\b(?:le )?18\b(?!\d)/.test(hArTn.replace(/utf-8|maxItems/g, '')),
-  '/ar/tn : le 198 — jamais le numéro français');
+ok(hArTn.includes('198') && !/\b(?:le )?18\b(?![\d:])/.test(hArTn.replace(/utf-8|maxItems/g, '')),
+  '/ar/tn : le 198 — jamais le numéro français (l’heure « 18:30 » n’est pas un numéro)');
 ok(!/effis|arome|dfci/i.test(hArTn), 'une page tunisienne ne mentionne JAMAIS EFFIS/AROME/DFCI');
 const hFrTn = await (await fetch(`${BASE}/fr/tn/incendies`)).text();
 ok(hFrTn.includes('Tunisie') && !/effis|arome|dfci/i.test(hFrTn), '/fr/tn : localisée, capacités tunisiennes');

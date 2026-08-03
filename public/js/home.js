@@ -747,13 +747,15 @@ function renderSummary(degraded, snapshotAt) {
       aria-label="${esc(t(heroCollapsed ? 'hero_expand' : 'hero_collapse'))}">
       <svg viewBox="0 0 24 24" aria-hidden="true" style="${heroCollapsed ? 'transform:scaleY(-1)' : ''}"><path d="m6 9.5 6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></button>`;
   counter.innerHTML = `
-    <span class="hero-head" id="heroHead" role="button" tabindex="0" aria-haspopup="dialog">
-      <span class="hero-badge${heroBadgeClass}" aria-hidden="true">${heroSvg}</span>
-      <span class="hero-txt">
-        <strong>${heroTitle}</strong>
-        <span class="muted small">${esc(heroSub)}</span>
+    <span class="hero-head" id="heroHead">
+      <span class="hero-open" id="heroOpen" role="button" tabindex="0" aria-haspopup="dialog">
+        <span class="hero-badge${heroBadgeClass}" aria-hidden="true">${heroSvg}</span>
+        <span class="hero-txt">
+          <strong>${heroTitle}</strong>
+          <span class="muted small">${esc(heroSub)}</span>
+        </span>
+        <span class="hero-arrow" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h13m-5.5-5.5L18 12l-5.5 5.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>
       </span>
-      <span class="hero-arrow" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h13m-5.5-5.5L18 12l-5.5 5.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>
       ${heroToggle}
     </span>
     ${heroFire ? `<span class="summary-where muted small">📍 ${esc(where)}</span>` : ''}
@@ -866,8 +868,10 @@ function condLineHtml() {
 document.getElementById('counter').addEventListener('click', (e) => {
   if (e.target.closest('#condLine') || e.target.closest('#heroStats')) { openVigilanceSheet(); return; }
   if (e.target.closest('#followZoneCta')) { openFollowSheet(); return; }
-  if (e.target.closest('#heroHead')) {
+  if (e.target.closest('#heroOpen')) {
     // La flèche de la carte « campagne » ouvre le panneau Situation.
+    // (a11y 4.1.2 : #heroOpen porte seul le rôle bouton — le chevron de repli
+    // est un bouton FRÈRE, plus jamais imbriqué dans un élément focusable.)
     renderSituationHub(); openSheet('situationSheet'); setNavCurrent('navSituation');
     return;
   }
@@ -877,7 +881,7 @@ document.getElementById('counter').addEventListener('keydown', (e) => {
   if (e.key !== 'Enter' && e.key !== ' ') return;
   if (e.target.closest('#condLine') || e.target.closest('#heroStats')) { e.preventDefault(); openVigilanceSheet(); }
   else if (e.target.closest('#followZoneCta')) { e.preventDefault(); openFollowSheet(); }
-  else if (e.target.closest('#heroHead')) {
+  else if (e.target.closest('#heroOpen')) {
     e.preventDefault();
     renderSituationHub(); openSheet('situationSheet'); setNavCurrent('navSituation');
   }

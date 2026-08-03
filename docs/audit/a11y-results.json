@@ -1,0 +1,918 @@
+{
+  "home-fr": {
+    "axe": [
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "wcag": [
+          "wcag2aa",
+          "wcag143"
+        ],
+        "nodes": [
+          ".lang-switch",
+          "span[data-i18n=\"nav_declare\"]",
+          ".consent-accept"
+        ],
+        "count": 3
+      }
+    ],
+    "targets": [
+      {
+        "sel": "A",
+        "w": 51,
+        "h": 14,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "#brandHome",
+        "w": 134,
+        "h": 34,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "#countrySwitch",
+        "w": 103,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "lang-switch",
+        "w": 71,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "#searchLocate",
+        "w": 40,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "chip",
+        "w": 106,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "chip",
+        "w": 114,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "chip",
+        "w": 75,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "chip",
+        "w": 102,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "#chipOngoing",
+        "w": 158,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "#chipFilters",
+        "w": 113,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "#heroToggle",
+        "w": 32,
+        "h": 32,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "#followZoneCta",
+        "w": 126,
+        "h": 20,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "sheet-close",
+        "w": 36,
+        "h": 36,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "fType",
+        "w": 22,
+        "h": 22,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "fType",
+        "w": 22,
+        "h": 22,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "fType",
+        "w": 22,
+        "h": 22,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "fType",
+        "w": 22,
+        "h": 22,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "#liteToggle",
+        "w": 22,
+        "h": 22,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "A",
+        "w": 103,
+        "h": 17,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "repo-link",
+        "w": 350,
+        "h": 37,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "sheet-close",
+        "w": 36,
+        "h": 36,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "sheet-close",
+        "w": 36,
+        "h": 36,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "sheet-close",
+        "w": 36,
+        "h": 36,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "sheet-close",
+        "w": 36,
+        "h": 36,
+        "sev": "sous-44px"
+      }
+    ],
+    "focusInvisible": []
+  },
+  "home-ar-rtl": {
+    "axe": [
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "wcag": [
+          "wcag2aa",
+          "wcag143"
+        ],
+        "nodes": [
+          ".lang-switch",
+          "span[data-i18n=\"nav_declare\"]",
+          ".consent-accept"
+        ],
+        "count": 3
+      }
+    ],
+    "targets": [
+      {
+        "sel": "A",
+        "w": 51,
+        "h": 14,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "#brandHome",
+        "w": 134,
+        "h": 34,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "#countrySwitch",
+        "w": 103,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "lang-switch",
+        "w": 71,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "#searchLocate",
+        "w": 40,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "chip",
+        "w": 106,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "chip",
+        "w": 114,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "chip",
+        "w": 75,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "chip",
+        "w": 102,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "#chipOngoing",
+        "w": 158,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "#chipFilters",
+        "w": 113,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "#heroToggle",
+        "w": 32,
+        "h": 32,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "#followZoneCta",
+        "w": 126,
+        "h": 20,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "sheet-close",
+        "w": 36,
+        "h": 36,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "fType",
+        "w": 22,
+        "h": 22,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "fType",
+        "w": 22,
+        "h": 22,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "fType",
+        "w": 22,
+        "h": 22,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "fType",
+        "w": 22,
+        "h": 22,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "#liteToggle",
+        "w": 22,
+        "h": 22,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "A",
+        "w": 103,
+        "h": 17,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "repo-link",
+        "w": 350,
+        "h": 37,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "sheet-close",
+        "w": 36,
+        "h": 36,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "sheet-close",
+        "w": 36,
+        "h": 36,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "sheet-close",
+        "w": 36,
+        "h": 36,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "sheet-close",
+        "w": 36,
+        "h": 36,
+        "sev": "sous-44px"
+      }
+    ],
+    "focusInvisible": []
+  },
+  "filtres-ouverts": {
+    "axe": [
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "wcag": [
+          "wcag2aa",
+          "wcag143"
+        ],
+        "nodes": [
+          ".lang-switch",
+          "span[data-i18n=\"nav_declare\"]",
+          ".consent-accept"
+        ],
+        "count": 3
+      }
+    ],
+    "targets": [
+      {
+        "sel": "A",
+        "w": 51,
+        "h": 14,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "#brandHome",
+        "w": 134,
+        "h": 34,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "#countrySwitch",
+        "w": 103,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "lang-switch",
+        "w": 71,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "#searchLocate",
+        "w": 40,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "chip",
+        "w": 106,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "chip",
+        "w": 114,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "chip",
+        "w": 75,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "chip",
+        "w": 102,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "#chipOngoing",
+        "w": 158,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "#chipFilters",
+        "w": 113,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "#heroToggle",
+        "w": 32,
+        "h": 32,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "#followZoneCta",
+        "w": 126,
+        "h": 20,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "sheet-close",
+        "w": 36,
+        "h": 36,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "fType",
+        "w": 22,
+        "h": 22,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "fType",
+        "w": 22,
+        "h": 22,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "fType",
+        "w": 22,
+        "h": 22,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "fType",
+        "w": 22,
+        "h": 22,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "#liteToggle",
+        "w": 22,
+        "h": 22,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "A",
+        "w": 103,
+        "h": 17,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "repo-link",
+        "w": 350,
+        "h": 37,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "sheet-close",
+        "w": 36,
+        "h": 36,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "sheet-close",
+        "w": 36,
+        "h": 36,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "sheet-close",
+        "w": 36,
+        "h": 36,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "sheet-close",
+        "w": 36,
+        "h": 36,
+        "sev": "sous-44px"
+      }
+    ],
+    "focusInvisible": []
+  },
+  "calques-ouverts": {
+    "axe": [
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "wcag": [
+          "wcag2aa",
+          "wcag143"
+        ],
+        "nodes": [
+          ".lang-switch",
+          "span[data-i18n=\"nav_declare\"]",
+          ".consent-accept"
+        ],
+        "count": 3
+      }
+    ],
+    "targets": [
+      {
+        "sel": "A",
+        "w": 51,
+        "h": 14,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "#brandHome",
+        "w": 134,
+        "h": 34,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "#countrySwitch",
+        "w": 103,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "lang-switch",
+        "w": 71,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "#searchLocate",
+        "w": 40,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "chip",
+        "w": 106,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "chip",
+        "w": 114,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "chip",
+        "w": 75,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "chip",
+        "w": 102,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "#chipOngoing",
+        "w": 158,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "#chipFilters",
+        "w": 113,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "#heroToggle",
+        "w": 32,
+        "h": 32,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "#followZoneCta",
+        "w": 126,
+        "h": 20,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "sheet-close",
+        "w": 36,
+        "h": 36,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "fType",
+        "w": 22,
+        "h": 22,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "fType",
+        "w": 22,
+        "h": 22,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "fType",
+        "w": 22,
+        "h": 22,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "fType",
+        "w": 22,
+        "h": 22,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "#liteToggle",
+        "w": 22,
+        "h": 22,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "A",
+        "w": 103,
+        "h": 17,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "repo-link",
+        "w": 350,
+        "h": 37,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "sheet-close",
+        "w": 36,
+        "h": 36,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "sheet-close",
+        "w": 36,
+        "h": 36,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "sheet-close",
+        "w": 36,
+        "h": 36,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "sheet-close",
+        "w": 36,
+        "h": 36,
+        "sev": "sous-44px"
+      }
+    ],
+    "focusInvisible": []
+  },
+  "situation": {
+    "axe": [
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "wcag": [
+          "wcag2aa",
+          "wcag143"
+        ],
+        "nodes": [
+          ".lang-switch",
+          "span[data-i18n=\"nav_declare\"]",
+          ".consent-accept"
+        ],
+        "count": 3
+      }
+    ],
+    "targets": [
+      {
+        "sel": "A",
+        "w": 51,
+        "h": 14,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "#brandHome",
+        "w": 134,
+        "h": 34,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "#countrySwitch",
+        "w": 103,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "lang-switch",
+        "w": 71,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "#searchLocate",
+        "w": 40,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "chip",
+        "w": 106,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "chip",
+        "w": 114,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "chip",
+        "w": 75,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "chip",
+        "w": 102,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "#chipOngoing",
+        "w": 158,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "#chipFilters",
+        "w": 113,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "#heroToggle",
+        "w": 32,
+        "h": 32,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "#followZoneCta",
+        "w": 126,
+        "h": 20,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "sheet-close",
+        "w": 36,
+        "h": 36,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "fType",
+        "w": 22,
+        "h": 22,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "fType",
+        "w": 22,
+        "h": 22,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "fType",
+        "w": 22,
+        "h": 22,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "fType",
+        "w": 22,
+        "h": 22,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "#liteToggle",
+        "w": 22,
+        "h": 22,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "A",
+        "w": 103,
+        "h": 17,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "repo-link",
+        "w": 350,
+        "h": 37,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "sheet-close",
+        "w": 36,
+        "h": 36,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "sheet-close",
+        "w": 36,
+        "h": 36,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "sheet-close",
+        "w": 36,
+        "h": 36,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "sheet-close",
+        "w": 36,
+        "h": 36,
+        "sev": "sous-44px"
+      }
+    ],
+    "focusInvisible": []
+  },
+  "declaration": {
+    "axe": [
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "wcag": [
+          "wcag2aa",
+          "wcag143"
+        ],
+        "nodes": [
+          ".consent-accept"
+        ],
+        "count": 1
+      }
+    ],
+    "targets": [
+      {
+        "sel": "lang-switch",
+        "w": 71,
+        "h": 40,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "A",
+        "w": 81,
+        "h": 17,
+        "sev": "bloquant-2.5.8"
+      },
+      {
+        "sel": "consent-refuse",
+        "w": 78,
+        "h": 35,
+        "sev": "sous-44px"
+      },
+      {
+        "sel": "consent-accept",
+        "w": 83,
+        "h": 35,
+        "sev": "sous-44px"
+      }
+    ],
+    "focusInvisible": []
+  },
+  "safety": {
+    "axe": [],
+    "targets": [
+      {
+        "sel": "lang-switch",
+        "w": 71,
+        "h": 40,
+        "sev": "sous-44px"
+      }
+    ],
+    "focusInvisible": []
+  }
+}

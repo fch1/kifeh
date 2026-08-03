@@ -402,7 +402,11 @@ button.brand-name { appearance: none; border: 0; cursor: pointer; font: inherit;
   box-shadow: 0 6px 22px rgba(30, 42, 77, .16);
   display: flex; flex-direction: column; gap: .25rem;
 }
-.hero-head { display: flex; align-items: center; gap: .625rem; cursor: pointer; border-radius: 12px; }
+.hero-head { display: flex; align-items: center; gap: .625rem; border-radius: 12px; }
+/* a11y : la zone « ouvrir la situation » porte seule le rôle bouton — le
+   chevron de repli est un bouton frère (jamais imbriqué dans un focusable).
+   Même flex, même gap : rendu au pixel identique. */
+.hero-open { display: flex; align-items: center; gap: .625rem; flex: 1; min-width: 0; cursor: pointer; border-radius: 12px; }
 .hero-badge {
   flex: 0 0 auto; width: 2.5rem; height: 2.5rem; border-radius: 50%;
   background: var(--info-bg); color: var(--primary-dark);
