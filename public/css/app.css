@@ -1096,6 +1096,16 @@ html, body { overscroll-behavior: none; }
 .fc-d { font-size: var(--kifeh-fs-xs); color: var(--kifeh-color-text-muted); }
 .fc-v { font-size: var(--kifeh-fs-lg); font-weight: 700; }
 .fc-m { font-size: var(--kifeh-fs-xs); color: var(--kifeh-color-text-muted); }
+/* #111 : jours TAPPABLES → détail du jour (confiance en toutes lettres). */
+.fc-day { cursor: pointer; min-height: 44px; }
+.fc-day:focus-visible { outline: 2px solid var(--brand-red-text, #C93318); outline-offset: 1px; }
+.fc-day.fc-selected { border-color: var(--brand-red-text, #C93318); box-shadow: inset 0 0 0 1px var(--brand-red-text, #C93318); }
+#fcDayDetail { border-top: 1px dashed var(--kifeh-color-border, #E7E1D6); margin-top: .45rem; padding-top: .1rem; }
+.fc-dd-row { display: flex; justify-content: space-between; gap: .5rem; margin: .12rem 0; }
+.fc-conf { font-weight: 600; }
+.fc-conf-high { color: #1E7F52; }
+.fc-conf-medium { color: #9A6A00; }
+.fc-conf-trend { color: #8A5A00; font-style: italic; }
 
 /* Âge des détections satellite (master UX §11) : récent net, 6-24 h estompé,
    24-72 h discret — l'heure exacte reste dans la fiche (jamais couleur seule). */

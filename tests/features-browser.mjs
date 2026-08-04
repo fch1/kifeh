@@ -4,11 +4,31 @@
 // Usage : node tests/features-browser.mjs
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
+import http from 'node:http';
 import fs from 'node:fs';
 
 const PORT = 3997;
+const FC_PORT = 3953;
 const BASE = `http://127.0.0.1:${PORT}`;
 const DB = 'data/features-browser.db';
+
+// Prévisions simulées (7 jours plausibles) : le bloc « Conditions » de la
+// Situation devient testable — détail par jour, confiance en toutes lettres.
+const fcSrv = http.createServer((req, res) => {
+  const days = Array.from({ length: 7 }, (_, i) => i);
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({
+    daily: {
+      time: days.map((i) => new Date(Date.now() + i * 864e5).toISOString().slice(0, 10)),
+      temperature_2m_max: days.map((i) => 28 + i),
+      relative_humidity_2m_min: days.map((i) => 40 - i),
+      wind_speed_10m_max: days.map((i) => 15 + i),
+      wind_gusts_10m_max: days.map((i) => 35 + i),
+      precipitation_sum: days.map(() => 0),
+    },
+  }));
+});
+await new Promise((r) => fcSrv.listen(FC_PORT, r));
 
 let passed = 0, failed = 0;
 const ok = (cond, label) => {
@@ -36,6 +56,7 @@ const server = spawn('node', ['server.js'], {
     BASE_URL: BASE, SANDBOX_ENABLED: '0', VERIFICATION_REQUIRED: '0',
     MIN_FORM_FILL_S: '2', TRUST_PUBLISH_THRESHOLD: '10',
     ADMIN_PASSWORD: 'test-admin-password-1', ADMIN_USERNAME: 'admin',
+    FORECAST_URL: `http://127.0.0.1:${FC_PORT}`,
   },
   stdio: 'ignore',
 });
@@ -658,6 +679,46 @@ for (const [w, h] of [[1440, 900], [1280, 800], [390, 720]]) {
   await ctxZ.close();
 }
 
+// ── Prévisions par jour (#111) : jours tappables, confiance en lettres ─────
+{
+  const ctxF = await browser.newContext({ viewport: { width: 390, height: 780 } });
+  await ctxF.addInitScript(() => {
+    try {
+      localStorage.setItem('lang', 'fr');
+      localStorage.setItem('kifeh_onboarded', '1');
+      localStorage.setItem('kifeh_country', 'FR');
+      localStorage.setItem('ga_consent', 'denied');
+    } catch {}
+  });
+  const pf = await ctxF.newPage();
+  await pf.goto(BASE, { waitUntil: 'load' });
+  await pf.waitForTimeout(1800);
+  await pf.locator('#navSituation').click();
+  const hasFc = await okEventually(pf, () => Boolean(document.querySelector('#fcBlock .fc-day')),
+    'Situation : bloc « Conditions » servi (prévisions simulées)', 12000);
+  if (hasFc) {
+    ok(await pf.evaluate(() => document.querySelectorAll('#fcBlock .fc-day[role="button"]').length === 3),
+      'les 3 jours sont de vrais boutons (tappables, clavier)');
+    await pf.locator('#fcBlock .fc-day[data-fcday="1"]').click();
+    await pf.waitForTimeout(300);
+    ok(await pf.evaluate(() => {
+      const box = document.getElementById('fcDayDetail');
+      return box && !box.hidden && /Confiance/.test(box.textContent)
+        && /Rafales/.test(box.textContent) && /Humidité/.test(box.textContent);
+    }), 'détail du jour : facteurs complets + confiance EN TOUTES LETTRES');
+    ok(await pf.evaluate(() =>
+      document.querySelector('#fcBlock .fc-day[data-fcday="1"]')?.getAttribute('aria-expanded') === 'true'),
+    'état accessible : aria-expanded sur le jour ouvert');
+    await pf.locator('#fcBlock .fc-day[data-fcday="1"]').click();
+    await pf.waitForTimeout(250);
+    ok(await pf.evaluate(() => document.getElementById('fcDayDetail')?.hidden === true),
+      'second tap : le détail se referme');
+    ok(await pf.evaluate(() => /incendie/i.test(document.querySelector('#fcBlock .fc-card')?.textContent || '')),
+      'le disclaimer « jamais une prévision d’incendie » reste visible');
+  }
+  await ctxF.close();
+}
+
 // ── Shell mobile v2 (#114) : panneau bas 3 positions, drapeau serveur ──────
 {
   const login = await fetch(`${BASE}/api/admin/login`, {
@@ -758,6 +819,7 @@ for (const [w, h] of [[1440, 900], [1280, 800], [390, 720]]) {
 
 await browser.close();
 server.kill();
+fcSrv.close();
 for (const f of [DB, `${DB}-wal`, `${DB}-shm`]) fs.rmSync(f, { force: true });
 console.log('\n────────────────────────────');
 console.log(`${passed} réussis · ${failed} échoués`);

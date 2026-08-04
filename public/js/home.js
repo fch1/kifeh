@@ -1200,8 +1200,11 @@ async function fillForecastBlock(root) {
   if (!window.__fcTracked) { window.__fcTracked = true; window.track?.('fire_forecast_opened', {}); }
   const dayFmt = new Intl.DateTimeFormat(LANG === 'ar' ? 'ar-TN' : 'fr-FR', { weekday: 'short' });
   const dn = (day, i) => (i === 0 ? t('fc_today') : dayFmt.format(new Date(`${day.date}T12:00:00Z`)));
+  // #111 : chaque jour est TAPPABLE → détail complet du jour (facteurs +
+  // confiance EN TOUTES LETTRES + provenance) — jamais un niveau inventé.
   const strip = d.days.slice(0, 3).map((day, i) => `
-    <span class="fc-day">
+    <span class="fc-day" role="button" tabindex="0" data-fcday="${i}"
+      aria-expanded="false" aria-label="${esc(dn(day, i))}">
       <span class="fc-d">${esc(dn(day, i))}</span>
       <span class="fc-v">${day.tMaxC != null ? `${Math.round(day.tMaxC)}°` : '—'}</span>
       <span class="fc-m">${day.gustsMaxKmh != null ? `${esc(t('fc_gusts'))} <span dir="ltr">${Math.round(day.gustsMaxKmh)}</span>` : ''}</span>
@@ -1216,6 +1219,8 @@ async function fillForecastBlock(root) {
     <div class="card fc-card">
       <p class="small" style="margin:0 0 .35rem"><strong>🌡️ ${esc(t('fc_title'))}</strong></p>
       <div class="fc-strip">${strip}</div>
+      <p class="muted small" style="margin:.2rem 0 0">${esc(t('fc_day_hint'))}</p>
+      <div id="fcDayDetail" hidden></div>
       ${d.summary ? `<p class="small" style="margin:.5rem 0 .25rem">${esc(d.summary)}</p>` : ''}
       <details>
         <summary class="small" style="cursor:pointer">${esc(t('fc_7d'))}</summary>
@@ -1226,6 +1231,45 @@ async function fillForecastBlock(root) {
     </div>`;
   host.querySelector('details')?.addEventListener('toggle', (e) => {
     if (e.currentTarget.open) window.track?.('fire_forecast_7d_opened', {});
+  });
+  // Détail d'un jour (#111) : confiance en toutes lettres, provenance, tous
+  // les facteurs — jamais d'indice de danger inventé.
+  const confKey = { high: 'fc_conf_high', medium: 'fc_conf_medium', trend: 'fc_conf_trend' };
+  const dayDateFmt = new Intl.DateTimeFormat(LANG === 'ar' ? 'ar-TN' : 'fr-FR',
+    { weekday: 'long', day: 'numeric', month: 'long' });
+  const openDay = (i) => {
+    const box = host.querySelector('#fcDayDetail');
+    const day = d.days[i];
+    if (!box || !day) return;
+    const already = box.dataset.day === String(i) && !box.hidden;
+    host.querySelectorAll('.fc-day').forEach((el) => {
+      el.setAttribute('aria-expanded', 'false');
+      el.classList.remove('fc-selected');
+    });
+    if (already) { box.hidden = true; box.dataset.day = ''; return; }
+    const btn = host.querySelector(`.fc-day[data-fcday="${i}"]`);
+    btn?.setAttribute('aria-expanded', 'true');
+    btn?.classList.add('fc-selected');
+    const row = (label, val) => (val == null ? '' : `<p class="small fc-dd-row"><span>${esc(label)}</span><span dir="ltr">${esc(String(val))}</span></p>`);
+    box.dataset.day = String(i);
+    box.hidden = false;
+    box.innerHTML = `
+      <p class="small" style="margin:.4rem 0 .2rem"><strong>${esc(dayDateFmt.format(new Date(`${day.date}T12:00:00Z`)))}</strong>
+        · <span class="fc-conf fc-conf-${esc(day.confidence)}">${esc(t(confKey[day.confidence] || 'fc_conf_medium'))}</span></p>
+      ${row(t('fc_detail_tmax'), day.tMaxC != null ? `${Math.round(day.tMaxC)} °C` : null)}
+      ${row(t('fc_detail_hum'), day.rhMinPct != null ? `${Math.round(day.rhMinPct)} %` : null)}
+      ${row(t('fc_detail_wind'), day.windMaxKmh != null ? `${Math.round(day.windMaxKmh)} km/h` : null)}
+      ${row(t('fc_detail_gusts'), day.gustsMaxKmh != null ? `${Math.round(day.gustsMaxKmh)} km/h` : null)}
+      ${row(t('fc_detail_rain'), day.precipMm != null ? `${day.precipMm} mm` : null)}
+      <p class="muted small" style="margin:.3rem 0 0">${esc(t('fc_src', { s: d.modelLabel || d.provider }))}
+        · ${esc(t('fc_detail_fetched'))} ${esc(timeAgo(d.fetchedAt))}</p>`;
+    window.track?.('fire_forecast_day_selected', { day_index: i });
+  };
+  host.querySelectorAll('.fc-day').forEach((el) => {
+    el.addEventListener('click', () => openDay(Number(el.dataset.fcday)));
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDay(Number(el.dataset.fcday)); }
+    });
   });
 }
 
