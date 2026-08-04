@@ -15,8 +15,11 @@ const ok = (cond, label) => {
   else { failed++; console.log(`  ✗ ${label}`); }
 };
 
-const browser = await chromium.launch({ args: ['--no-sandbox'] })
-  .catch(() => chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--no-sandbox'] }));
+// SwiftShader : les runners CI n'ont pas de GPU — l'étape moteur GL (§9)
+// exige un WebGL logiciel fonctionnel.
+const LAUNCH_ARGS = ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'];
+const browser = await chromium.launch({ args: LAUNCH_ARGS })
+  .catch(() => chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: LAUNCH_ARGS }));
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'fr-FR' });
 const page = await ctx.newPage();
 const jsErrors = [];
@@ -107,6 +110,41 @@ ok(await page.evaluate(() => {
   if (!a || !b) return false;
   return a.bottom <= b.top + 2; // la situation vit AU-DESSUS de la navigation
 }), 'aucun chevauchement situation/navigation');
+
+// ── 9. Moteur GL en BAC À SABLE (#122, étape 1) — lecture seule ─────────────
+// Le sandbox (/sandbox) a le drapeau allumé : on vérifie ICI, sur la vraie
+// infrastructure (CSP réelle, worker blob:, tuiles réelles), que le moteur
+// s'active et que son style est COMPLET — ou qu'il se replie proprement.
+// C'est le feu vert (ou rouge) de l'étape « pourcentage de sessions ».
+{
+  const sbxCfg = await fetch(`${BASE}/sandbox/api/public/config`).then((r) => r.json()).catch(() => null);
+  if (sbxCfg?.fireMapLibre === true) {
+    const pgGl = await ctx.newPage();
+    const cspErr = [];
+    pgGl.on('console', (m) => {
+      if (/Refused to create a worker|Content Security Policy/i.test(m.text())) cspErr.push(m.text().slice(0, 140));
+    });
+    await pgGl.goto(`${BASE}/sandbox/?glshot=1&lat=44.5&lng=-0.6&z=8`, { waitUntil: 'load' });
+    await pgGl.waitForTimeout(2500);
+    await pgGl.click('.chip[data-type="fire"]').catch(() => {});
+    let stGl = null;
+    const t0 = Date.now();
+    while (Date.now() - t0 < 20000) {
+      stGl = await pgGl.evaluate(() => window.kifehGLState?.()).catch(() => null);
+      if (stGl && (stGl.failed || (stGl.active && stGl.styleComplete))) break;
+      await pgGl.waitForTimeout(500);
+    }
+    ok(Boolean(stGl && (stGl.failed || (stGl.active && stGl.styleComplete))),
+      `sandbox GL : moteur ACTIF au style complet ou repli propre (${JSON.stringify(stGl)})`);
+    ok(cspErr.length === 0, `sandbox GL : aucune erreur CSP/worker (${cspErr.join(' | ') || 'aucune'})`);
+    // En conditions réelles le repli n'est acceptable QUE faute de WebGL.
+    if (stGl?.failed) ok(['webgl', 'webgl_lost', 'init'].some((r) => String(stGl.reason).includes(r)),
+      `sandbox GL : repli pour cause matérielle uniquement (raison: ${stGl.reason})`);
+    await pgGl.close();
+  } else {
+    console.log('  · sandbox GL éteint ou injoignable : étape ignorée');
+  }
+}
 
 await browser.close();
 console.log('\n────────────────────────────');
