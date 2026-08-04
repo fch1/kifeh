@@ -176,7 +176,8 @@ for (const lang of LANGS) {
   // servie — jamais de contenu dupliqué, jamais de page fantôme (→ 404).
   const appTarget = `/?country=FR&lang=${lang}&types=fire`;
   seoRouter.get(`/${lang}/incendies/carte`, (req, res) => res.redirect(301, appTarget));
-  seoRouter.get(`/${lang}/incendies/replay`, (req, res) => res.redirect(301, appTarget));
+  // /replay OUVRE la relecture (lien profond ?replay=1 consommé par l'app).
+  seoRouter.get(`/${lang}/incendies/replay`, (req, res) => res.redirect(301, `${appTarget}&replay=1`));
   for (const alias of ['en-cours', 'sources', 'situation-textuelle']) {
     seoRouter.get(`/${lang}/incendies/${alias}`, (req, res) => res.redirect(301, `/${lang}/fr/incendies`));
   }

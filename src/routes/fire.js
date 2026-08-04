@@ -23,6 +23,7 @@ import { getDailyForecast, forecastEnabled } from '../services/fireForecast.js';
 import { summarizeConditions } from '../services/fireForecastSummary.js';
 import { effisStatus } from '../services/effis.js';
 import { aircraftInBbox } from '../services/aircraft.js';
+import { simulateSmoke } from '../services/smoke.js';
 import { getLang, msg } from '../i18n.js';
 import { nsMsg } from '../services/i18nNamespaces.js';
 
@@ -203,6 +204,82 @@ fireRouter.get('/aircraft', ipRateLimit('firemap_ip', 60, 5), (req, res) => {
 });
 
 // ── Timeline (frise de replay) ───────────────────────────────────────────────
+// ── Simulation indicative de fumée (#121, master §6.4) ───────────────────────
+// GATÉE deux fois : capacité territoriale (registre) ET drapeau serveur
+// (smoke_simulation_enabled, éteint par défaut). Réponse TOUJOURS honnête :
+// enabled:false porte sa raison ; le disclaimer accompagne chaque réponse
+// active — ce n'est NI une observation, NI une qualité de l'air.
+fireRouter.get('/smoke', ipRateLimit('firemap_ip', 60, 5), async (req, res) => {
+  const country = requestCountry(req);
+  const caps = getCapabilities({ countryCode: country });
+  const lang = getLang(req) === 'ar' ? 'ar' : 'fr';
+  const sm = caps?.layers?.smokeSimulation;
+  if (!caps?.fireMode || !sm || sm.enabled !== true) {
+    return res.json({ enabled: false, reason: sm?.reason || 'not_available' });
+  }
+  const b = parseBbox(req.query);
+  if (!b) return res.status(400).json({ error: msg(req, 'invalid_params') });
+
+  // Sources : détections des 6 dernières heures dans la vue, DÉDUPLIQUÉES par
+  // cellule ~1 km (plusieurs satellites voient le même phénomène → une seule
+  // source de panache, FRP max de la cellule — jamais une somme naïve).
+  const rows = db.prepare(
+    `SELECT id, lat, lng, frp, acquired_at AS observedAt FROM satellite_detections
+     WHERE country_code = ? AND lat BETWEEN ? AND ? AND lng BETWEEN ? AND ?
+       AND datetime(acquired_at) > datetime('now', '-6 hours')
+     ORDER BY frp DESC LIMIT 120`
+  ).all(country, b.minLat, b.maxLat, b.minLng, b.maxLng);
+  const cells = new Map();
+  for (const r of rows) {
+    const k = `${r.lat.toFixed(2)}|${r.lng.toFixed(2)}`;
+    const prev = cells.get(k);
+    if (!prev || (r.frp || 0) > (prev.frp || 0)) cells.set(k, r);
+  }
+  const sources = [...cells.values()].slice(0, 40);
+
+  // Vent : au plus 4 échantillons (grappes de 0,5°) — le quota météo n'est
+  // jamais martelé pour un visuel indicatif.
+  const clusters = new Map();
+  for (const s of sources) {
+    const k = `${Math.round(s.lat * 2) / 2}|${Math.round(s.lng * 2) / 2}`;
+    if (!clusters.has(k)) clusters.set(k, { lat: s.lat, lng: s.lng });
+  }
+  const samples = [...clusters.values()].slice(0, 4);
+  const winds = await Promise.all(samples.map(async (p) => ({
+    ...p, wind: await getWind(p.lat, p.lng),
+  })));
+  const usable = winds.filter((w) => w.wind && Number.isFinite(w.wind.speedKmh));
+  const windFor = (lat, lng) => {
+    let best = null, bestD = Infinity;
+    for (const w of usable) {
+      const d = (w.lat - lat) ** 2 + (w.lng - lng) ** 2;
+      if (d < bestD) { bestD = d; best = w; }
+    }
+    return best ? {
+      speedMS: best.wind.speedKmh / 3.6,
+      directionFromDeg: best.wind.directionFromDeg,
+    } : null;
+  };
+
+  const lite = req.query.lite === '1';
+  const { puffs, truncated } = simulateSmoke({ detections: sources, windFor, lite });
+  res.set('Cache-Control', 'public, max-age=120').json({
+    enabled: true,
+    meta: {
+      model: 'kifeh-smoke/1',
+      name: nsMsg(lang, 'sources', 'smoke_name'),
+      disclaimer: nsMsg(lang, 'sources', 'smoke_limitations'),
+      windModel: caps.layers.weatherModel?.label || caps.layers.weatherModel?.model || null,
+      windSampledAt: usable[0]?.wind?.fetchedAt || null,
+      sources: sources.length,
+      windSamples: usable.length,
+      truncated,
+      generatedAt: new Date().toISOString(),
+    },
+    puffs,
+  });
+});
+
 fireRouter.get('/timeline', ipRateLimit('firemap_ip', 60, 5), (req, res) => {
   const country = requestCountry(req);
   const caps = getCapabilities({ countryCode: country });

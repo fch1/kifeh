@@ -20,7 +20,7 @@ est servi par `/api/public/capabilities?country=XX`.
 | Routes barrées / entraves | Oui (bison-fute) | Non — aucune source vérifiée |
 | Carroyage d’urgence | Oui (dfci-2km) | Non — sans objet sur ce territoire |
 | Moyens aériens (ADS-B) | Oui (adsb-airplanes-live) | Oui (adsb-airplanes-live) |
-| Simulation de fumée | Non — décision de charte en attente | Non — décision de charte en attente |
+| Simulation de fumée | Oui (kifeh-simulation) | Non — à intégrer (candidat identifié) |
 | Replay temporel | Oui | Oui |
 
 ## Langues, fuseaux et urgences

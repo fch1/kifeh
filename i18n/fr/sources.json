@@ -17,5 +17,8 @@
   "burned_limitations": "Publication différée (souvent quotidienne) ; les contours peuvent être révisés.",
   "weather_name": "Météo du territoire",
   "weather_description": "Modèle météo configuré pour le territoire consulté.",
-  "weather_limitations": "Le vent est un contexte — jamais une prévision de propagation d'incendie."
+  "weather_limitations": "Le vent est un contexte — jamais une prévision de propagation d'incendie.",
+  "smoke_name": "Simulation indicative de fumée",
+  "smoke_description": "Construction visuelle simple à partir des foyers thermiques observés (FRP dédupliquée) et du vent du modèle météo du territoire : advection, élargissement progressif, atténuation, durée de vie bornée à 6 heures.",
+  "smoke_limitations": "Cette couche est une simulation indicative. Elle ne constitue ni une observation directe de fumée, ni une mesure de qualité de l’air, ni une prévision sanitaire, ni une heure d’arrivée."
 }

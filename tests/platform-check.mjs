@@ -58,8 +58,14 @@ ok(fr.capabilities.aircraft.enabled === true
   && fr.capabilities.aircraft.settingFlag === 'fire_aircraft_enabled_fr'
   && fr.capabilities.aircraft.provider === 'adsb-airplanes-live',
   'FR : moyens aériens déclarés (licence vérifiée) derrière drapeau territorial');
-ok(fr.capabilities.smokeSimulation.enabled === false && fr.capabilities.smokeSimulation.reason === 'charter_decision_pending',
-  'fumée gelée en attente de décision de charte (FR comme TN)');
+// Charte fumée ACTÉE le 04/08 (master §6.4) : FR déclarée derrière drapeau
+// à chaud (éteint par défaut) ; TN attend un modèle de vent fin déclaré.
+ok(fr.capabilities.smokeSimulation.enabled === true
+  && fr.capabilities.smokeSimulation.settingFlag === 'smoke_simulation_enabled',
+  'FR : fumée déclarée (charte actée) derrière drapeau à chaud, éteint par défaut');
+ok(tn.capabilities.smokeSimulation.enabled === false
+  && tn.capabilities.smokeSimulation.reason === 'model_to_integrate',
+  'TN : jamais de panache sur un vent flou (model_to_integrate)');
 
 // ═══ 2. Fraîcheur typée ══════════════════════════════════════════════════════
 section('Fraîcheur typée (sourceFreshness.js)');
@@ -413,6 +419,9 @@ section('URLs produit /{lang}/incendies/* : alias 301 vers les canoniques');
   const carte = await r('/fr/incendies/carte');
   ok(carte.status === 301 && carte.headers.get('location') === '/?country=FR&lang=fr&types=fire',
     '/fr/incendies/carte → 301 vers l’application (mode feux FR)');
+  const rp = await r('/fr/incendies/replay');
+  ok(rp.status === 301 && rp.headers.get('location') === '/?country=FR&lang=fr&types=fire&replay=1',
+    '/fr/incendies/replay → 301 OUVRE la relecture (lien profond)');
   const zone = await r('/fr/incendies/gironde');
   ok(zone.status === 301 && zone.headers.get('location') === '/fr/fr/incendies/gironde',
     '/fr/incendies/gironde → 301 vers la page canonique de zone');

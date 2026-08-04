@@ -114,6 +114,9 @@ export const defaultSettings = {
   // (« active le DFCI public ») — précision « indicatif » et pédagogie de la
   // fiche inchangées (docs/DFCI.md).
   dfci_public_display_enabled: '1',
+  // Simulation indicative de fumée (#121, master §6.4) : charte actée le
+  // 04/08, drapeau ÉTEINT par défaut — activation à chaud, rollback immédiat.
+  smoke_simulation_enabled: '0',
   verification_required: '1',   // 0 = publication directe sans OTP (temporaire, le temps de configurer SMS/e-mail)
   other_category_enabled: '0',        // catégorie « Autre » désactivée par défaut
   anonymize_radius_m: '250',          // rayon d'anonymisation public (100–300 m)

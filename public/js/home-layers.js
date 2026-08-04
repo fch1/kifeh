@@ -337,3 +337,75 @@ function openRoadDetail(e, updatedAt) {
   });
   if (saved === '1') apply(true); // choix mémorisé — jamais actif d'office
 })();
+
+// ═════════════════════════════════════════════════════════════════════════════
+// SIMULATION INDICATIVE DE FUMÉE (#121, master §6.4) — couche OPT-IN, jamais
+// active d'office, disponible UNIQUEMENT quand le serveur la sert (capacité
+// territoriale + drapeau smoke_simulation_enabled). Gris neutre, jamais un
+// rouge « danger ». Disclaimer PERMANENT à l'écran tant que la couche est
+// active : ni observation, ni qualité de l'air.
+// ═════════════════════════════════════════════════════════════════════════════
+const smokeLayer = L.layerGroup();
+let smokeOn = false, smokeTimer = null;
+
+async function drawSmoke() {
+  const note = document.getElementById('smokeNote');
+  const off = () => { smokeLayer.clearLayers(); if (note) note.hidden = true; };
+  if (!smokeOn || LITE) return off();
+  // Calme par défaut : rien au zoom national — comme les autres calques.
+  if (map.getZoom() < 7) return off();
+  const b = map.getBounds();
+  let r;
+  try {
+    r = await API.get(`/api/fire/smoke?${new URLSearchParams({
+      minLat: b.getSouth().toFixed(3), maxLat: b.getNorth().toFixed(3),
+      minLng: b.getWest().toFixed(3), maxLng: b.getEast().toFixed(3),
+      country: currentCountry(),
+    })}`);
+  } catch { r = null; }
+  smokeLayer.clearLayers();
+  if (!r?.enabled) return off();
+  window._lastSmokeAt = r.meta?.generatedAt || null;
+  for (const p of r.puffs || []) {
+    L.circle([p.lat, p.lng], {
+      radius: p.rM, stroke: false, fillColor: '#7D848B', fillOpacity: p.op,
+      interactive: false,
+    }).addTo(smokeLayer);
+  }
+  if (!map.hasLayer(smokeLayer)) smokeLayer.addTo(map);
+  if (note) { note.hidden = false; note.textContent = t('smoke_note'); }
+  window.track?.('smoke_layer_drawn', { n: (r.puffs || []).length });
+}
+
+(function initSmoke() {
+  if (LITE) return;
+  const row = document.getElementById('smokeRow');
+  const cb = document.getElementById('fSmokeLayer');
+  if (!row || !cb) return;
+  // Sonde de disponibilité : la ligne Calques n'apparaît QUE si le serveur
+  // sert la couche (bbox minuscule → zéro coût vent). Jamais un bouton mort.
+  API.get(`/api/fire/smoke?minLat=0&maxLat=0.01&minLng=0&maxLng=0.01&country=${currentCountry()}`)
+    .then((probe) => {
+      if (!probe?.enabled) return; // capacité absente ou drapeau éteint
+      row.hidden = false;
+      window.renderLayerSources?.();
+      let saved = null;
+      try { saved = localStorage.getItem('kifeh_smoke_layer'); } catch {}
+      const apply = (on) => {
+        smokeOn = on;
+        cb.checked = on;
+        window.track?.(on ? 'layer_enabled' : 'layer_disabled', { layer_name: 'smoke_simulation' });
+        try { localStorage.setItem('kifeh_smoke_layer', on ? '1' : '0'); } catch {}
+        if (on) drawSmoke();
+        else { smokeLayer.clearLayers(); map.removeLayer(smokeLayer); const n = document.getElementById('smokeNote'); if (n) n.hidden = true; }
+      };
+      cb.addEventListener('change', () => apply(cb.checked));
+      map.on('moveend', () => {
+        if (!smokeOn) return;
+        clearTimeout(smokeTimer);
+        smokeTimer = setTimeout(drawSmoke, 500);
+      });
+      if (saved === '1') apply(true); // choix mémorisé — jamais actif d'office
+    })
+    .catch(() => { /* sonde silencieuse : pas de couche, pas de bouton */ });
+})();

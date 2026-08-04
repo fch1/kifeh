@@ -698,6 +698,107 @@ async function main() {
     ok(reOff.data.enabled === false, 'coupure à chaud → refermé immédiatement (réversible)');
   }
 
+  // ── Simulation indicative de fumée (#121, master §6.4) ──
+  section('Fumée : modèle pur, déterministe, borné — u/v par 5 directions');
+  {
+    const { windUV, simulateSmoke, SMOKE } = await import('../src/services/smoke.js');
+    const near = (a, b, eps = 1e-9) => Math.abs(a - b) < eps;
+    const V = 10;
+    const n = windUV(V, 0), s = windUV(V, 180), e = windUV(V, 90), w = windUV(V, 270), sw = windUV(V, 225);
+    ok(near(n.u, 0) && near(n.v, -V), 'vent du NORD → l’air VA vers le sud (u=0, v=−V)');
+    ok(near(s.u, 0, 1e-9) && near(s.v, V), 'vent du SUD → vers le nord (v=+V)');
+    ok(near(e.u, -V) && near(e.v, 0, 1e-9), 'vent d’EST → vers l’ouest (u=−V)');
+    ok(near(w.u, V) && near(w.v, 0, 1e-9), 'vent d’OUEST → vers l’est (u=+V)');
+    ok(sw.u > 0 && sw.v > 0 && near(Math.hypot(sw.u, sw.v), V, 1e-6),
+      'vent du SUD-OUEST → vers le nord-est, norme conservée');
+
+    const now = Date.parse('2026-08-04T12:00:00Z');
+    const det = (over = {}) => ({
+      id: 'd1', lat: 44.85, lng: -0.60, frp: 80,
+      observedAt: '2026-08-04T10:00:00Z', ...over,
+    });
+    const windFor = () => ({ speedMS: 8, directionFromDeg: 225 });
+    const r1 = simulateSmoke({ detections: [det()], windFor, nowMs: now });
+    ok(r1.puffs.length > 0, `panache généré (${r1.puffs.length} bouffées, 2 h d'âge)`);
+    ok(r1.puffs.every((p, i, a) => i === 0 || p.rM >= a[i - 1].rM),
+      'σ(t) croît de façon monotone (élargissement, jamais un rétrécissement)');
+    ok(r1.puffs.every((p, i, a) => i === 0 || p.op <= a[i - 1].op),
+      'opacité décroît avec l’âge (atténuation exponentielle)');
+    ok(r1.puffs.every((p) => p.lat > 44.85 && p.lng > -0.60),
+      'vent du sud-ouest → toutes les bouffées partent vers le NORD-EST');
+    const r2 = simulateSmoke({ detections: [det()], windFor, nowMs: now });
+    ok(JSON.stringify(r1) === JSON.stringify(r2),
+      'DÉTERMINISME : mêmes entrées → mêmes bouffées, octet pour octet');
+    const tooOld = simulateSmoke({
+      detections: [det({ observedAt: '2026-08-04T05:00:00Z' })], windFor, nowMs: now,
+    });
+    ok(tooOld.puffs.length === 0, 'détection de plus de 6 h → AUCUNE contribution (durée bornée)');
+    const capped = simulateSmoke({ detections: [det({ id: 'd1', frp: 9999 })], windFor, nowMs: now });
+    const at300 = simulateSmoke({ detections: [det({ id: 'd1', frp: SMOKE.FRP_CAP_MW })], windFor, nowMs: now });
+    ok(JSON.stringify(capped) === JSON.stringify(at300),
+      'FRP plafonnée : 9999 MW = 300 MW (jamais ∝ à l’infini)');
+    const eastWind = () => ({ speedMS: 8, directionFromDeg: 270 }); // vers l'est
+    const eq = simulateSmoke({ detections: [det({ id: 'dE', lat: 0.5 })], windFor: eastWind, nowMs: now });
+    const north = simulateSmoke({ detections: [det({ id: 'dE', lat: 60.5 })], windFor: eastWind, nowMs: now });
+    ok((north.puffs.at(-1)?.lng - (-0.60)) > (eq.puffs.at(-1)?.lng - (-0.60)) * 1.5,
+      'latitude RESPECTÉE : le même vent d’ouest déplace plus de degrés à 60° qu’à l’équateur');
+    const many = Array.from({ length: 60 }, (_, i) => det({ id: `m${i}`, lat: 44 + i * 0.02 }));
+    const lite = simulateSmoke({ detections: many, windFor, nowMs: now, lite: true });
+    ok(lite.truncated === true && lite.puffs.length <= SMOKE.MAX_PUFFS_TOTAL_LITE,
+      `mode performance réduite : borné à ${SMOKE.MAX_PUFFS_TOTAL_LITE} bouffées, troncature ANNONCÉE`);
+    const noWind = simulateSmoke({ detections: [det()], windFor: () => null, nowMs: now });
+    ok(noWind.puffs.length === 0, 'pas de vent connu → pas de panache inventé');
+  }
+
+  section('Fumée : drapeau serveur, honnêteté territoriale, direction de bout en bout');
+  {
+    const bboxBx = 'minLat=44.5&maxLat=45.2&minLng=-1.0&maxLng=-0.2';
+    const off = await api('GET', `/api/fire/smoke?${bboxBx}&country=FR`);
+    ok(off.data.enabled === false && off.data.reason === 'not_yet_enabled',
+      'drapeau éteint (défaut) → enabled:false, raison honnête not_yet_enabled');
+    const tnRes = await api('GET', '/api/fire/smoke?minLat=36&maxLat=37&minLng=9&maxLng=11&country=TN');
+    ok(tnRes.data.enabled === false && tnRes.data.reason === 'model_to_integrate',
+      'Tunisie : jamais de panache sur un vent flou (model_to_integrate)');
+    const setFlag = (v) => fetch(`${BASE}/api/admin/settings`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', ...hdr },
+      body: JSON.stringify({ settings: { smoke_simulation_enabled: v } }),
+    });
+    await setFlag('1');
+    // Deux détections FRAÎCHES près de Bordeaux, insérées par le canal de la
+    // base (le pipeline FIRMS complet est testé par firms-check).
+    const { default: Database } = await import('better-sqlite3');
+    const tdb = new Database(DB);
+    const insSat = tdb.prepare(`INSERT OR IGNORE INTO satellite_detections
+      (id, provider, source, satellite, instrument, external_fingerprint, lat, lng,
+       scan, track, acq_date, acq_time, acquired_at, confidence, frp, brightness,
+       day_night, version, country_code)
+      VALUES (?, 'nasa_firms', 'VIIRS_SNPP_NRT', 'N', 'VIIRS', ?, ?, ?, 0.5, 0.4,
+              ?, ?, ?, 'nominal', ?, 330, 'D', '2.0NRT', 'FR')`);
+    const at = new Date(Date.now() - 90 * 60_000); // il y a 1 h 30
+    const atSql = at.toISOString().replace('T', ' ').slice(0, 19);
+    insSat.run('smoke-t1', 'fp-smoke-t1', 44.85, -0.60,
+      at.toISOString().slice(0, 10), '1030', atSql, 120);
+    insSat.run('smoke-t2', 'fp-smoke-t2', 44.87, -0.58,
+      at.toISOString().slice(0, 10), '1030', atSql, 60);
+    tdb.close();
+    const on = await api('GET', `/api/fire/smoke?${bboxBx}&country=FR`);
+    ok(on.data.enabled === true && (on.data.puffs || []).length > 0,
+      `drapeau allumé → panache servi (${on.data.puffs?.length ?? 0} bouffées)`);
+    ok((on.data.meta?.disclaimer || '').toLowerCase().includes('simulation indicative'),
+      'le disclaimer accompagne CHAQUE réponse (ni observation, ni qualité de l’air)');
+    ok(Boolean(on.data.meta?.windModel), 'le modèle de vent est NOMMÉ dans la réponse');
+    // Vent simulé : 30,2 km/h venant de 225° (sud-ouest) → panache au NE.
+    const mLat = on.data.puffs.reduce((s, p) => s + p.lat, 0) / on.data.puffs.length;
+    const mLng = on.data.puffs.reduce((s, p) => s + p.lng, 0) / on.data.puffs.length;
+    ok(mLat > 44.85 && mLng > -0.60,
+      'BOUT EN BOUT : vent du sud-ouest simulé → bouffées au nord-est des foyers');
+    ok(on.data.puffs.every((p) => p.op <= 0.4 && p.rM > 0),
+      'bouffées bornées : opacité ≤ 0,4, rayon strictement positif');
+    await setFlag('0');
+    const off2 = await api('GET', `/api/fire/smoke?${bboxBx}&country=FR`);
+    ok(off2.data.enabled === false, 'rollback À CHAUD : drapeau coupé → couche éteinte immédiatement');
+  }
+
   // ── Chantier #103 : moteur MapLibre du mode feux (drapeau OFF, câblage) ──
   section('Moteur MapLibre (#103) : drapeau éteint par défaut, chargement paresseux');
   {

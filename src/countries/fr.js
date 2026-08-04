@@ -45,7 +45,10 @@ export const fr = {
     // sans clé. Ingestion serveur livrée (#82) — ouverture par drapeau à chaud
     // quand l'INTERFACE calques (Phase 1, maquette validée) saura l'accueillir.
     aircraft:          { enabled: true, provider: 'adsb-airplanes-live', label: 'ADS-B (airplanes.live)', settingFlag: 'fire_aircraft_enabled_fr' },
-    smokeSimulation:   { enabled: false, reason: 'charter_decision_pending' },
+    // Décision de charte REÇUE le 04/08 (master feux §6.4) : SIMULATION
+    // INDICATIVE assumée — jamais une observation ni une qualité de l'air.
+    // Ouverture par drapeau à chaud (éteint par défaut, rollback immédiat).
+    smokeSimulation:   { enabled: true, provider: 'kifeh-simulation', label: 'FIRMS × AROME (indicatif)', settingFlag: 'smoke_simulation_enabled' },
     replay:            { enabled: true },
   },
   // Fonds de carte ACTUELS (raster OSM + repli Carto — réglages à chaud).

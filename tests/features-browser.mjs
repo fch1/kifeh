@@ -500,7 +500,7 @@ for (const width of [900, 1440]) {
   await pgR.click('.chip[data-type="fire"]');
   await pgR.waitForTimeout(600);
   const hasBtn = await okEventually(pgR, () => Boolean(document.getElementById('fmReplay')),
-    'mode feux → bouton « ⏱ Évolution 72 h » dans la bande (niveau Analyser)');
+    'mode feux → bouton « ⏱ Voir l’évolution » dans la bande (niveau Analyser)');
   if (hasBtn) {
     await pgR.click('#fmReplay');
     await okEventually(pgR, () => window.kifehReplayState?.().active === true,
@@ -513,6 +513,19 @@ for (const width of [900, 1440]) {
       // le direct s'efface : la grappe d'incidents n'est plus sur la carte
       return !window.cluster || !document.querySelector('.cluster-badge, .marker-pin:not(.gl-citizen .marker-pin)');
     }), 'replay : les couches du direct sont masquées (jamais du présent dans le passé)');
+    // Fenêtres (#123) : 72 h → 10 j → 24 h — le curseur suit.
+    ok(await pgR.evaluate(() => window.kifehReplayState().windowH === 72
+      && document.getElementById('rpSlider').max === '72'), 'fenêtre par défaut : 72 h');
+    await pgR.click('#rpWindow');
+    await okEventually(pgR, () => window.kifehReplayState().windowH === 240
+      && document.getElementById('rpSlider').max === '240',
+    'bascule de fenêtre : 10 jours (curseur borné 240 h)');
+    await pgR.click('#rpWindow');
+    await okEventually(pgR, () => window.kifehReplayState().windowH === 24,
+      'bascule de fenêtre : 24 h');
+    ok(await pgR.evaluate(() => Boolean(document.getElementById('rpShare'))
+      && Boolean(document.getElementById('rpTicks'))),
+    'partage d’instant + repères de passages présents dans la frise');
     await pgR.click('#rpExit');
     await okEventually(pgR, () => window.kifehReplayState?.().active === false,
       'retour au direct en un geste');
@@ -521,6 +534,34 @@ for (const width of [900, 1440]) {
     'sortie : frise et bannière refermées');
   }
   await ctxR.close();
+}
+
+// ── Lien profond replay (#123) : ?types=fire&replay=1&t=ISO → relecture
+//    ouverte, FIGÉE sur l'instant partagé (jamais d'autolecture).
+{
+  const ctxDL = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  await ctxDL.addInitScript(() => {
+    try {
+      localStorage.setItem('lang', 'fr');
+      localStorage.setItem('kifeh_onboarded', '1');
+      localStorage.setItem('kifeh_country', 'FR');
+      localStorage.setItem('ga_consent', 'denied');
+    } catch {}
+  });
+  const pgDL = await ctxDL.newPage();
+  const tShared = new Date(Date.now() - 30 * 3600_000).toISOString();
+  await pgDL.goto(`${BASE}/?country=FR&lang=fr&types=fire&replay=1&t=${encodeURIComponent(tShared)}`,
+    { waitUntil: 'load' });
+  await okEventually(pgDL, () => window.kifehReplayState?.().active === true,
+    'lien partagé : la relecture s’ouvre seule', 12000);
+  await okEventually(pgDL, () => {
+    const s = window.kifehReplayState();
+    return s.windowH === 72 && Math.abs(s.offsetH - 30) <= 1 && s.playing === false;
+  }, 'lien partagé : fenêtre adaptée (72 h), FIGÉ à T-30 h, pas d’autolecture');
+  await pgDL.click('#rpExit');
+  await okEventually(pgDL, () => !new URLSearchParams(location.search).has('replay'),
+    'sortie : l’URL est nettoyée (replay/t retirés)');
+  await ctxDL.close();
 }
 
 // ── Lien profond de zone (#83) : ?lat&lng&z centre la carte puis s'efface ──

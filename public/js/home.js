@@ -958,10 +958,12 @@ function renderLayerSources() {
   set('srcWx', 'wx', document.getElementById('wxRow')?.hidden ? '' : 'Météo-France · Open-Meteo', window._lastWxAt || null);
   set('srcRoads', 'roads', document.getElementById('fRoadsRow')?.hidden ? '' : 'Bison Futé — DIR', window._lastRoadsAt || null);
   set('srcBurnt', 'burnt', document.getElementById('fBurntRow')?.hidden ? '' : 'Copernicus EFFIS', window._lastBurntAt || null);
+  set('srcSmoke', 'wx', document.getElementById('smokeRow')?.hidden ? '' : 'Simulation Kifeh — FIRMS × vent', window._lastSmokeAt || null);
   // Titres de groupes : visibles seulement si le territoire possède la couche.
-  for (const [grp, row] of [['grpBurnt', 'fBurntRow'], ['grpWx', 'wxRow'], ['grpRoads', 'fRoadsRow']]) {
+  for (const [grp, rows] of [[
+    'grpBurnt', ['fBurntRow']], ['grpWx', ['wxRow', 'smokeRow']], ['grpRoads', ['fRoadsRow']]]) {
     const g = document.getElementById(grp);
-    if (g) g.hidden = document.getElementById(row)?.hidden !== false;
+    if (g) g.hidden = !rows.some((row) => document.getElementById(row)?.hidden === false);
   }
 }
 // Zoom dans la pile flottante : une seule grappe de commandes de carte,
@@ -2565,6 +2567,33 @@ async function offerZoneAlerts(zone, lat, lng) {
   if (confirmId) openDetail(confirmId).then(() => document.getElementById('btnConfirm')?.click());
   else if (viewId) openDetail(viewId);
   else if (satId) openSatDetail(satId);
+})();
+
+// Liens profonds du mode feux (#123) : ?types=fire active le filtre feu ;
+// ?replay=1 ouvre la relecture — à l'instant ?t=ISO si fourni (lien partagé,
+// image FIGÉE sur T). replay.js se charge lui-même de nettoyer l'URL à la
+// sortie ; ici on n'efface rien (recharger un lien partagé doit re-montrer
+// le même instant).
+(function fireDeepLink() {
+  const p = new URLSearchParams(location.search);
+  if (p.get('types') === 'fire') {
+    filters.types.clear();
+    filters.types.add('fire');
+    syncTypeControls();
+    loadIncidents();
+  }
+  if (p.get('replay') !== '1') return;
+  const at = p.get('t') || '';
+  let tries = 15;
+  (function attempt() {
+    // replay.js se charge APRÈS ce script : on attend sa poignée (et la
+    // config) sans jamais bloquer — 15 essais espacés de 400 ms puis silence.
+    if (window.kifehReplayEnabled?.() && fireFilterActive()) {
+      window.kifehReplayEnter?.(at ? { at } : undefined);
+      return;
+    }
+    if (--tries > 0) setTimeout(attempt, 400);
+  })();
 })();
 
 function renderReportForm(i) {

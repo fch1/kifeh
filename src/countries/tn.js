@@ -32,7 +32,9 @@ export const tn = {
     // Même mécanique que la France (#82) — couverture ADS-B tunisienne plus
     // clairsemée, dit honnêtement par la note ; drapeau à chaud, éteint.
     aircraft:          { enabled: true, provider: 'adsb-airplanes-live', label: 'ADS-B (airplanes.live)', settingFlag: 'fire_aircraft_enabled_tn' },
-    smokeSimulation:   { enabled: false, reason: 'charter_decision_pending' },
+    // La charte fumée est actée (04/08) mais la Tunisie attend d'abord un
+    // modèle de vent fin DÉCLARÉ (#82) — jamais un panache sur un vent flou.
+    smokeSimulation:   { enabled: false, reason: 'model_to_integrate' },
     replay:            { enabled: true }, // détections FIRMS TN immuables + horodatées : rejouables
   },
   // Fonds de carte actuels (identiques : raster OSM + repli Carto).

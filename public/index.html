@@ -92,6 +92,9 @@
 <div class="home-bottom">
   <div class="wx-legend" id="wxLegend" hidden></div>
   <div class="wx-legend" id="burntLegend" hidden></div>
+  <!-- Disclaimer PERMANENT de la simulation de fumée (master §6.4) : visible
+       tant que la couche est active — jamais relégué à une infobulle. -->
+  <div class="wx-legend smoke-note" id="smokeNote" hidden></div>
   <div class="counter" id="counter" role="status" aria-live="polite" data-i18n="loading"></div>
 </div>
 
@@ -282,6 +285,11 @@
       <span class="lay-txt"><span class="lay-name" data-i18n="wx_layer_btn"></span>
         <span class="muted lay-src" id="srcWx"></span></span>
       <input type="checkbox" id="fWxLayer" class="lay-sw"></label>
+    <label class="layer-row" id="smokeRow" hidden><span class="lay-ico" aria-hidden="true">💨</span>
+      <span class="lay-txt"><span class="lay-name" data-i18n="smoke_layer_name"></span>
+        <span class="muted lay-src" id="srcSmoke"></span>
+        <span class="muted lay-src" data-i18n="smoke_layer_sub"></span></span>
+      <input type="checkbox" id="fSmokeLayer" class="lay-sw"></label>
     <p class="lay-grp" id="grpRoads" hidden>🧭 <span data-i18n="lgrp_context"></span></p>
     <label class="layer-row" id="fRoadsRow" hidden><span class="lay-ico" aria-hidden="true">🚧</span>
       <span class="lay-txt"><span class="lay-name" data-i18n="layer_roads"></span>
@@ -317,8 +325,12 @@
   <button type="button" id="rpExit" class="rp-btn rp-exit" data-i18n="replay_live"></button>
   <button type="button" id="rpPlay" class="rp-btn" aria-label="">▶</button>
   <button type="button" id="rpSpeed" class="rp-btn" aria-label="×">×4</button>
-  <input type="range" id="rpSlider" min="0" max="72" value="0" step="1" data-i18n-aria="replay_slider_aria">
+  <button type="button" id="rpWindow" class="rp-btn" data-i18n-aria="replay_window_aria">72 h</button>
+  <span class="rp-slider-wrap"><span id="rpTicks" aria-hidden="true"></span>
+    <input type="range" id="rpSlider" min="0" max="72" value="0" step="1" data-i18n-aria="replay_slider_aria">
+  </span>
   <span id="rpTime" class="rp-time" dir="auto"></span>
+  <button type="button" id="rpShare" class="rp-btn" data-i18n="replay_share"></button>
   <span id="rpEmpty" class="rp-empty small" data-i18n="replay_empty" hidden></span>
 </div>
 
