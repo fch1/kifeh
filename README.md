@@ -34,6 +34,12 @@ en français.
 
 Démo : **https://kifeh.app**
 
+Pages publiques principales :
+
+- [Carte des feux — France](https://kifeh.app/fr/fr/incendies) · [Tunisie](https://kifeh.app/fr/tn/incendies) · [بالعربية](https://kifeh.app/ar/tn/incendies) — et par zone : [Gironde](https://kifeh.app/fr/fr/incendies/gironde), [Landes](https://kifeh.app/fr/fr/incendies/landes), [Var](https://kifeh.app/fr/fr/incendies/var), [Bouches-du-Rhône](https://kifeh.app/fr/fr/incendies/bouches-du-rhone), [Hérault](https://kifeh.app/fr/fr/incendies/herault), [Corse-du-Sud](https://kifeh.app/fr/fr/incendies/corse-du-sud), [Haute-Corse](https://kifeh.app/fr/fr/incendies/haute-corse) / [Tunis](https://kifeh.app/fr/tn/incendies/tunis), [Sfax](https://kifeh.app/fr/tn/incendies/sfax), [Bizerte](https://kifeh.app/fr/tn/incendies/bizerte)
+- [Comprendre les détections satellite](https://kifeh.app/fr/fr/incendies/comprendre/detections-satellite) · [Prévisions & danger feu](https://kifeh.app/fr/fr/incendies/previsions) · [Repères DFCI](https://kifeh.app/fr/fr/incendies/comprendre/reperes-dfci)
+- [Données ouvertes (JSON citables)](https://kifeh.app/fr/donnees-ouvertes/incendies) · [Kit presse & widget](https://kifeh.app/presse)
+
 > ⚠️ Kifeh est une initiative citoyenne indépendante. Elle ne remplace ni les
 > services d'urgence — **198/190/197/193** en Tunisie, **18/15/17/112/114** en
 > France — ni les gestionnaires de réseaux (STEG, SONEDE, ou le gestionnaire

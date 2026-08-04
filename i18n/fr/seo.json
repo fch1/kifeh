@@ -1,5 +1,5 @@
 {
-  "fire_title": "Carte des feux et incendies — {territory}",
+  "fire_title": "Carte des feux et incendies — {territory} · quasi temps réel",
   "fire_description": "Suivez en quasi temps réel les signalements citoyens et les détections satellite en {territory}. Chaque donnée porte sa source et son horodatage.",
   "territory_fr": "France",
   "territory_tn": "Tunisie",

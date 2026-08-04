@@ -487,6 +487,19 @@ section('API ouverte /api/open : JSON stables, honnêtes, attribués');
     'llms.txt : l’API ouverte et sa documentation sont citées');
 }
 
+section('Maillage interne : les pages zones sont RELIÉES (jamais orphelines)');
+{
+  const apropos = await (await fetch(`${BASE}/a-propos.html`)).text();
+  ok(apropos.includes('/fr/fr/incendies/gironde') && apropos.includes('/ar/tn/incendies/sfax')
+    && apropos.includes('/fr/donnees-ouvertes/incendies'),
+    'a-propos : liens crawlables vers zones FR + TN + données ouvertes');
+  const hub = await (await fetch(`${BASE}/fr/fr/incendies`)).text();
+  ok(/<title>[^<]*quasi temps réel[^<]*<\/title>/.test(hub),
+    'titre du hub feux : « quasi temps réel » (la requête réelle, l’honnêteté en plus)');
+  const hubAr = await (await fetch(`${BASE}/ar/tn/incendies`)).text();
+  ok(hubAr.includes('شبه آنيّ'), 'titre arabe : « شبه آنيّ » présent');
+}
+
 section('Lead generation : IndexNow + vérification Search Console prête');
 {
   // Fichier-clé IndexNow : généré au premier passage, stable, servi en texte.
