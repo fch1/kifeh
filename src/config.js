@@ -117,6 +117,10 @@ export const defaultSettings = {
   // Simulation indicative de fumée (#121, master §6.4) : charte actée le
   // 04/08, drapeau ÉTEINT par défaut — activation à chaud, rollback immédiat.
   smoke_simulation_enabled: '0',
+  // Déploiement PROGRESSIF du moteur MapLibre (#122) : pourcentage de
+  // sessions (0-100) armées quand le drapeau global reste éteint. Le tirage
+  // est local à l'appareil (aucune donnée personnelle), stable entre visites.
+  fire_maplibre_rollout_pct: '0',
   verification_required: '1',   // 0 = publication directe sans OTP (temporaire, le temps de configurer SMS/e-mail)
   other_category_enabled: '0',        // catégorie « Autre » désactivée par défaut
   anonymize_radius_m: '250',          // rayon d'anonymisation public (100–300 m)

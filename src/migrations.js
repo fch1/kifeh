@@ -482,4 +482,17 @@ export function runMigrations(db) {
     db.prepare(`UPDATE settings SET value = '0' WHERE key = 'fire_desktop_rail_enabled' AND value = '1'`).run();
     db.prepare(`INSERT OR IGNORE INTO settings(key, value) VALUES ('mig_rail_revert_3107', '1')`).run();
   })();
+
+  // 3k. Activation progressive du moteur MapLibre (#122, 04/08) — étape 1 :
+  // BAC À SABLE UNIQUEMENT (le processus /sandbox a sa propre base : cette
+  // bascule n'y touche que lui). La production reste éteinte ; l'étape
+  // suivante (pourcentage de sessions) passera par sa propre migration après
+  // vérification en conditions réelles. Rollback : réglage à chaud.
+  (() => {
+    if (process.env.SANDBOX !== '1') return; // jamais la production ici
+    const done = db.prepare(`SELECT 1 FROM settings WHERE key = 'mig_gl_sandbox_0408'`).get();
+    if (done) return;
+    db.prepare(`UPDATE settings SET value = '1' WHERE key = 'fire_maplibre_enabled'`).run();
+    db.prepare(`INSERT OR IGNORE INTO settings(key, value) VALUES ('mig_gl_sandbox_0408', '1')`).run();
+  })();
 }

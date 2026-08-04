@@ -372,8 +372,26 @@
   }
 
   // ── Branchements : drapeau serveur + entrée/sortie du mode feux ────────────
+  // Déploiement progressif (#122) : quand le drapeau global est éteint, un
+  // POURCENTAGE de sessions peut armer le moteur. Le tirage est un nombre
+  // local 0-99, tiré UNE fois, stable entre visites — jamais une donnée
+  // personnelle, jamais un tirage à chaque chargement (pas de clignotement
+  // d'expérience). Stockage indisponible → hors du déploiement (prudence).
+  function rolloutBucket() {
+    try {
+      let b = localStorage.getItem('kifeh_gl_bucket');
+      if (b === null || !/^\d{1,2}$/.test(b)) {
+        b = String(Math.floor(Math.random() * 100));
+        localStorage.setItem('kifeh_gl_bucket', b);
+      }
+      return Number(b);
+    } catch { return 100; }
+  }
   window.kifehGLBoot = (cfg) => {
-    if (cfg?.fireMapLibre !== true || LITE) return; // éteint = strictement rien
+    if (LITE) return; // appareils économes : jamais le moteur GL
+    const pct = Number(cfg?.fireMapLibrePct) || 0;
+    const inRollout = pct > 0 && rolloutBucket() < pct;
+    if (cfg?.fireMapLibre !== true && !inRollout) return; // éteint = strictement rien
     S.armed = true;
     if (S.wanted) activate();
   };

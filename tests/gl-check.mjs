@@ -63,7 +63,10 @@ const server = spawn('node', ['server.js'], {
   stdio: 'ignore',
 });
 process.on('exit', () => { try { server.kill(); firmsSrv.close(); } catch {} });
-await new Promise((r) => setTimeout(r, 1500));
+for (let i = 0; i < 60; i++) {
+  try { await fetch(`${BASE}/healthz`); break; }
+  catch { await new Promise((r) => setTimeout(r, 500)); }
+}
 
 // Connexion admin (bascule du drapeau à chaud — jamais par variable d'env :
 // une env pinnerait le réglage et masquerait la bascule réelle).
@@ -206,6 +209,33 @@ let perf = null;
   await ctx.close();
 }
 await setFlag('0');
+
+console.log('\n■ Déploiement progressif (#122) : pourcentage de sessions, tirage stable');
+{
+  const setPct = (v) => fetch(`${BASE}/api/admin/settings`, {
+    method: 'POST', headers: hdr, body: JSON.stringify({ settings: { fire_maplibre_rollout_pct: v } }),
+  });
+  await setPct('100');
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  await ctx.addInitScript(initScript);
+  const { pg } = await newPage(ctx);
+  ok(await pg.evaluate(() => window.kifehGLState().armed === true),
+    'drapeau OFF + pourcentage 100 → moteur armé (déploiement progressif)');
+  const b1 = await pg.evaluate(() => localStorage.getItem('kifeh_gl_bucket'));
+  await pg.reload({ waitUntil: 'load' });
+  await pg.waitForTimeout(1200);
+  const b2 = await pg.evaluate(() => localStorage.getItem('kifeh_gl_bucket'));
+  ok(b1 !== null && b1 === b2,
+    `tirage local STABLE entre visites (godet ${b1} — jamais d'expérience qui clignote)`);
+  await ctx.close();
+  await setPct('0');
+  const ctx0 = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  await ctx0.addInitScript(initScript);
+  const { pg: pg0 } = await newPage(ctx0);
+  ok(await pg0.evaluate(() => window.kifehGLState().armed === false),
+    'pourcentage 0 (rollback) → moteur désarmé pour les nouveaux chargements');
+  await ctx0.close();
+}
 
 console.log('\n────────────────────────────');
 console.log(`${passed} réussis · ${failed} échoués`);
