@@ -536,6 +536,47 @@ for (const width of [900, 1440]) {
   await ctxR.close();
 }
 
+// ── Légendes : N cartes actives → JAMAIS superposées (bug 04/08 : les
+//    règles « coin fixe » sous un ancêtre transformé atterrissaient SUR le
+//    compteur). La géométrie fait foi, à chaque largeur.
+for (const [w, h] of [[1440, 900], [1280, 800], [390, 720]]) {
+  const ctxL = await browser.newContext({ viewport: { width: w, height: h } });
+  await ctxL.addInitScript(() => {
+    try {
+      localStorage.setItem('lang', 'fr');
+      localStorage.setItem('kifeh_onboarded', '1');
+      localStorage.setItem('kifeh_country', 'FR');
+      localStorage.setItem('ga_consent', 'denied');
+    } catch {}
+  });
+  const pgL = await ctxL.newPage();
+  await pgL.goto(BASE, { waitUntil: 'load' });
+  await pgL.waitForTimeout(1500);
+  const geo = await pgL.evaluate(() => {
+    const show = (id, html) => { const el = document.getElementById(id); if (el) { el.hidden = false; el.innerHTML = html; } };
+    show('wxLegend', '<span class="wx-leg-scale"></span><span class="small">Température — Open-Meteo</span>');
+    show('burntLegend', '<span class="burnt-swatch"></span><span class="small">Zone brûlée récente — Copernicus EFFIS</span>');
+    show('smokeNote', 'Simulation indicative de fumée — ni observation, ni qualité de l’air.');
+    const rects = {};
+    for (const id of ['wxLegend', 'burntLegend', 'smokeNote', 'counter']) {
+      const el = document.getElementById(id);
+      if (el && !el.hidden) { const r = el.getBoundingClientRect(); rects[id] = r.width && r.height ? { x: r.x, y: r.y, w: r.width, h: r.height } : null; }
+    }
+    const ks = Object.keys(rects).filter((k) => rects[k]);
+    const overlaps = [];
+    for (let i = 0; i < ks.length; i++) for (let j = i + 1; j < ks.length; j++) {
+      const a = rects[ks[i]], b = rects[ks[j]];
+      if (a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h) overlaps.push(`${ks[i]}×${ks[j]}`);
+    }
+    const fixedInside = ks.some((k) => getComputedStyle(document.getElementById(k)).position === 'fixed'
+      && document.getElementById(k).closest('.home-bottom'));
+    return { overlaps, fixedInside };
+  });
+  ok(geo.overlaps.length === 0, `légendes ${w}px : 3 légendes + compteur, ZÉRO superposition (${geo.overlaps.join(', ') || 'aucune'})`);
+  ok(geo.fixedInside === false, `légendes ${w}px : jamais de position:fixed sous l'ancêtre transformé (leçon du 28/07)`);
+  await ctxL.close();
+}
+
 // ── Lien profond replay (#123) : ?types=fire&replay=1&t=ISO → relecture
 //    ouverte, FIGÉE sur l'instant partagé (jamais d'autolecture).
 {
@@ -549,6 +590,8 @@ for (const width of [900, 1440]) {
     } catch {}
   });
   const pgDL = await ctxDL.newPage();
+  const replayCalls = [];
+  pgDL.on('request', (r) => { if (r.url().includes('/api/fire/replay?')) replayCalls.push(r.url()); });
   const tShared = new Date(Date.now() - 30 * 3600_000).toISOString();
   await pgDL.goto(`${BASE}/?country=FR&lang=fr&types=fire&replay=1&t=${encodeURIComponent(tShared)}`,
     { waitUntil: 'load' });
@@ -558,6 +601,23 @@ for (const width of [900, 1440]) {
     const s = window.kifehReplayState();
     return s.windowH === 72 && Math.abs(s.offsetH - 30) <= 1 && s.playing === false;
   }, 'lien partagé : fenêtre adaptée (72 h), FIGÉ à T-30 h, pas d’autolecture');
+  // V2 fluide : les données de la fenêtre arrivent EN UNE requête — le
+  // curseur se déplace ensuite SANS AUCUN réseau (la promesse concurrentielle).
+  await okEventually(pgDL, () => window.kifehReplayState().fluid === true, 'moteur v2 fluide actif');
+  const callsBefore = replayCalls.length;
+  ok(callsBefore >= 1, `chargement de fenêtre : ${callsBefore} requête(s) /api/fire/replay`);
+  for (const v of ['10', '40', '65']) {
+    await pgDL.locator('#rpSlider').fill(v);
+    await pgDL.waitForTimeout(120);
+  }
+  ok(replayCalls.length === callsBefore,
+    'PARCOURS DU TEMPS 100 % LOCAL : 3 déplacements du curseur, zéro requête ajoutée');
+  ok(await pgDL.evaluate(() => {
+    const s = window.kifehReplayState();
+    return s.shown <= s.total && s.total >= 0;
+  }), 'honnêteté locale : jamais plus de points affichés que de points connus');
+  ok(await pgDL.evaluate(() => document.querySelectorAll('#rpAxis .rp-ax').length >= 2),
+    'axe des jours : au moins 2 repères calendaires sur 72 h');
   await pgDL.click('#rpExit');
   await okEventually(pgDL, () => !new URLSearchParams(location.search).has('replay'),
     'sortie : l’URL est nettoyée (replay/t retirés)');

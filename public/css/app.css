@@ -684,14 +684,20 @@ html[dir="rtl"] .hero-arrow svg { transform: scaleX(-1); }
 .rp-exit { background: var(--primary); color: #fff; border-color: var(--primary); font-size: .8rem; padding: 0 .6rem; }
 /* Frise + repères de passages satellite (#123) : un point par heure observée,
    opacité selon l'intensité — l'information, jamais un décor. */
-.rp-slider-wrap { position: relative; flex: 1; min-width: 120px; display: flex; align-items: center; }
+.rp-slider-wrap { position: relative; flex: 1; min-width: 120px; display: flex; align-items: center; padding-bottom: .85rem; }
 #rpSlider { flex: 1; width: 100%; accent-color: var(--brand-red); }
-#rpTicks { position: absolute; inset-inline: 8px; top: -4px; height: 4px; pointer-events: none; }
+#rpTicks { position: absolute; inset-inline: 8px; top: -2px; height: 4px; pointer-events: none; }
 .rp-tick {
   position: absolute; width: 4px; height: 4px; border-radius: 50%;
   background: var(--brand-red); transform: translateX(-50%);
 }
 [dir="rtl"] .rp-tick { transform: translateX(50%); }
+/* Axe des jours (#123 v2) : la frise se lit comme un calendrier. */
+#rpAxis { position: absolute; inset-inline: 8px; bottom: 0; height: .85rem; pointer-events: none; }
+.rp-ax { position: absolute; bottom: 0; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; }
+[dir="rtl"] .rp-ax { transform: translateX(50%); }
+.rp-ax i { display: block; width: 1px; height: 4px; background: var(--border); }
+.rp-ax b { font-size: .6rem; font-weight: 500; color: var(--muted); white-space: nowrap; }
 .rp-time { font-size: .78rem; color: var(--muted); min-width: 110px; }
 #rpShare { font-size: .78rem; padding: 0 .6rem; }
 
@@ -948,12 +954,17 @@ html, body { overscroll-behavior: none; }
 }
 .wx-legend .small { font-size: .72rem; }
 .wx-legend .muted.small { flex-basis: 100%; }
-/* Desktop : les légendes quittent l'axe central SANS toucher la carte héro
-   (qui vit à gauche — le chevauchement du 03/08 au soir était ma collision) :
-   côté FIN, au-dessus des boutons flottants, RTL miroir automatique. */
+/* Les légendes vivent EN FLUX dans .home-bottom — JAMAIS en position:fixed :
+   .home-bottom est centré par transform, et un fixe à l'intérieur devient
+   relatif au bloc transformé (leçon du 28/07, re-payée le 04/08 : les
+   légendes « coin » atterrissaient en réalité SUR le compteur, empilées).
+   En flux, N légendes s'empilent proprement par construction — aucune fente
+   codée en dur, aucun chevauchement possible. */
+.home-bottom .wx-legend { margin-bottom: 0; }
 @media (min-width: 1100px) {
-  .wx-legend { position: fixed; inset-inline-end: 4.5rem; inset-inline-start: auto; bottom: 1.25rem; margin: 0; z-index: 1000; }
-  #burntLegend { bottom: 3.6rem; }
+  /* Desktop : hors de l'axe central — alignées au bord FIN du bloc (miroir
+     RTL automatique), toujours en flux au-dessus du compteur. */
+  .home-bottom .wx-legend { align-self: flex-end; }
 }
 
 /* Boutons d'action de la bulle : sur UNE ligne, jamais empilés */

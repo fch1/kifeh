@@ -59,8 +59,14 @@ fireRouter.get('/map', ipRateLimit('firemap_ip', 60, 5), async (req, res) => {
   // détections sont stockées « YYYY-MM-DD HH:MM:SS » et les périmètres EFFIS
   // en ISO « T…Z » — sans normalisation des deux côtés, la comparaison TEXTE
   // se trompe autour des frontières de jour (l'espace trie avant le « T »).
+  // observedAt en ISO UTC EXPLICITE (« …T…Z ») : le format brut
+  // « YYYY-MM-DD HH:MM:SS » était interprété en heure LOCALE par
+  // Date.parse côté navigateur → âges décalés de 2 h pour un visiteur
+  // français (corrigé 04/08 — les tests tournaient en UTC et ne le
+  // voyaient pas).
   const detections = db.prepare(
-    `SELECT lat, lng, acquired_at AS observedAt, received_at AS receivedAt,
+    `SELECT lat, lng, strftime('%Y-%m-%dT%H:%M:%SZ', acquired_at) AS observedAt,
+            received_at AS receivedAt,
             satellite, instrument, confidence, frp, day_night AS dayNight
      FROM satellite_detections
      WHERE country_code = ? AND lat BETWEEN ? AND ? AND lng BETWEEN ? AND ?
@@ -204,6 +210,58 @@ fireRouter.get('/aircraft', ipRateLimit('firemap_ip', 60, 5), (req, res) => {
 });
 
 // ── Timeline (frise de replay) ───────────────────────────────────────────────
+// ── Données de RELECTURE en un appel (#123 v2) ───────────────────────────────
+// La fluidité des meilleures cartes vient d'ici : TOUTES les observations de
+// la fenêtre en une réponse — le curseur filtre ensuite EN LOCAL (zéro requête
+// par image). L'honnêteté ne change pas de camp : chaque détection porte son
+// observedAt, chaque version EFFIS son publishedAt — le client n'affiche à T
+// que ce qui était connu à T (les mêmes règles que `?at=`, exécutées
+// localement, déterministes).
+fireRouter.get('/replay', ipRateLimit('firemap_ip', 60, 5), (req, res) => {
+  const country = requestCountry(req);
+  const caps = getCapabilities({ countryCode: country });
+  if (!caps?.fireMode) return res.json({ enabled: false });
+  const b = parseBbox(req.query);
+  if (!b) return res.status(400).json({ error: msg(req, 'invalid_params') });
+  const to = iso(req.query.to) || new Date().toISOString();
+  let from = iso(req.query.from) || new Date(Date.parse(to) - 72 * 3600_000).toISOString();
+  if (Date.parse(to) - Date.parse(from) > 10 * 24 * 3600_000) {
+    from = new Date(Date.parse(to) - 10 * 24 * 3600_000).toISOString(); // borne 10 j
+  }
+  const detections = db.prepare(
+    `SELECT lat, lng, strftime('%Y-%m-%dT%H:%M:%SZ', acquired_at) AS observedAt,
+            frp, satellite, confidence
+     FROM satellite_detections
+     WHERE country_code = ? AND lat BETWEEN ? AND ? AND lng BETWEEN ? AND ?
+       AND datetime(acquired_at) > datetime(?) AND datetime(acquired_at) <= datetime(?)
+     ORDER BY acquired_at LIMIT 3000`
+  ).all(country, b.minLat, b.maxLat, b.minLng, b.maxLng, from, to);
+  const payload = {
+    enabled: true,
+    meta: {
+      from, to,
+      truncated: detections.length === 3000, // toujours ANNONCÉ, jamais silencieux
+      generatedAt: new Date().toISOString(),
+    },
+    detections,
+  };
+  if (caps.layers.burnedAreas?.enabled === true) {
+    // Toutes les versions publiées ≤ to (bornées), Y COMPRIS la dernière
+    // d'avant la fenêtre : à T = from, la carte n'est pas mensongèrement vide.
+    payload.burnedVersions = db.prepare(
+      `SELECT effis_feature_id AS featureId, geometry_display AS rings,
+              area_ha_source AS areaHa, published_at AS publishedAt
+       FROM burned_area_versions
+       WHERE datetime(published_at) <= datetime(?)
+       ORDER BY effis_feature_id, published_at DESC LIMIT 500`
+    ).all(to).map((r) => ({ ...r, rings: JSON.parse(r.rings) }))
+      .filter((r) => Array.isArray(r.rings?.[0])
+        && r.rings.some((ring) => ring.some(([lat, lng]) =>
+          lat >= b.minLat && lat <= b.maxLat && lng >= b.minLng && lng <= b.maxLng)));
+  }
+  res.set('Cache-Control', 'public, max-age=60').json(payload);
+});
+
 // ── Simulation indicative de fumée (#121, master §6.4) ───────────────────────
 // GATÉE deux fois : capacité territoriale (registre) ET drapeau serveur
 // (smoke_simulation_enabled, éteint par défaut). Réponse TOUJOURS honnête :

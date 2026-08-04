@@ -245,6 +245,16 @@
         });
         S.gl.touchZoomRotate?.disableRotation();
         if (GLSHOT) window.__glMap = S.gl; // diagnostic capture uniquement
+        // Le « load » MapLibre n'aboutit qu'à la PROCHAINE image rendue —
+        // sans aucune tuile (réseau coupé), certains environnements n'en
+        // produisent jamais spontanément et le moteur restait en attente
+        // (couches jamais ajoutées). On cadence le rendu jusqu'au style
+        // complet : borné (10 s), inoffensif quand tout va bien.
+        let bootNudges = 0;
+        const bootNudge = setInterval(() => {
+          if (!S.gl || S.gl.getLayer?.('det-core') || ++bootNudges > 40) return clearInterval(bootNudge);
+          try { S.gl.triggerRepaint(); } catch { clearInterval(bootNudge); }
+        }, 250);
         S.gl.on('error', (e) => {
           // Les échecs de TUILES ne tuent JAMAIS le moteur (philosophie
           // Leaflet : fond neutre, les données restent visibles) — seuls les

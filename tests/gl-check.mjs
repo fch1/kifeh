@@ -84,10 +84,16 @@ const syncRes = await fetch(`${BASE}/api/admin/firms/sync`, { method: 'POST', he
 ok(syncRes.status === 200, `import FIRMS simulé (${syncRes.status})`);
 
 // WebGL logiciel (SwiftShader) : le conteneur de test n'a pas de GPU.
+// Les requêtes de tuiles du WORKER MapLibre ne passent PAS par page.route
+// (limite Playwright) : depuis que la CSP les autorise (04/08), elles
+// pendaient sur le réseau muet du bac à sable et « load » n'arrivait jamais.
+// On résout donc les domaines de tuiles vers 127.0.0.1 : refus IMMÉDIAT,
+// pour tous les contextes, workers compris.
+const TILE_ARGS = ['--host-resolver-rules=MAP tile.openstreetmap.org 127.0.0.1, MAP *.tile.openstreetmap.org 127.0.0.1, MAP basemaps.cartocdn.com 127.0.0.1, MAP *.cartocdn.com 127.0.0.1'];
 const browser = await chromium.launch({
   executablePath: '/opt/pw-browsers/chromium',
-  args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
-}).catch(() => chromium.launch({ args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] }));
+  args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', ...TILE_ARGS],
+}).catch(() => chromium.launch({ args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', ...TILE_ARGS] }));
 
 const initScript = () => {
   try {

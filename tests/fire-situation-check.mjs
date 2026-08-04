@@ -799,6 +799,30 @@ async function main() {
     ok(off2.data.enabled === false, 'rollback À CHAUD : drapeau coupé → couche éteinte immédiatement');
   }
 
+  // ── Replay v2 : la fenêtre entière en UNE requête, honnêteté conservée ──
+  section('API /api/fire/replay : fenêtre en un appel, horodatage UTC explicite');
+  {
+    const bboxBx = 'minLat=44.5&maxLat=45.2&minLng=-1.0&maxLng=-0.2';
+    const now = Date.now();
+    const win = await api('GET', `/api/fire/replay?${bboxBx}&country=FR`
+      + `&from=${encodeURIComponent(new Date(now - 72 * 3600_000).toISOString())}`
+      + `&to=${encodeURIComponent(new Date(now).toISOString())}`);
+    ok(win.data.enabled === true && (win.data.detections || []).length >= 2,
+      `fenêtre 72 h : détections servies en un appel (${win.data.detections?.length})`);
+    ok(win.data.detections.every((d) => /T\d\d:\d\d:\d\dZ$/.test(d.observedAt)),
+      'observedAt en ISO UTC EXPLICITE (fini le décalage local de 2 h au parsing navigateur)');
+    ok(win.data.meta?.truncated === false && win.data.meta?.from && win.data.meta?.to,
+      'meta : bornes présentes, troncature annoncée (false ici)');
+    ok(Array.isArray(win.data.burnedVersions)
+      && win.data.burnedVersions.every((v) => v.publishedAt && v.featureId),
+      'versions EFFIS : chaque version porte featureId + publishedAt (choix à T côté client)');
+    const past = await api('GET', `/api/fire/replay?${bboxBx}&country=FR`
+      + `&from=${encodeURIComponent(new Date(now - 72 * 3600_000).toISOString())}`
+      + `&to=${encodeURIComponent(new Date(now - 3 * 3600_000).toISOString())}`);
+    ok((past.data.detections || []).length === 0,
+      'HONNÊTETÉ : à T-3 h, les détections d’il y a 1 h 30 n’existent pas encore');
+  }
+
   // ── Chantier #103 : moteur MapLibre du mode feux (drapeau OFF, câblage) ──
   section('Moteur MapLibre (#103) : drapeau éteint par défaut, chargement paresseux');
   {
