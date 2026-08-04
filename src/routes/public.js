@@ -620,6 +620,7 @@ publicRouter.get('/config', (req, res) => {
     // Moteur MapLibre du mode feux (#103) : opt-in EXPLICITE ('1') — le client
     // ne charge pas un octet de la librairie tant que ce champ n'est pas vrai.
     fireMapLibre: getSetting('fire_maplibre_enabled') === '1',
+    mobileShellV2: getSetting('mobile_shell_v2') === '1', // #114 : panneau bas 3 positions
     // Déploiement progressif (#122) : pourcentage de sessions armées (0-100),
     // tirage local à l'appareil — borné et typé côté serveur.
     fireMapLibrePct: Math.min(100, Math.max(0, Number(getSetting('fire_maplibre_rollout_pct')) || 0)),

@@ -121,6 +121,10 @@ export const defaultSettings = {
   // sessions (0-100) armées quand le drapeau global reste éteint. Le tirage
   // est local à l'appareil (aucune donnée personnelle), stable entre visites.
   fire_maplibre_rollout_pct: '0',
+  // Shell mobile v2 (#114, master UX §7-8) : la carte Situation devient le
+  // premier niveau d'un panneau bas à 3 positions (aperçu · médian · plein).
+  // ÉTEINT par défaut — activation à chaud après validation visuelle Farah.
+  mobile_shell_v2: '0',
   verification_required: '1',   // 0 = publication directe sans OTP (temporaire, le temps de configurer SMS/e-mail)
   other_category_enabled: '0',        // catégorie « Autre » désactivée par défaut
   anonymize_radius_m: '250',          // rayon d'anonymisation public (100–300 m)

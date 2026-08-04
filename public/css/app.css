@@ -1183,3 +1183,52 @@ html, body { overscroll-behavior: none; }
   /* Le panneau latéral droit reste sous 35 % du viewport (400 px ≤ 1200×.35). */
 }
 .situ-chip { display: none; } /* n'existe visuellement qu'en mode rail ≥1200 px */
+
+/* ═══ SHELL MOBILE V2 (#114) — panneau bas 3 positions, drapeau serveur ═══
+   La carte Situation (#counter) devient un panneau ancré AU-DESSUS de la
+   navigation : aperçu (une ligne) · médian (la carte) · plein (défilable).
+   Mobile uniquement — le desktop garde sa composition. Safe-areas incluses,
+   RTL par propriétés logiques, jamais de contenu sous la navigation. */
+@media (max-width: 1099px) {
+  body.shell-v2 #counter {
+    position: fixed; left: 0; right: 0; z-index: 1450;
+    bottom: var(--kifeh-sheet-bottom, calc(3.75rem + env(safe-area-inset-bottom)));
+    margin: 0; width: auto; max-width: none;
+    border-radius: 16px 16px 0 0;
+    background: var(--surface);
+    border: 1px solid var(--border); border-bottom: none;
+    box-shadow: 0 -6px 24px rgb(20 30 55 / .14);
+    padding: .3rem .9rem .55rem;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    transition: max-height .22s ease;
+  }
+  body.shell-v2 #counter::before { /* poignée de glissement */
+    content: ''; flex: 0 0 auto; width: 42px; height: 4px; border-radius: 2px;
+    background: var(--border); margin: .1rem auto .35rem;
+  }
+  body.shell-v2 #heroHead { touch-action: none; cursor: grab; }
+  body.shell-v2 .hero-when { display: none; margin-inline-start: auto; white-space: nowrap; align-self: center; }
+  /* Aperçu : UNE ligne — titre + fraîcheur, rien d'autre. */
+  body.shell-v2 #counter[data-pos="peek"] { max-height: 3.6rem; }
+  body.shell-v2 #counter[data-pos="peek"] > :not(.hero-head) { display: none; }
+  body.shell-v2 #counter[data-pos="peek"] .hero-txt .muted { display: none; }
+  body.shell-v2 #counter[data-pos="peek"] .hero-when { display: inline-block; }
+  /* Médian : la carte de situation, bornée, défilable au besoin. */
+  body.shell-v2 #counter[data-pos="mid"] { max-height: 44dvh; overflow-y: auto; }
+  /* Plein : tout le détail — la navigation reste visible dessous. */
+  body.shell-v2 #counter[data-pos="full"] { max-height: calc(100dvh - 8.75rem); overflow-y: auto; }
+  /* Les légendes gardent leur pile AU-DESSUS de l'aperçu (le héro est sorti
+     du flux de .home-bottom). */
+  body.shell-v2 .home-bottom { bottom: calc(var(--kifeh-sheet-bottom, calc(3.75rem + env(safe-area-inset-bottom))) + 3.8rem); }
+  /* Les boutons flottants remontent AU-DESSUS de la barre d'aperçu — jamais
+     un bouton qui intercepte la poignée. Panneau médian/plein : le panneau
+     (z-index supérieur) passe devant — les commandes de carte n'ont pas de
+     sens pendant qu'on lit la situation. */
+  body.shell-v2 .map-fabs { bottom: calc(var(--kifeh-sheet-bottom, calc(3.75rem + env(safe-area-inset-bottom))) + 4.4rem); }
+  /* Pile d'empilement : #counter vit DANS .home-bottom (contexte z:1000) —
+     son z-index interne ne peut pas dépasser les FABs sans élever le
+     conteneur. Le panneau passe DEVANT les FABs (médian/plein), sous la
+     navigation (1600) et sous les feuilles. */
+  body.shell-v2 .home-bottom { z-index: 1450; }
+}

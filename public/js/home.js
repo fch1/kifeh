@@ -63,6 +63,12 @@ API.get('/api/public/config').then((c) => {
     document.getElementById('situChip')?.removeAttribute('hidden'); // visible ≥1200 px via CSS
   }
   if (c.sandbox) showSandboxBanner();
+  // Shell mobile v2 (#114) : la carte Situation devient un panneau bas à
+  // 3 positions — drapeau serveur, mobile uniquement, desktop inchangé.
+  if (c.mobileShellV2 === true) {
+    document.body.classList.add('shell-v2');
+    window.kifehSheetBoot?.();
+  }
   pushKey = c.pushKey || null; // clé publique VAPID (alertes de zone)
   // Fond de carte configuré côté serveur (fournisseur principal + secours).
   setTileProviders(c.tileProviders, c.tileFailThreshold);
@@ -755,7 +761,15 @@ function renderSummary(degraded, snapshotAt) {
     const saved = localStorage.getItem('kifeh_hero_collapsed');
     heroCollapsed = saved != null ? saved === '1' : (!active.length && !heroFire && !satsShown.length);
   } catch { heroCollapsed = false; }
-  counter.classList.toggle('hero-collapsed', heroCollapsed);
+  const shellV2 = document.body.classList.contains('shell-v2');
+  counter.classList.toggle('hero-collapsed', heroCollapsed && !shellV2);
+  // Shell v2 : quand il y a quelque chose à dire et que la personne n'a pas
+  // choisi elle-même une position, le panneau s'ouvre au niveau médian.
+  if (shellV2 && (heroFire || active.length)) {
+    let chosen = null;
+    try { chosen = localStorage.getItem('kifeh_msheet_pos'); } catch {}
+    if (!chosen && counter.dataset.pos === 'peek') window.kifehSheetSet?.('mid', false);
+  }
   const heroToggle = `<button type="button" class="hero-toggle" id="heroToggle"
       aria-expanded="${heroCollapsed ? 'false' : 'true'}"
       aria-label="${esc(t(heroCollapsed ? 'hero_expand' : 'hero_collapse'))}">
@@ -770,6 +784,7 @@ function renderSummary(degraded, snapshotAt) {
         </span>
         <span class="hero-arrow" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h13m-5.5-5.5L18 12l-5.5 5.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>
       </span>
+      ${shellV2 ? `<span class="hero-when muted small" dir="auto">${satsShown.length ? `🛰️ ${satsShown.length} · ` : ''}${snapshotAt ? esc(timeAgo(new Date(snapshotAt).toISOString())) : ''}</span>` : ''}
       ${heroToggle}
     </span>
     ${heroFire ? `<span class="summary-where muted small">📍 ${esc(where)}</span>` : ''}
@@ -786,6 +801,12 @@ function renderSummary(degraded, snapshotAt) {
   // Repli/dépli : mémorisé, sans jamais voler le clic d'ouverture de Situation.
   document.getElementById('heroToggle')?.addEventListener('click', (e) => {
     e.stopPropagation();
+    // Shell v2 : le chevron pilote la POSITION du panneau (aperçu ↔ médian),
+    // jamais l'ancien repli de carte.
+    if (document.body.classList.contains('shell-v2')) {
+      window.kifehSheetSet?.(document.getElementById('counter')?.dataset.pos === 'peek' ? 'mid' : 'peek');
+      return;
+    }
     const on = !heroCollapsed;
     try { localStorage.setItem('kifeh_hero_collapsed', on ? '1' : '0'); } catch {}
     window.track?.('hero_card_toggled', { collapsed: on });
@@ -2917,3 +2938,86 @@ function showSinceBanner(changes) {
   window.track?.('since_last_visit_shown', { changes: changes.length });
 }
 
+
+// ═════════════════════════════════════════════════════════════════════════════
+// SHELL MOBILE V2 (#114, master UX §7-8) — la carte Situation devient le
+// premier niveau d'un PANNEAU BAS à 3 positions : aperçu (une ligne),
+// médian (la carte), plein (tout le détail, défilable). Drapeau serveur
+// mobile_shell_v2, mobile uniquement (<1100 px), desktop inchangé.
+// Gestes (glissement sur la poignée), chevron, clavier (flèches, Échap),
+// clavier virtuel (l'écran se réduit → aperçu). Jamais de contenu sous la
+// navigation : le panneau s'ancre au-dessus d'elle.
+// ═════════════════════════════════════════════════════════════════════════════
+(function mobileShellV2() {
+  const POS = ['peek', 'mid', 'full'];
+  const el = () => document.getElementById('counter');
+  const get = () => el()?.dataset.pos || 'peek';
+  function set(pos, persist = true) {
+    if (!POS.includes(pos)) return;
+    const c = el();
+    if (!c) return;
+    c.dataset.pos = pos;
+    c.setAttribute('aria-expanded', pos === 'peek' ? 'false' : 'true');
+    if (persist) {
+      try { localStorage.setItem('kifeh_msheet_pos', pos); } catch {}
+      window.track?.('sheet_position_changed', { position: pos });
+    }
+  }
+  window.kifehSheetSet = set;
+  window.kifehSheetState = () => ({ pos: get(), on: document.body.classList.contains('shell-v2') });
+
+  window.kifehSheetBoot = () => {
+    if (!window.matchMedia('(max-width: 1099px)').matches) return;
+    // Ancrage EXACT au-dessus de la navigation : sa hauteur réelle est
+    // mesurée (jamais un 3.75rem supposé — la barre fait ce qu'elle fait).
+    const nav = document.querySelector('.bottom-nav');
+    const setAnchor = () => {
+      if (!nav) return;
+      document.documentElement.style.setProperty('--kifeh-sheet-bottom',
+        `${Math.ceil(nav.getBoundingClientRect().height)}px`);
+    };
+    setAnchor();
+    window.addEventListener('resize', setAnchor);
+    let saved = null;
+    try { saved = localStorage.getItem('kifeh_msheet_pos'); } catch {}
+    set(POS.includes(saved) ? saved : 'peek', false); // défaut CALME : aperçu
+
+    // Glissement : un vrai geste (> 12 px) change de position ; un simple
+    // toucher laisse les clics existants (ouvrir Situation) faire leur travail.
+    let drag = null;
+    document.addEventListener('pointerdown', (e) => {
+      if (!document.body.classList.contains('shell-v2')) return;
+      if (!e.target.closest('#heroHead')) return;
+      drag = { y0: e.clientY, moved: false };
+    });
+    document.addEventListener('pointermove', (e) => {
+      if (drag && Math.abs(e.clientY - drag.y0) > 12) drag.moved = true;
+    });
+    document.addEventListener('pointerup', (e) => {
+      if (!drag) return;
+      const dy = e.clientY - drag.y0;
+      const wasDrag = drag.moved;
+      drag = null;
+      if (!wasDrag) return;
+      const i = POS.indexOf(get());
+      if (dy < -25 && i < POS.length - 1) set(POS[i + 1]);
+      else if (dy > 25 && i > 0) set(POS[i - 1]);
+    });
+    // Clavier : flèches sur la poignée, Échap referme en aperçu.
+    document.addEventListener('keydown', (e) => {
+      if (!document.body.classList.contains('shell-v2')) return;
+      if (e.key === 'Escape' && get() !== 'peek') { set('peek'); return; }
+      if (!e.target.closest?.('#heroHead')) return;
+      const i = POS.indexOf(get());
+      if (e.key === 'ArrowUp' && i < POS.length - 1) { e.preventDefault(); set(POS[i + 1]); }
+      if (e.key === 'ArrowDown' && i > 0) { e.preventDefault(); set(POS[i - 1]); }
+    });
+    // Clavier virtuel ouvert (l'écran perd > 150 px) : jamais un panneau
+    // plein qui recouvre la saisie — retour à l'aperçu, sans mémoriser.
+    let lastH = window.innerHeight;
+    window.addEventListener('resize', () => {
+      if (window.innerHeight < lastH - 150 && get() !== 'peek') set('peek', false);
+      lastH = window.innerHeight;
+    });
+  };
+})();

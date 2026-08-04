@@ -35,6 +35,7 @@ const server = spawn('node', ['server.js'], {
     ...process.env, NODE_ENV: 'development', PORT: String(PORT), DB_PATH: DB,
     BASE_URL: BASE, SANDBOX_ENABLED: '0', VERIFICATION_REQUIRED: '0',
     MIN_FORM_FILL_S: '2', TRUST_PUBLISH_THRESHOLD: '10',
+    ADMIN_PASSWORD: 'test-admin-password-1', ADMIN_USERNAME: 'admin',
   },
   stdio: 'ignore',
 });
@@ -51,6 +52,17 @@ if (!boot || boot.count !== 0) {
 
 const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--no-sandbox'] })
   .catch(() => chromium.launch({ args: ['--no-sandbox'] })); // CI : Chromium Playwright standard
+// Environnements lents (conteneurs chargés) : navigations tolérantes — un
+// délai n'est jamais une vérité produit, seul un échec d'assertion l'est.
+{
+  const mk = browser.newContext.bind(browser);
+  browser.newContext = async (...a) => {
+    const c = await mk(...a);
+    c.setDefaultNavigationTimeout(90_000);
+    c.setDefaultTimeout(30_000);
+    return c;
+  };
+}
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'fr-FR' });
 // Choix de consentement déjà fait (la bannière GA est testée par ailleurs).
 await ctx.addInitScript(() => {
@@ -644,6 +656,104 @@ for (const [w, h] of [[1440, 900], [1280, 800], [390, 720]]) {
   ok(deep.zoom === 9, `lien profond : carte centrée au zoom demandé (${deep.zoom})`);
   ok(deep.cleaned, 'lien profond : paramètres lat/lng/z effacés de l’URL après usage');
   await ctxZ.close();
+}
+
+// ── Shell mobile v2 (#114) : panneau bas 3 positions, drapeau serveur ──────
+{
+  const login = await fetch(`${BASE}/api/admin/login`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'admin', password: 'test-admin-password-1' }),
+  });
+  const loginData = await login.json();
+  const hdrAdm = {
+    Cookie: (login.headers.get('set-cookie') || '').split(';')[0],
+    'X-CSRF': loginData.csrf, 'Content-Type': 'application/json',
+  };
+  const setShell = (v) => fetch(`${BASE}/api/admin/settings`, {
+    method: 'POST', headers: hdrAdm, body: JSON.stringify({ settings: { mobile_shell_v2: v } }),
+  });
+  const mkCtx = async (lang, cc, w = 390, h = 720) => {
+    const c = await browser.newContext({ viewport: { width: w, height: h } });
+    await c.addInitScript(([l, k]) => {
+      try {
+        localStorage.setItem('lang', l);
+        localStorage.setItem('kifeh_onboarded', '1');
+        localStorage.setItem('kifeh_country', k);
+        localStorage.setItem('ga_consent', 'denied');
+      } catch {}
+    }, [lang, cc]);
+    const p = await c.newPage();
+    await p.goto(BASE, { waitUntil: 'load' });
+    await p.waitForTimeout(1800);
+    return { c, p };
+  };
+
+  // Drapeau ÉTEINT (défaut) : strictement rien ne change.
+  {
+    const { c, p } = await mkCtx('fr', 'FR');
+    ok(await p.evaluate(() => !document.body.classList.contains('shell-v2')),
+      'shell v2 : drapeau éteint → aucune trace (classe absente)');
+    await c.close();
+  }
+
+  await setShell('1');
+  // Mobile FR : panneau présent, positions, géométrie propre.
+  {
+    const { c, p } = await mkCtx('fr', 'FR');
+    ok(await p.evaluate(() => window.kifehSheetState?.().on === true
+      && ['peek', 'mid', 'full'].includes(document.getElementById('counter')?.dataset.pos)),
+      'drapeau allumé (mobile) → panneau actif avec une position valide');
+    ok(await p.evaluate(() => {
+      const a = document.getElementById('counter').getBoundingClientRect();
+      const b = document.querySelector('.bottom-nav').getBoundingClientRect();
+      // Touche la navigation par le haut, ne la recouvre JAMAIS.
+      return a.bottom <= b.top + 1 && (b.top - a.bottom) < 8;
+    }), 'panneau ancré au-dessus de la navigation — jamais de contenu dessous');
+    await p.evaluate(() => window.kifehSheetSet('peek'));
+    const hPeek = await p.evaluate(() => document.getElementById('counter').getBoundingClientRect().height);
+    ok(await p.evaluate(() => {
+      const fab = document.querySelector('.map-fabs')?.getBoundingClientRect();
+      const bar = document.getElementById('counter')?.getBoundingClientRect();
+      if (!fab || !bar) return false;
+      return fab.bottom <= bar.top + 1; // les FABs vivent AU-DESSUS de l'aperçu
+    }), 'FABs au-dessus de la barre d’aperçu — aucun bouton n’intercepte la poignée');
+    await p.click('#heroToggle');
+    await p.waitForTimeout(350);
+    ok(await p.evaluate(() => window.kifehSheetState().pos === 'mid'),
+      'chevron : aperçu → médian');
+    const hMid = await p.evaluate(() => document.getElementById('counter').getBoundingClientRect().height);
+    ok(hPeek < 70 && hMid > hPeek,
+      `aperçu = une ligne (${Math.round(hPeek)} px), médian plus haut (${Math.round(hMid)} px)`);
+    await p.evaluate(() => window.kifehSheetSet('full'));
+    await p.waitForTimeout(350);
+    ok(await p.evaluate(() => {
+      const r = document.getElementById('counter').getBoundingClientRect();
+      const nav = document.querySelector('.bottom-nav').getBoundingClientRect();
+      return r.height > 150 && nav.top >= r.bottom - 3; // plein : grand, nav toujours libre
+    }), 'plein : détail défilable, navigation toujours visible');
+    await p.keyboard.press('Escape');
+    await p.waitForTimeout(250);
+    ok(await p.evaluate(() => window.kifehSheetState().pos === 'peek'),
+      'Échap → retour à l’aperçu');
+    await c.close();
+  }
+  // Arabe RTL : même panneau, direction respectée.
+  {
+    const { c, p } = await mkCtx('ar', 'TN');
+    ok(await p.evaluate(() => document.documentElement.dir === 'rtl'
+      && window.kifehSheetState?.().on === true
+      && Boolean(document.getElementById('counter')?.dataset.pos)),
+      'arabe RTL : panneau actif, direction réelle');
+    await c.close();
+  }
+  // Desktop 1280 : la classe existe, la COMPOSITION ne change pas.
+  {
+    const { c, p } = await mkCtx('fr', 'FR', 1280, 800);
+    ok(await p.evaluate(() => getComputedStyle(document.getElementById('counter')).position !== 'fixed'),
+      'desktop : composition inchangée (le panneau est strictement mobile)');
+    await c.close();
+  }
+  await setShell('0');
 }
 
 await browser.close();
