@@ -495,4 +495,20 @@ export function runMigrations(db) {
     db.prepare(`UPDATE settings SET value = '1' WHERE key = 'fire_maplibre_enabled'`).run();
     db.prepare(`INSERT OR IGNORE INTO settings(key, value) VALUES ('mig_gl_sandbox_0408', '1')`).run();
   })();
+
+  // 3l. Activation progressive du moteur MapLibre — étape 2 (04/08, après
+  // VÉRIFICATION RÉELLE en bac à sable prod : moteur actif, style complet,
+  // 2 détections réellement rendues, 134 ms d'init, tuiles et worker sous la
+  // CSP réelle) : 10 % des sessions. Tirage local stable, jamais une donnée
+  // personnelle. Rollback à chaud : fire_maplibre_rollout_pct='0'.
+  // La suite (montée à 50 puis 100 %) attendra la lecture du taux de repli
+  // (événement fire_gl_fallback) au passage GA4 du lundi.
+  (() => {
+    if (process.env.SANDBOX === '1') return; // la sandbox est déjà à 100 %
+    const done = db.prepare(`SELECT 1 FROM settings WHERE key = 'mig_gl_rollout10_0408'`).get();
+    if (done) return;
+    db.prepare(`UPDATE settings SET value = '10'
+      WHERE key = 'fire_maplibre_rollout_pct' AND value = '0'`).run();
+    db.prepare(`INSERT OR IGNORE INTO settings(key, value) VALUES ('mig_gl_rollout10_0408', '1')`).run();
+  })();
 }
