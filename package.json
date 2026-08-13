@@ -51,7 +51,7 @@
   },
   "devDependencies": {
     "axe-core": "^4.13.0",
-    "playwright": "^1.61.1"
+    "playwright": "^1.62.1"
   },
   "repository": {
     "type": "git",
